@@ -49,13 +49,22 @@ To try the UI without Claude, open `index.html` in a browser. It runs a demo wit
 
 ## How it works
 
-```
-/help-me <request> ─► Claude runs: node server.mjs --stdin     (blocks until you press Enter)
-                         │  serves index.html on 127.0.0.1:<random>, opens the browser
-browser ─ POST /api/analyze ─► claude -p --model haiku …  ─► {summary, underlines[], extras[]}
-browser ─ POST /api/explain ─► claude -p --model haiku …  ─► {intro, options[{what, good_for, image?}]}
-browser ─ GET commons.wikimedia.org  (picture search, no key; no picture if it fails)
-browser ─ POST /api/submit  ─► server prints the request to stdout, exit 0  (cancel: exit 2)
+```mermaid
+sequenceDiagram
+    participant A as Agent
+    participant S as server.mjs
+    participant B as Browser
+    participant M as Model backend<br/>(claude -p by default)
+    participant W as Wikimedia Commons
+    A->>S: /help-me runs node server.mjs --stdin (blocks)
+    S->>B: serve index.html on 127.0.0.1, open browser
+    B->>S: POST /api/analyze, /api/explain
+    S->>M: prompt
+    M-->>S: JSON
+    S-->>B: underlines, extras, options
+    B->>W: picture search (optional)
+    B->>S: POST /api/submit
+    S-->>A: request on stdout, exit 0 (cancel: exit 2)
 ```
 
 | flag / env | default | |
