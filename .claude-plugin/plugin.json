@@ -1,0 +1,6 @@
+{
+  "name": "prompt-shaper",
+  "version": "0.2.0",
+  "description": "/help-me opens a browser form around your request: Haiku builds questions with chips, multiselects and sliders, and your answers go back to Claude.",
+  "author": { "name": "Luca" }
+}

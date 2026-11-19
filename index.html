@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Help Me Decide</title>
+<style>
+:root {
+  --bg: #f6f6f4; --card: #ffffff; --text: #1b1b1a; --muted: #8a8a85; --faint: #c9c9c3; --line: #e7e7e2;
+  --chip: #ffffff; --chip-hover: #f2f2ee; --ink: #141414; --ink-text: #ffffff;
+  --accent: #3b6df0; --accent-soft: rgba(59,109,240,.12); --danger: #c2412d;
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 30px rgba(0,0,0,.07);
+  --pop-shadow: 0 2px 6px rgba(0,0,0,.06), 0 18px 50px rgba(0,0,0,.14);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121212; --card: #1c1c1b; --text: #ededea; --muted: #8f8f89; --faint: #55554f; --line: #2c2c2a;
+    --chip: #232322; --chip-hover: #2c2c2a; --ink: #f1f1ee; --ink-text: #141414;
+    --accent: #7c9cff; --accent-soft: rgba(124,156,255,.16); --danger: #ff8a73;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 30px rgba(0,0,0,.35);
+    --pop-shadow: 0 2px 6px rgba(0,0,0,.4), 0 18px 50px rgba(0,0,0,.5);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121212; --card: #1c1c1b; --text: #ededea; --muted: #8f8f89; --faint: #55554f; --line: #2c2c2a;
+  --chip: #232322; --chip-hover: #2c2c2a; --ink: #f1f1ee; --ink-text: #141414;
+  --accent: #7c9cff; --accent-soft: rgba(124,156,255,.16); --danger: #ff8a73;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 30px rgba(0,0,0,.35);
+  --pop-shadow: 0 2px 6px rgba(0,0,0,.4), 0 18px 50px rgba(0,0,0,.5);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 16px/1.5 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, sans-serif;
+  min-height: 100vh; display: flex; justify-content: center; padding: 14vh 16px 60px;
+}
+main { width: 100%; max-width: 760px; }
+
+.summary { display: flex; gap: 12px; align-items: baseline; color: var(--muted); font-size: 20px; margin: 0 8px 18px; min-height: 30px; }
+.summary .icon { font-size: 22px; }
+.summary.loading .text { opacity: .45; }
+
+.card { background: var(--card); border-radius: 28px; box-shadow: var(--shadow); padding: 26px 28px 16px; position: relative; }
+.field { position: relative; }
+.field-text, textarea {
+  font: inherit; font-size: 22px; line-height: 1.6; letter-spacing: 0;
+  white-space: pre-wrap; overflow-wrap: break-word; word-break: normal; padding: 0; margin: 0; border: 0;
+}
+.backdrop { position: absolute; inset: 0; color: var(--text); pointer-events: none; }
+textarea {
+  position: relative; display: block; width: 100%; min-height: 1.6em; resize: none; overflow: hidden;
+  background: transparent; color: transparent; caret-color: var(--text); outline: none;
+}
+textarea::placeholder { color: var(--faint); }
+textarea::selection { background: var(--accent-soft); color: transparent; }
+mark {
+  background: transparent; color: inherit; border-radius: 4px;
+  text-decoration: underline dotted var(--muted); text-decoration-thickness: 2px; text-underline-offset: 6px;
+  transition: background .15s;
+}
+mark.settled { text-decoration: underline solid var(--accent); text-decoration-thickness: 1.5px; }
+mark.hover, mark.active { background: var(--chip-hover); }
+mark.flash { animation: flash .7s ease-out; }
+@keyframes flash { from { background: var(--accent-soft); } to { background: transparent; } }
+textarea.on-mark { cursor: pointer; }
+
+/* extras: things the request doesn't say yet, as underlined tokens */
+.extras { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin-top: 14px; min-height: 0; }
+.extras:empty { display: none; }
+.token {
+  background: none; border: 0; padding: 2px 4px; margin: 0 -4px; border-radius: 6px; font: inherit; font-size: 16px; color: var(--text); cursor: pointer;
+  text-decoration: underline dotted var(--muted); text-decoration-thickness: 2px; text-underline-offset: 6px;
+}
+.token:hover, .token.active { background: var(--chip-hover); }
+.token .k { color: var(--muted); }
+.token.unset .v { color: var(--faint); }
+.token.settled { text-decoration: underline solid var(--accent); text-decoration-thickness: 1.5px; }
+.add-more { font: inherit; font-size: 14px; color: var(--muted); background: none; border: 0; cursor: pointer; padding: 2px 0; }
+.add-more:hover { color: var(--text); }
+.add-more:disabled { opacity: .6; cursor: default; }
+
+.toolbar { display: flex; align-items: center; gap: 14px; margin-top: 16px; min-height: 48px; }
+.status { font-size: 13px; color: var(--muted); display: inline-flex; align-items: center; gap: 8px; }
+.status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex: none; }
+.status.busy .dot { background: var(--accent); animation: pulse 1s infinite ease-in-out; }
+.status.err { color: var(--danger); }
+.status.err .dot { background: var(--danger); }
+.status button { font: inherit; color: inherit; background: none; border: 0; text-decoration: underline; cursor: pointer; padding: 0; }
+@keyframes pulse { 50% { opacity: .25; transform: scale(.8); } }
+@keyframes shimmer { 50% { opacity: .5; } }
+.spacer { flex: 1; }
+.icon-btn { width: 40px; height: 40px; border-radius: 50%; border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 20px; flex: none; }
+.icon-btn:hover { background: var(--chip-hover); color: var(--text); }
+.send { width: 52px; height: 52px; border-radius: 50%; border: 0; cursor: pointer; background: var(--ink); color: var(--ink-text); display: grid; place-items: center; flex: none; }
+.send:disabled { opacity: .3; cursor: default; }
+.send svg { width: 22px; height: 22px; }
+.hint { text-align: center; color: var(--muted); font-size: 14px; margin-top: 22px; }
+.hint kbd { font: inherit; font-size: 12px; border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; background: var(--card); }
+
+/* popover */
+.pop { position: fixed; z-index: 10; width: min(420px, calc(100vw - 32px)); background: var(--card); border-radius: 22px; box-shadow: var(--pop-shadow); padding: 18px 18px 12px; border: 1px solid var(--line); max-height: calc(100vh - 24px); overflow: auto; }
+.pop[hidden] { display: none; }
+.pop-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 2px 4px 12px; }
+.pop-q { color: var(--muted); font-size: 16px; }
+.pop-kind { font-size: 12px; color: var(--faint); white-space: nowrap; }
+.pop-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 12px; padding: 0 4px; font-size: 13px; color: var(--muted); }
+.pop-foot button { font: inherit; font-size: 13px; background: none; border: 0; color: var(--muted); cursor: pointer; padding: 4px 0; }
+.pop-foot button:hover { color: var(--text); }
+.explain-btn { font: inherit; font-size: 13px; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; }
+.explain-btn:hover { text-decoration: underline; }
+.explain { background: var(--accent-soft); border-radius: 14px; padding: 12px 14px; margin: -2px 0 12px; font-size: 14px; line-height: 1.5; }
+.explain p { margin: 0 0 8px; }
+.explain ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.explain li b { font-weight: 600; }
+.explain.loading { color: var(--muted); animation: shimmer 1.2s infinite ease-in-out; }
+.explain.err { color: var(--danger); background: none; padding: 0; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 9px; padding: 8px 16px 8px 13px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--chip); color: var(--text); font: inherit; font-size: 15px; cursor: pointer;
+  transition: background .12s, color .12s; text-align: left;
+}
+.chip:hover { background: var(--chip-hover); }
+.chip.on { background: var(--ink); color: var(--ink-text); border-color: var(--ink); }
+.chip .emo { font-size: 17px; line-height: 1; }
+.chip.other { color: var(--muted); }
+.other-input { font: inherit; font-size: 15px; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--accent); background: var(--chip); color: var(--text); outline: none; min-width: 0; flex: 1 1 200px; }
+.slider-val { font-size: 22px; font-weight: 600; text-align: center; margin: 0 0 6px; min-height: 33px; }
+.slider-val.unset { color: var(--faint); font-weight: 400; font-size: 16px; padding-top: 6px; }
+input[type=range] { width: 100%; accent-color: var(--ink); }
+.slider-ends { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
+
+.done { position: fixed; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 88%, transparent); z-index: 20; padding: 16px; }
+.done[hidden] { display: none; }
+.done-box { background: var(--card); border-radius: 24px; box-shadow: var(--pop-shadow); padding: 28px; max-width: 560px; width: 100%; }
+.done-box h2 { margin: 0 0 6px; font-size: 20px; }
+.done-box p { margin: 0 0 14px; color: var(--muted); }
+.done-box pre { white-space: pre-wrap; background: var(--bg); border-radius: 14px; padding: 14px 16px; margin: 0; font: inherit; font-size: 15px; max-height: 50vh; overflow: auto; }
+
+@media (max-width: 560px) {
+  body { padding-top: 6vh; }
+  .card { padding: 20px 18px 12px; border-radius: 22px; }
+  .field-text, textarea { font-size: 19px; }
+  .summary { font-size: 17px; }
+}
+</style>
+</head>
+<body>
+<main>
+  <div class="summary" id="summary"><span class="icon">✳️</span><span class="text" id="summaryText">Reading your request…</span></div>
+
+  <div class="card">
+    <div class="field">
+      <div class="backdrop field-text" id="backdrop" aria-hidden="true"></div>
+      <textarea id="ta" rows="1" spellcheck="false" placeholder="What do you need help with?" aria-label="Your request"></textarea>
+    </div>
+    <div class="extras" id="extras"></div>
+    <div class="toolbar">
+      <button class="icon-btn" id="cancel" title="Cancel and send nothing back" aria-label="Cancel">✕</button>
+      <span class="status" id="status"><span class="dot"></span><span id="statusText">idle</span></span>
+      <span class="spacer"></span>
+      <button class="send" id="send" title="Send to Claude Code (Enter)" aria-label="Send">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="hint" id="hint">Click any underlined part to flip it. <kbd>Enter</kbd> sends it back to Claude Code, <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new line.</div>
+</main>
+
+<div class="pop" id="pop" hidden role="dialog"></div>
+<div class="done" id="done" hidden>
+  <div class="done-box">
+    <h2 id="doneTitle">Sent to Claude Code</h2>
+    <p id="doneSub">You can close this tab. Claude is picking it up from here:</p>
+    <pre id="donePrompt"></pre>
+  </div>
+</div>
+
+<script>
+(() => {
+const $ = (id) => document.getElementById(id);
+const ta = $("ta"), backdrop = $("backdrop"), pop = $("pop"), extrasEl = $("extras");
+const EXAMPLE = "Help me choose a coffee machine for my small kitchen, something good for lattes.";
+
+let mode = "live", modelName = "haiku";
+let choices = [];            // inline (span in the text) and extras (span "", shown as tokens)
+let summary = "";
+let seq = 0, timer = null, lastAnalyzed = null, busy = false, moreBusy = false;
+let openId = null, hoverId = null, uid = 0;
+
+// ------------------------------------------------------------ choice model
+function makeChoice(c) {
+  const ch = {
+    id: "c" + (++uid), span: c.span || "", question: c.question || "Choose", kind: c.kind || "multi",
+    token: c.token || "", options: (c.options || []).filter(o => o && o.label && o.text),
+    selected: [], custom: "", slider: c.slider || null, value: null, touched: false,
+    orig: c.span || "", cur: c.span || "", start: -1, end: -1, settled: false, extra: !c.span,
+    explain: !!c.explain, explanation: null, explainOpen: false, explainBusy: false, explainErr: "",
+  };
+  if (ch.extra && !ch.token) ch.token = ch.question.replace(/^(what('s| is)|how|which|do you|any)\s+/i, "").replace(/\?$/, "");
+  const cur = new Set((c.current || []).map(s => s.toLowerCase()));
+  ch.selected = ch.options.filter(o => cur.has(o.label.toLowerCase())).map(o => o.label);
+  if (ch.extra && ch.selected.length) ch.settled = true;
+  if (ch.kind === "slider") {
+    const s = ch.slider || (ch.slider = {});
+    if (Array.isArray(s.stops) && s.stops.length) { s.min = 0; s.max = s.stops.length - 1; s.step = 1; }
+    s.min ??= 0; s.max ??= 10; s.step ??= 1;
+    ch.value = clamp(s.value ?? Math.round((s.min + s.max) / 2), s.min, s.max);
+    if (!s.stops) { const n = numberIn(ch.span); if (n !== null && n >= s.min && n <= s.max) ch.value = s.value = n; }
+  }
+  if (ch.kind !== "slider" && !ch.options.length) return null;
+  return ch;
+}
+const WORDS = ["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve"];
+function numberIn(t) {
+  const m = t.match(/\d+(\.\d+)?/); if (m) return Number(m[0]);
+  for (const x of t.toLowerCase().match(/[a-z]+/g) || []) { const i = WORDS.indexOf(x); if (i >= 0) return i; }
+  return null;
+}
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const fmtNum = (v) => (Number.isInteger(v) ? v : Math.round(v * 100) / 100).toLocaleString();
+
+function textFor(ch) {
+  if (ch.kind === "slider") {
+    const s = ch.slider;
+    if (s.stops && s.stops.length) return s.stops[Math.round(ch.value)] ?? ch.orig;
+    const v = fmtNum(ch.value);
+    if (s.template && s.template.includes("{value}")) return s.template.replaceAll("{value}", v);
+    return v + (s.unit ? " " + s.unit : "");
+  }
+  const parts = ch.options.filter(o => ch.selected.includes(o.label)).map(o => o.text);
+  if (ch.custom) parts.push(ch.custom);
+  if (!parts.length) return ch.extra ? "" : ch.orig;
+  return parts.length === 1 ? parts[0] : parts.slice(0, -1).join(", ") + " and " + parts.at(-1);
+}
+function tokenValue(ch) {
+  if (!ch.settled) return "";
+  if (ch.kind === "slider") return textFor(ch);
+  return [...ch.options.filter(o => ch.selected.includes(o.label)).map(o => o.label), ch.custom].filter(Boolean).join(", ");
+}
+
+// ------------------------------------------------------------ inline phrases <-> text
+const overlaps = (ranges, a, b) => ranges.some(([s, e]) => a < e && b > s);
+function relocate(text) {
+  const taken = [];
+  choices = choices.filter(ch => {
+    if (ch.extra) return true;
+    let best = -1, bestD = Infinity, i = text.indexOf(ch.cur);
+    while (ch.cur && i >= 0) {
+      const d = Math.abs(i - ch.start);
+      if (d < bestD && !overlaps(taken, i, i + ch.cur.length)) { best = i; bestD = d; }
+      i = text.indexOf(ch.cur, i + 1);
+    }
+    if (best < 0) return false;
+    ch.start = best; ch.end = best + ch.cur.length; taken.push([ch.start, ch.end]);
+    return true;
+  });
+}
+
+let skipNextAnalysisFor = null;
+function applyChoice(ch, override) {
+  if (ch.extra) {
+    ch.settled = override === "" ? false : ch.kind === "slider" ? ch.touched : (ch.selected.length > 0 || !!ch.custom);
+    renderExtras(); return;
+  }
+  const next = override ?? textFor(ch);
+  let text = ta.value;
+  const delta = next.length - (ch.end - ch.start);
+  text = text.slice(0, ch.start) + next + text.slice(ch.end);
+  for (const o of choices) if (o !== ch && !o.extra && o.start > ch.start) { o.start += delta; o.end += delta; }
+  ch.cur = next; ch.end = ch.start + next.length; ch.settled = override === undefined;
+  ta.value = text; skipNextAnalysisFor = text;
+  render(ch.id);
+}
+
+// ------------------------------------------------------------ rendering
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function render(flashId) {
+  const text = ta.value;
+  const marks = choices.filter(c => !c.extra && c.start >= 0).sort((a, b) => a.start - b.start);
+  let html = "", pos = 0;
+  for (const c of marks) {
+    if (c.start < pos) continue;
+    html += esc(text.slice(pos, c.start));
+    const cls = [c.settled ? "settled" : "", c.id === openId ? "active" : "", c.id === hoverId ? "hover" : "", c.id === flashId ? "flash" : ""].join(" ");
+    html += `<mark data-id="${c.id}" class="${cls}">${esc(text.slice(c.start, c.end))}</mark>`;
+    pos = c.end;
+  }
+  backdrop.innerHTML = html + esc(text.slice(pos)) + "​";
+  ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px";
+  $("summaryText").textContent = summary || (busy ? "Reading your request…" : text.trim() ? "" : "What do you need help with?");
+  $("send").disabled = !text.trim();
+  renderExtras();
+}
+
+function renderExtras() {
+  const extras = choices.filter(c => c.extra);
+  extrasEl.innerHTML = extras.map(c => {
+    const v = tokenValue(c);
+    return `<button class="token ${c.settled ? "settled" : "unset"} ${c.id === openId ? "active" : ""}" data-id="${c.id}" title="${esc(c.question)}">` +
+      `<span class="k">${esc(c.token)}:</span> <span class="v">${v ? esc(v) : "?"}</span></button>`;
+  }).join("") +
+  (extras.length || choices.length ? `<button class="add-more" id="more" ${moreBusy ? "disabled" : ""}>${moreBusy ? "thinking…" : "+ more"}</button>` : "");
+  const more = $("more"); if (more) more.onclick = () => analyze({ more: true });
+  if (openId) positionPop();
+}
+
+function setStatus(kind, msg) {
+  $("status").className = "status " + kind;
+  $("statusText").innerHTML = msg;
+  $("summary").classList.toggle("loading", kind === "busy" && !summary);
+}
+
+// ------------------------------------------------------------ popover (shared by underlines and tokens)
+const KIND = { single: "pick one", multi: "pick any", slider: "slide" };
+
+function controlsHTML(ch) {
+  if (ch.kind === "slider") {
+    const s = ch.slider;
+    return `<div class="slider-val ${ch.extra && !ch.touched ? "unset" : ""}" data-role="sval"></div>
+      <input type="range" data-role="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${ch.value}" aria-label="${esc(ch.question)}">
+      <div class="slider-ends"><span>${esc(s.minLabel || fmtNum(s.min))}</span><span>${esc(s.maxLabel || fmtNum(s.max))}</span></div>`;
+  }
+  const hint = (l) => ch.explanation?.options?.find(x => x.label.toLowerCase() === l.toLowerCase())?.what || "";
+  return `<div class="chips">` + ch.options.map((o, i) =>
+    `<button class="chip ${ch.selected.includes(o.label) ? "on" : ""}" data-i="${i}" title="${esc(hint(o.label))}">${o.emoji ? `<span class="emo">${esc(o.emoji)}</span>` : ""}${esc(o.label)}</button>`
+  ).join("") +
+  (ch.custom ? `<button class="chip on" data-custom="1"><span class="emo">✎</span>${esc(ch.custom)}</button>` : "") +
+  `<button class="chip other" data-role="other"><span class="emo">+</span>Something else</button></div>`;
+}
+
+function explainHTML(c) {
+  if (!c.explainOpen) return "";
+  if (c.explainBusy) return `<div class="explain loading">Explaining in plain words…</div>`;
+  if (c.explainErr) return `<div class="explain err">Couldn't explain: ${esc(c.explainErr)}</div>`;
+  const e = c.explanation; if (!e) return "";
+  return `<div class="explain"><p>${esc(e.intro)}</p><ul>` +
+    (e.options || []).map(o => `<li><b>${esc(o.label)}</b>: ${esc(o.what)}</li>`).join("") + `</ul></div>`;
+}
+
+function openPop(id) {
+  const ch = choices.find(c => c.id === id); if (!ch) return;
+  openId = id;
+  const footLeft = ch.extra ? "not in your request yet" : `was “${esc(ch.orig)}”`;
+  pop.innerHTML = `<div class="pop-head"><span class="pop-q">${esc(ch.question)}</span><span class="pop-kind">${KIND[ch.kind]}</span></div>
+    ${explainHTML(ch)}
+    <div>${controlsHTML(ch)}</div>
+    <div class="pop-foot"><span>${ch.explain ? `<button class="explain-btn" data-role="explain">${ch.explainOpen ? "Hide explanation" : "Explain me"}</button>` : footLeft}</span>
+    <button data-role="reset">${ch.extra ? "leave open" : "reset"}</button></div>`;
+  pop.hidden = false;
+  const multi = ch.kind === "multi";
+  bindControls(ch, () => openPop(ch.id), () => { if (!multi) setTimeout(closePop, 200); });
+  const ex = pop.querySelector('[data-role="explain"]'); if (ex) ex.onclick = () => toggleExplain(ch);
+  pop.querySelector('[data-role="reset"]').onclick = () => {
+    ch.selected = []; ch.custom = ""; ch.touched = false;
+    if (ch.kind === "slider") ch.value = clamp(ch.slider.value ?? ch.slider.min, ch.slider.min, ch.slider.max);
+    applyChoice(ch, ch.extra ? "" : ch.orig); closePop();
+  };
+  render();
+}
+
+function bindControls(ch, rerender, onPicked) {
+  if (ch.kind === "slider") {
+    const r = pop.querySelector('[data-role="range"]'), out = pop.querySelector('[data-role="sval"]');
+    const show = () => {
+      const unset = ch.extra && !ch.touched;
+      out.classList.toggle("unset", unset);
+      out.textContent = unset ? "not set: drag to choose" : textFor(ch);
+    };
+    show();
+    r.oninput = () => { ch.value = Number(r.value); ch.touched = true; show(); applyChoice(ch); };
+    return;
+  }
+  pop.querySelectorAll(".chip[data-i]").forEach(b => b.onclick = () => {
+    const o = ch.options[+b.dataset.i];
+    if (ch.kind === "multi") ch.selected = ch.selected.includes(o.label) ? ch.selected.filter(l => l !== o.label) : [...ch.selected, o.label];
+    else { ch.selected = [o.label]; ch.custom = ""; }
+    if (!ch.extra && ch.kind === "multi" && !ch.selected.length && !ch.custom) { applyChoice(ch, ch.orig); rerender(); return; }
+    applyChoice(ch); rerender(); onPicked();
+  });
+  const cc = pop.querySelector("[data-custom]");
+  if (cc) cc.onclick = () => { ch.custom = ""; applyChoice(ch); rerender(); };
+  pop.querySelector('[data-role="other"]').onclick = (e) => {
+    const inp = document.createElement("input");
+    inp.className = "other-input"; inp.placeholder = "Type your own, then Enter"; inp.value = ch.custom;
+    e.currentTarget.replaceWith(inp); inp.focus();
+    inp.onkeydown = (ev) => {
+      ev.stopPropagation();
+      if (ev.key === "Enter" && inp.value.trim()) {
+        ev.preventDefault();
+        if (ch.kind === "single") ch.selected = [];
+        ch.custom = inp.value.trim(); applyChoice(ch); closePop(); ta.focus();
+      } else if (ev.key === "Escape") { closePop(); ta.focus(); }
+    };
+  };
+}
+
+async function toggleExplain(ch) {
+  ch.explainOpen = !ch.explainOpen;
+  const refresh = () => { if (openId === ch.id) openPop(ch.id); };
+  if (ch.explainOpen && !ch.explanation && !ch.explainBusy) {
+    ch.explainBusy = true; ch.explainErr = ""; refresh();
+    const opts = ch.kind === "slider"
+      ? (ch.slider.stops?.length ? ch.slider.stops : [ch.slider.minLabel || String(ch.slider.min), ch.slider.maxLabel || String(ch.slider.max)])
+      : ch.options.map(o => o.label);
+    try {
+      ch.explanation = mode === "live"
+        ? await post("/api/explain", { text: ta.value, question: ch.question, options: opts })
+        : await demoExplain(ch, opts);
+    } catch (e) { if (!e.superseded) ch.explainErr = e.message; }
+    ch.explainBusy = false;
+  }
+  refresh();
+}
+
+function anchorFor(id) {
+  return backdrop.querySelector(`mark[data-id="${id}"]`) || extrasEl.querySelector(`[data-id="${id}"]`);
+}
+function positionPop() {
+  const a = anchorFor(openId); if (!a) return;
+  const rs = a.getClientRects(); const r = rs[rs.length - 1] || a.getBoundingClientRect();
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let top = r.bottom + 10;
+  if (top + ph > innerHeight - 12) top = r.top - ph - 10 > 12 ? r.top - ph - 10 : innerHeight - ph - 12; // no room either side: keep it on screen
+  pop.style.left = clamp(r.left - 12, 16, innerWidth - pw - 16) + "px"; pop.style.top = Math.max(12, top) + "px";
+}
+function closePop() { if (!openId) return; openId = null; pop.hidden = true; render(); }
+
+// ------------------------------------------------------------ hit testing (marks sit under the textarea)
+function markAt(x, y) {
+  for (const m of backdrop.querySelectorAll("mark"))
+    for (const r of m.getClientRects()) if (x >= r.left && x <= r.right && y >= r.top - 2 && y <= r.bottom + 4) return m.dataset.id;
+  return null;
+}
+ta.addEventListener("mousemove", (e) => {
+  const id = markAt(e.clientX, e.clientY);
+  if (id !== hoverId) { hoverId = id; ta.classList.toggle("on-mark", !!id); backdrop.querySelectorAll("mark").forEach(m => m.classList.toggle("hover", m.dataset.id === id)); }
+});
+ta.addEventListener("mouseleave", () => { hoverId = null; ta.classList.remove("on-mark"); backdrop.querySelectorAll("mark.hover").forEach(m => m.classList.remove("hover")); });
+ta.addEventListener("mouseup", (e) => {
+  if (ta.selectionStart !== ta.selectionEnd) return;
+  const id = markAt(e.clientX, e.clientY);
+  if (id) { id === openId ? closePop() : openPop(id); } else closePop();
+});
+extrasEl.addEventListener("click", (e) => {
+  const b = e.target.closest(".token"); if (!b) return;
+  b.dataset.id === openId ? closePop() : openPop(b.dataset.id);
+});
+document.addEventListener("mousedown", (e) => {
+  if (openId && !pop.contains(e.target) && e.target !== ta && !extrasEl.contains(e.target)) closePop();
+});
+addEventListener("resize", () => openId && positionPop());
+addEventListener("scroll", () => openId && positionPop(), true);
+
+// ------------------------------------------------------------ analysis
+function schedule(ms = 700) { clearTimeout(timer); timer = setTimeout(() => analyze(), ms); }
+
+async function analyze({ more = false } = {}) {
+  const text = ta.value;
+  if (!more && text === lastAnalyzed) return;
+  if (!text.trim()) { setStatus("", "waiting for a request"); return; }
+  const my = more ? seq : ++seq;
+  if (more) moreBusy = true; else busy = true;
+  render();
+  setStatus("busy", more ? `${esc(modelName)} is looking for more…` : `${esc(modelName)} is reading…`);
+  const extras = choices.filter(c => c.extra);
+  const payload = {
+    text, more,
+    settled: choices.filter(c => !c.extra && c.settled).map(c => c.cur),
+    answers: extras.filter(c => c.settled).map(c => `${c.token}: ${textFor(c)}`),
+    asked: extras.map(c => c.question),
+  };
+  let data;
+  try {
+    data = mode === "live" ? await post("/api/analyze", payload) : await demoAnalyze(text, more);
+  } catch (e) {
+    if (more) { moreBusy = false; render(); }
+    if (my !== seq || e.superseded) return;
+    busy = false; render();
+    setStatus("err", `couldn't analyse: ${esc(e.message)} · <button id="retry">retry</button>`);
+    $("retry").onclick = () => { lastAnalyzed = null; analyze({ more }); };
+    return;
+  }
+  if (more) moreBusy = false; else busy = false;
+  if (my !== seq || ta.value !== text) { render(); return; }
+  if (!more) lastAnalyzed = text;
+  merge(text, data, more);
+  const n = choices.filter(c => !c.settled).length;
+  setStatus("", `${n} thing${n === 1 ? "" : "s"} to flip · ${esc(data.model || modelName)}${data.ms ? ` ${(data.ms / 1000).toFixed(1)}s` : ""}${mode === "demo" ? " (demo)" : ""}`);
+}
+
+function merge(text, data, more) {
+  if (!more && data.summary) summary = data.summary;
+  // a fresh read keeps what you've set and replaces the rest; "+ more" only adds extras
+  const kept = more ? choices : choices.filter(c => c.settled);
+  const seen = new Set(kept.filter(c => c.extra).flatMap(c => [c.question.toLowerCase(), c.token.toLowerCase()]));
+  const taken = kept.filter(c => !c.extra).map(c => [c.start, c.end]);
+  const fresh = [];
+  for (const raw of data.choices || []) {
+    const ch = makeChoice(raw); if (!ch) continue;
+    if (ch.extra) {
+      if (seen.has(ch.question.toLowerCase()) || seen.has(ch.token.toLowerCase())) continue;
+      seen.add(ch.question.toLowerCase()); seen.add(ch.token.toLowerCase()); fresh.push(ch); continue;
+    }
+    if (more) continue;
+    let i = text.indexOf(ch.span);
+    if (i < 0) { const j = text.toLowerCase().indexOf(ch.span.toLowerCase()); if (j < 0) continue; i = j; ch.span = ch.orig = ch.cur = text.slice(j, j + ch.span.length); }
+    while (i >= 0 && overlaps(taken, i, i + ch.span.length)) i = text.indexOf(ch.span, i + 1);
+    if (i < 0) continue;
+    ch.start = i; ch.end = i + ch.span.length; taken.push([ch.start, ch.end]);
+    fresh.push(ch);
+  }
+  if (openId && !kept.some(k => k.id === openId)) closePop();
+  choices = [...kept, ...fresh];
+  render();
+}
+
+async function post(path, body) {
+  const r = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 409) throw Object.assign(new Error("superseded"), { superseded: true });
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+
+// ------------------------------------------------------------ editing & keys
+ta.addEventListener("input", () => {
+  relocate(ta.value); render();
+  if (ta.value !== skipNextAnalysisFor) schedule();
+});
+ta.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); submit(); }
+  else if (e.key === "ArrowDown" && e.altKey) {
+    const p = ta.selectionStart, c = choices.find(c => !c.extra && p >= c.start && p <= c.end);
+    if (c) { e.preventDefault(); openPop(c.id); }
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && openId) { closePop(); ta.focus(); return; }
+  if (e.key === "Enter" && !e.shiftKey && e.target === document.body) { e.preventDefault(); submit(); }
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && e.target !== ta) { e.preventDefault(); submit(); }
+});
+
+// ------------------------------------------------------------ send / cancel
+function compose() {
+  let out = ta.value.trim();
+  const set = choices.filter(c => c.extra && c.settled);
+  if (set.length) out += "\n\n" + set.map(c => `- ${c.token}: ${textFor(c)}`).join("\n");
+  return out;
+}
+$("send").onclick = submit;
+async function submit() {
+  if (!ta.value.trim()) return;
+  closePop();
+  const prompt = compose();
+  $("donePrompt").textContent = prompt;
+  if (mode === "live") {
+    try { await post("/api/submit", { prompt }); }
+    catch (e) { setStatus("err", "couldn't reach Claude Code: " + esc(e.message)); return; }
+  } else {
+    try { await navigator.clipboard.writeText(prompt); } catch {}
+    $("doneTitle").textContent = "Copied to clipboard";
+    $("doneSub").textContent = "Demo mode (opened without the /help-me command). Paste this into Claude Code:";
+  }
+  $("done").hidden = false;
+}
+$("cancel").onclick = async () => {
+  if (mode === "live") { try { await post("/api/cancel", {}); } catch {} }
+  $("doneTitle").textContent = "Cancelled";
+  $("doneSub").textContent = "Nothing was sent to Claude Code. You can close this tab.";
+  $("donePrompt").textContent = ta.value;
+  $("done").hidden = false;
+};
+
+// ------------------------------------------------------------ demo (opened as a plain file)
+async function demoAnalyze(text, more) {
+  await new Promise(r => setTimeout(r, 600));
+  if (more) return { model: "demo", choices: [
+    { span: "", token: "Looks", question: "What look do you want?", kind: "multi", options: [
+      { label: "Classic steel", emoji: "🪞", text: "classic brushed steel" }, { label: "Retro", emoji: "📻", text: "retro" }, { label: "Matte black", emoji: "🖤", text: "matte black" } ] } ] };
+  const all = [
+    { span: "coffee machine", question: "What kind of machine?", kind: "single", explain: true, options: [
+      { label: "Espresso", emoji: "☕", text: "espresso machine" }, { label: "Bean-to-cup", emoji: "🫘", text: "bean-to-cup machine" },
+      { label: "Pod", emoji: "💊", text: "pod machine" }, { label: "Filter", emoji: "🫗", text: "filter coffee machine" } ] },
+    { span: "small", question: "How small is the space?", kind: "slider", slider: { stops: ["tiny", "small", "average-sized"], value: 1, minLabel: "tiny", maxLabel: "roomy" } },
+    { span: "lattes", question: "Which drinks?", kind: "multi", options: [
+      { label: "Lattes", emoji: "🥛", text: "lattes" }, { label: "Cappuccinos", emoji: "☁️", text: "cappuccinos" },
+      { label: "Espresso", emoji: "☕", text: "espresso" }, { label: "Flat whites", emoji: "🤍", text: "flat whites" } ], current: ["Lattes"] },
+    { span: "", token: "Budget", question: "What's your budget?", kind: "slider", slider: { min: 50, max: 1500, step: 50, value: 400, template: "up to €{value}", minLabel: "€50", maxLabel: "€1,500" } },
+    { span: "", token: "Milk", question: "How should it froth milk?", kind: "single", explain: true, options: [
+      { label: "Automatic", emoji: "🤖", text: "automatic frothing" }, { label: "Steam wand", emoji: "♨️", text: "a manual steam wand" }, { label: "Separate frother", emoji: "🥄", text: "a separate frother is fine" } ] },
+    { span: "", token: "Cups", question: "How many cups a day?", kind: "slider", slider: { min: 1, max: 8, step: 1, value: 2, template: "{value} a day" } },
+  ];
+  return { summary: "Let's pin down which coffee machine fits your kitchen and your lattes.", model: "demo",
+    choices: all.filter(c => !c.span || text.includes(c.span)) };
+}
+async function demoExplain(ch, opts) {
+  await new Promise(r => setTimeout(r, 500));
+  if (ch.question === "What kind of machine?") return {
+    intro: "This is the biggest fork: it decides how much effort each cup takes and how good the coffee can get.",
+    options: [
+      { label: "Espresso", what: "You grind, tamp and steam yourself. Best drinks, but it takes practice." },
+      { label: "Bean-to-cup", what: "Grinds and brews at the push of a button. Convenient, pricier, bulkier." },
+      { label: "Pod", what: "Cheap and tidy, but each cup costs more and the taste is limited." },
+      { label: "Filter", what: "Brews a jug of milder coffee. No lattes without a separate frother." } ] };
+  return { intro: "This changes which machines fit you.", options: opts.map(l => ({ label: l, what: "A reasonable choice; it depends on your taste." })) };
+}
+
+// ------------------------------------------------------------ boot
+(async () => {
+  try {
+    if (location.protocol === "file:") throw 0;
+    const r = await fetch("/api/init"); if (!r.ok) throw 0;
+    const j = await r.json(); modelName = j.model || "haiku"; ta.value = j.draft || "";
+  } catch {
+    mode = "demo"; modelName = "demo"; ta.value = EXAMPLE;
+    $("hint").innerHTML = "Demo mode: opened without the <code>/help-me</code> command, so the underlines are a canned example.";
+  }
+  render(); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+  if (ta.value.trim()) analyze(); else { setStatus("", "waiting for a request"); render(); }
+})();
+})();
+</script>
+</body>
+</html>
