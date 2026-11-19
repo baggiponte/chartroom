@@ -26,6 +26,9 @@ const opt = (name, fallback) => {
 
 const MODEL = opt("--model", process.env.PROMPT_SHAPER_MODEL || "haiku");
 const PORT = Number(opt("--port", process.env.PROMPT_SHAPER_PORT || 0));
+// Explanation cards can show pictures, looked up by the browser on Wikimedia Commons (keyless). Set
+// PROMPT_SHAPER_IMAGES=0 or pass --no-images to turn that off.
+const IMAGES = !flag("--no-images") && process.env.PROMPT_SHAPER_IMAGES !== "0";
 const log = (...m) => console.error("[prompt-shaper]", ...m);
 
 async function readStdin() {
@@ -166,18 +169,33 @@ async function analyze(text, settled = [], answers = [], asked = [], more = fals
 
 const EXPLAIN_SYSTEM = `Someone is answering a short questionnaire so an assistant can help with their request.
 They asked you to explain one question. Write for a smart newcomer: plain words, no jargon (or define it in passing),
-friendly and concrete, and SHORT: it appears in a small popover. Return JSON: intro = one sentence (max 25 words)
-on what the question is really about and why it changes the outcome; options = one entry per option, in the same
-order, with label copied exactly and what = max 15 words on what picking it means in practice (taste, cost,
-effort, who it suits). For a slider, explain what
-moving it from one end to the other changes, and return options for the ends or stops.`;
+friendly and concrete. It appears in a panel with one clickable card per option, so keep each card short.
+Return JSON: intro = one or two sentences (max 35 words) on what the question is really about and why it changes the
+outcome; options = one entry per option, in the same order, with label copied exactly, what = max 25 words on what
+picking it means in practice (taste, cost, effort, trade-offs), and good_for = max 8 words naming who or what it
+suits best (e.g. "daily milk drinkers on a budget").
+image: ONLY when seeing the option genuinely helps someone tell the options apart (physical products, mechanisms,
+visual styles, places, dishes), give a 2-5 word image search query for Wikimedia Commons naming the concrete thing,
+e.g. "dual boiler espresso machine", "moka pot", "Art Deco poster". Leave it empty for abstract options
+(budgets, counts, priorities, yes/no, timing) or when every option would show the same picture.
+For a slider, explain what moving it from one end to the other changes, and return options for the ends or stops.`;
 
 const EXPLAIN_SCHEMA = {
   type: "object",
   required: ["intro", "options"],
   properties: {
     intro: { type: "string" },
-    options: { type: "array", items: { type: "object", required: ["label", "what"], properties: { label: { type: "string" }, what: { type: "string" } } } },
+    options: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["label", "what"],
+        properties: {
+          label: { type: "string" }, what: { type: "string" },
+          good_for: { type: "string" }, image: { type: "string" },
+        },
+      },
+    },
   },
 };
 
@@ -215,7 +233,7 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
       return res.end(html());
     }
-    if (req.method === "GET" && url.pathname === "/api/init") return send(res, 200, { draft, model: MODEL });
+    if (req.method === "GET" && url.pathname === "/api/init") return send(res, 200, { draft, model: MODEL, images: IMAGES });
     if (req.method === "POST" && url.pathname === "/api/analyze") {
       const { text = "", settled = [], answers = [], asked = [], more = false } = await body(req);
       if (text.trim().split(/\s+/).length < 2) return send(res, 200, { summary: "", choices: [] });

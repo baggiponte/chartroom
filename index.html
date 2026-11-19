@@ -116,6 +116,38 @@ textarea.on-mark { cursor: pointer; }
 .explain.loading { color: var(--muted); animation: shimmer 1.2s infinite ease-in-out; }
 .explain.err { color: var(--danger); background: none; padding: 0; }
 
+/* expanded explanation: the popover widens and each option becomes a card you can pick */
+.pop.wide { width: min(780px, calc(100vw - 32px)); padding: 22px 22px 14px; }
+.pop.wide .pop-q { font-size: 18px; color: var(--text); }
+.pop.wide .explain { font-size: 15px; margin-bottom: 14px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-bottom: 10px; }
+.ocard {
+  position: relative; display: flex; flex-direction: column; text-align: left; font: inherit; color: var(--text);
+  background: var(--chip); border: 1.5px solid var(--line); border-radius: 16px; padding: 0; overflow: hidden; cursor: pointer;
+  transition: border-color .12s, background .12s, box-shadow .12s;
+}
+.ocard:hover { border-color: var(--faint); background: var(--chip-hover); }
+.ocard.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ocard.static { cursor: default; }
+.ocard.static:hover { border-color: var(--line); background: var(--chip); }
+.ocard .pic { display: block; aspect-ratio: 16 / 10; background: var(--chip-hover); overflow: hidden; }
+.ocard .pic.loading { animation: shimmer 1.2s infinite ease-in-out; }
+.ocard .pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ocard .body { padding: 12px 14px 14px; display: grid; gap: 4px; }
+.ocard .name { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; padding-right: 22px; }
+.ocard .name .emo { font-size: 18px; line-height: 1; }
+.ocard .what { font-size: 14px; line-height: 1.45; }
+.ocard .for { font-size: 13px; color: var(--muted); }
+.ocard .tick {
+  position: absolute; top: 10px; right: 10px; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  border: 1.5px solid var(--faint); background: var(--card); font-size: 13px; color: transparent;
+}
+.ocard.multi .tick { border-radius: 6px; }
+.ocard.on .tick { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ocard .credit { position: absolute; left: 8px; top: 8px; font-size: 11px; padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,.45); color: #fff; text-decoration: none; opacity: 0; transition: opacity .12s; }
+.ocard:hover .credit { opacity: 1; }
+.cards.skeleton .ocard { height: 120px; animation: shimmer 1.2s infinite ease-in-out; cursor: default; }
+
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
   display: inline-flex; align-items: center; gap: 9px; padding: 8px 16px 8px 13px; border-radius: 999px;
@@ -144,6 +176,7 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
   .card { padding: 20px 18px 12px; border-radius: 22px; }
   .field-text, textarea { font-size: 19px; }
   .summary { font-size: 17px; }
+  .cards { grid-template-columns: 1fr; }
 }
 </style>
 </head>
@@ -184,7 +217,7 @@ const $ = (id) => document.getElementById(id);
 const ta = $("ta"), backdrop = $("backdrop"), pop = $("pop"), extrasEl = $("extras");
 const EXAMPLE = "Help me choose a coffee machine for my small kitchen, something good for lattes.";
 
-let mode = "live", modelName = "haiku";
+let mode = "live", modelName = "haiku", imagesOn = true;
 let choices = [];            // inline (span in the text) and extras (span "", shown as tokens)
 let summary = "";
 let seq = 0, timer = null, lastAnalyzed = null, busy = false, moreBusy = false;
@@ -337,22 +370,88 @@ function explainHTML(c) {
   if (c.explainBusy) return `<div class="explain loading">Explaining in plain words…</div>`;
   if (c.explainErr) return `<div class="explain err">Couldn't explain: ${esc(c.explainErr)}</div>`;
   const e = c.explanation; if (!e) return "";
-  return `<div class="explain"><p>${esc(e.intro)}</p><ul>` +
-    (e.options || []).map(o => `<li><b>${esc(o.label)}</b>: ${esc(o.what)}</li>`).join("") + `</ul></div>`;
+  return `<div class="explain"><p>${esc(e.intro)}</p></div>`;
+}
+
+// One card per option: picture (if any), name, what it means, who it suits. Clicking a card picks it.
+function explainedOptions(ch) {
+  const ex = ch.explanation?.options || [];
+  const find = (label, i) => ex.find(x => x.label?.toLowerCase() === label.toLowerCase()) || ex[i] || {};
+  if (ch.kind !== "slider") return ch.options.map((o, i) => ({ ...find(o.label, i), label: o.label, emoji: o.emoji, i }));
+  const s = ch.slider;
+  if (s.stops?.length) return s.stops.map((st, i) => ({ ...find(st, i), label: st, i }));
+  return ex.map(x => ({ ...x, i: -1 })); // numeric slider: the ends are explained, the slider below sets the value
+}
+function isPicked(ch, o) {
+  if (ch.kind === "slider") return o.i >= 0 && (!ch.extra || ch.touched) && Math.round(ch.value) === o.i;
+  return ch.selected.includes(o.label);
+}
+function cardsHTML(ch) {
+  if (ch.explainBusy) return `<div class="cards skeleton">${(ch.options.length ? ch.options : [0, 0, 0]).map(() => `<div class="ocard"></div>`).join("")}</div>`;
+  const items = explainedOptions(ch); if (!items.length) return "";
+  return `<div class="cards">` + items.map(o => {
+    const img = o.image && imagesOn ? imgState(o.image) : null;
+    const pic = !img ? "" : img.loading ? `<span class="pic loading"></span>`
+      : img.src && !dupImage(ch, o) ? `<span class="pic"><img src="${esc(img.src)}" alt="${esc(o.label)}" loading="lazy" onerror="this.parentNode.remove()"></span>` +
+        (img.page ? `<a class="credit" href="${esc(img.page)}" target="_blank" rel="noopener" title="${esc(img.title || "")}">Wikimedia</a>` : "") : "";
+    const clickable = o.i >= 0;
+    return `<button class="ocard ${ch.kind === "multi" ? "multi" : ""} ${isPicked(ch, o) ? "on" : ""} ${clickable ? "" : "static"}" ${clickable ? `data-card="${o.i}"` : "disabled"}>` +
+      pic + (clickable ? `<span class="tick">✓</span>` : "") +
+      `<span class="body"><span class="name">${o.emoji ? `<span class="emo">${esc(o.emoji)}</span>` : ""}${esc(o.label)}</span>` +
+      (o.what ? `<span class="what">${esc(o.what)}</span>` : "") +
+      (o.good_for ? `<span class="for">Good for: ${esc(o.good_for)}</span>` : "") +
+      `</span></button>`;
+  }).join("") + `</div>`;
+}
+
+// ------------------------------------------------------------ pictures (Wikimedia Commons, no key; quietly absent on failure)
+const images = new Map(); // query -> {loading} | {src, page, title} | {}
+function imgState(q) { return images.get(q) || { loading: true }; }
+function dupImage(ch, o) { // two options landing on the same picture would mislead; keep only the first
+  const src = images.get(o.image)?.src;
+  return explainedOptions(ch).some(x => x.i < o.i && x.image && images.get(x.image)?.src === src);
+}
+function loadImages(ch) {
+  if (!imagesOn) return;
+  for (const o of ch.explanation?.options || []) {
+    const q = (o.image || "").trim(); if (!q || images.has(q)) continue;
+    images.set(q, { loading: true });
+    commonsImage(q).then(r => images.set(q, r || {}), () => images.set(q, {})).finally(() => { if (openId === ch.id) openPop(ch.id); });
+  }
+}
+async function commonsImage(q) {
+  const u = "https://commons.wikimedia.org/w/api.php?" + new URLSearchParams({
+    action: "query", format: "json", origin: "*", generator: "search", gsrnamespace: "6", gsrlimit: "6",
+    gsrsearch: q + " filetype:bitmap", prop: "imageinfo", iiprop: "url|mime", iiurlwidth: "480",
+  });
+  const r = await fetch(u, { signal: AbortSignal.timeout(7000) });
+  const j = await r.json();
+  const pages = Object.values(j.query?.pages || {}).sort((a, b) => a.index - b.index);
+  for (const pg of pages) {
+    const ii = pg.imageinfo?.[0];
+    if (ii?.thumburl && /jpeg|png|webp/.test(ii.mime || "")) return { src: ii.thumburl, page: ii.descriptionurl, title: pg.title.replace(/^File:/, "") };
+  }
+  return null;
 }
 
 function openPop(id) {
   const ch = choices.find(c => c.id === id); if (!ch) return;
   openId = id;
   const footLeft = ch.extra ? "not in your request yet" : `was “${esc(ch.orig)}”`;
+  const wide = ch.explainOpen && !ch.explainErr;
+  const numeric = ch.kind === "slider" && !ch.slider.stops?.length;
+  pop.classList.toggle("wide", wide);
   pop.innerHTML = `<div class="pop-head"><span class="pop-q">${esc(ch.question)}</span><span class="pop-kind">${KIND[ch.kind]}</span></div>
     ${explainHTML(ch)}
-    <div>${controlsHTML(ch)}</div>
+    ${wide ? cardsHTML(ch) : ""}
+    <div>${wide && !numeric ? otherHTML(ch) : controlsHTML(ch)}</div>
     <div class="pop-foot"><span>${ch.explain ? `<button class="explain-btn" data-role="explain">${ch.explainOpen ? "Hide explanation" : "Explain me"}</button>` : footLeft}</span>
     <button data-role="reset">${ch.extra ? "leave open" : "reset"}</button></div>`;
   pop.hidden = false;
   const multi = ch.kind === "multi";
-  bindControls(ch, () => openPop(ch.id), () => { if (!multi) setTimeout(closePop, 200); });
+  // In the expanded view a pick keeps the panel open so you can compare; Esc or a click outside closes it.
+  bindControls(ch, () => openPop(ch.id), () => { if (!multi && !wide) setTimeout(closePop, 200); });
+  pop.querySelectorAll("[data-card]").forEach(b => b.onclick = () => pickCard(ch, +b.dataset.card));
   const ex = pop.querySelector('[data-role="explain"]'); if (ex) ex.onclick = () => toggleExplain(ch);
   pop.querySelector('[data-role="reset"]').onclick = () => {
     ch.selected = []; ch.custom = ""; ch.touched = false;
@@ -362,9 +461,24 @@ function openPop(id) {
   render();
 }
 
+function otherHTML(ch) {
+  return `<div class="chips">` +
+    (ch.custom ? `<button class="chip on" data-custom="1"><span class="emo">✎</span>${esc(ch.custom)}</button>` : "") +
+    (ch.kind === "slider" ? "" : `<button class="chip other" data-role="other"><span class="emo">+</span>Something else</button>`) + `</div>`;
+}
+function pickCard(ch, i) {
+  if (ch.kind === "slider") { ch.value = i; ch.touched = true; applyChoice(ch); openPop(ch.id); return; }
+  const o = ch.options[i]; if (!o) return;
+  if (ch.kind === "multi") ch.selected = ch.selected.includes(o.label) ? ch.selected.filter(l => l !== o.label) : [...ch.selected, o.label];
+  else { ch.selected = [o.label]; ch.custom = ""; }
+  if (!ch.extra && ch.kind === "multi" && !ch.selected.length && !ch.custom) applyChoice(ch, ch.orig); else applyChoice(ch);
+  openPop(ch.id);
+}
+
 function bindControls(ch, rerender, onPicked) {
   if (ch.kind === "slider") {
     const r = pop.querySelector('[data-role="range"]'), out = pop.querySelector('[data-role="sval"]');
+    if (!r) return;
     const show = () => {
       const unset = ch.extra && !ch.touched;
       out.classList.toggle("unset", unset);
@@ -383,7 +497,8 @@ function bindControls(ch, rerender, onPicked) {
   });
   const cc = pop.querySelector("[data-custom]");
   if (cc) cc.onclick = () => { ch.custom = ""; applyChoice(ch); rerender(); };
-  pop.querySelector('[data-role="other"]').onclick = (e) => {
+  const other = pop.querySelector('[data-role="other"]');
+  if (other) other.onclick = (e) => {
     const inp = document.createElement("input");
     inp.className = "other-input"; inp.placeholder = "Type your own, then Enter"; inp.value = ch.custom;
     e.currentTarget.replaceWith(inp); inp.focus();
@@ -413,6 +528,7 @@ async function toggleExplain(ch) {
     } catch (e) { if (!e.superseded) ch.explainErr = e.message; }
     ch.explainBusy = false;
   }
+  if (ch.explainOpen) loadImages(ch);
   refresh();
 }
 
@@ -421,6 +537,17 @@ function anchorFor(id) {
 }
 function positionPop() {
   const a = anchorFor(openId); if (!a) return;
+  pop.style.maxHeight = "";
+  if (pop.classList.contains("wide")) {
+    // the expanded panel sits under the whole request card so the sentence stays readable while you pick
+    const c = document.querySelector(".card").getBoundingClientRect(), pw = pop.offsetWidth;
+    const top = c.bottom + 10, room = innerHeight - top - 12;
+    if (room >= 320) {
+      pop.style.left = clamp(c.left + (c.width - pw) / 2, 16, innerWidth - pw - 16) + "px";
+      pop.style.top = top + "px"; pop.style.maxHeight = room + "px";
+      return;
+    }
+  }
   const rs = a.getClientRects(); const r = rs[rs.length - 1] || a.getBoundingClientRect();
   const pw = pop.offsetWidth, ph = pop.offsetHeight;
   let top = r.bottom + 10;
@@ -585,7 +712,7 @@ async function demoAnalyze(text, more) {
     { span: "coffee machine", question: "What kind of machine?", kind: "single", explain: true, options: [
       { label: "Espresso", emoji: "☕", text: "espresso machine" }, { label: "Bean-to-cup", emoji: "🫘", text: "bean-to-cup machine" },
       { label: "Pod", emoji: "💊", text: "pod machine" }, { label: "Filter", emoji: "🫗", text: "filter coffee machine" } ] },
-    { span: "small", question: "How small is the space?", kind: "slider", slider: { stops: ["tiny", "small", "average-sized"], value: 1, minLabel: "tiny", maxLabel: "roomy" } },
+    { span: "small", question: "How small is the space?", kind: "slider", explain: true, slider: { stops: ["tiny", "small", "average-sized"], value: 1, minLabel: "tiny", maxLabel: "roomy" } },
     { span: "lattes", question: "Which drinks?", kind: "multi", options: [
       { label: "Lattes", emoji: "🥛", text: "lattes" }, { label: "Cappuccinos", emoji: "☁️", text: "cappuccinos" },
       { label: "Espresso", emoji: "☕", text: "espresso" }, { label: "Flat whites", emoji: "🤍", text: "flat whites" } ], current: ["Lattes"] },
@@ -602,10 +729,16 @@ async function demoExplain(ch, opts) {
   if (ch.question === "What kind of machine?") return {
     intro: "This is the biggest fork: it decides how much effort each cup takes and how good the coffee can get.",
     options: [
-      { label: "Espresso", what: "You grind, tamp and steam yourself. Best drinks, but it takes practice." },
-      { label: "Bean-to-cup", what: "Grinds and brews at the push of a button. Convenient, pricier, bulkier." },
-      { label: "Pod", what: "Cheap and tidy, but each cup costs more and the taste is limited." },
-      { label: "Filter", what: "Brews a jug of milder coffee. No lattes without a separate frother." } ] };
+      { label: "Espresso", what: "You grind, tamp and steam yourself. Best drinks, but it takes practice.", good_for: "hobbyists who enjoy the ritual", image: "espresso machine portafilter" },
+      { label: "Bean-to-cup", what: "Grinds and brews at the push of a button. Convenient, pricier, bulkier.", good_for: "busy mornings, several drinkers", image: "bean to cup coffee machine" },
+      { label: "Pod", what: "Cheap and tidy, but each cup costs more and the taste is limited.", good_for: "one quick cup a day", image: "coffee capsule machine" },
+      { label: "Filter", what: "Brews a jug of milder coffee. No lattes without a separate frother.", good_for: "black coffee by the mug", image: "drip coffee maker" } ] };
+  if (ch.question === "How should it froth milk?") return {
+    intro: "Lattes need steamed milk. How the machine does it decides how much skill it takes and how silky the foam gets.",
+    options: [
+      { label: "Automatic", what: "Press a button and it froths for you. Easy, consistent, a bit more to clean.", good_for: "beginners and quick lattes" },
+      { label: "Steam wand", what: "You steam the milk yourself. Silkiest foam once you learn, latte art possible.", good_for: "people who want café-style milk" },
+      { label: "Separate frother", what: "A small jug that heats and whips milk on its own. Cheap, foam is airier.", good_for: "pod or filter machines" } ] };
   return { intro: "This changes which machines fit you.", options: opts.map(l => ({ label: l, what: "A reasonable choice; it depends on your taste." })) };
 }
 
@@ -614,7 +747,7 @@ async function demoExplain(ch, opts) {
   try {
     if (location.protocol === "file:") throw 0;
     const r = await fetch("/api/init"); if (!r.ok) throw 0;
-    const j = await r.json(); modelName = j.model || "haiku"; ta.value = j.draft || "";
+    const j = await r.json(); modelName = j.model || "haiku"; ta.value = j.draft || ""; imagesOn = j.images !== false;
   } catch {
     mode = "demo"; modelName = "demo"; ta.value = EXAMPLE;
     $("hint").innerHTML = "Demo mode: opened without the <code>/help-me</code> command, so the underlines are a canned example.";
