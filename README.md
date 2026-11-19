@@ -5,7 +5,9 @@ with your request on it. A small model (Haiku) reads it in the background and pu
 every part you could flip: *coffee machine*, *small kitchen*, *good for lattes*. Click one and a popover
 offers suggestions as chips (pick one, or pick any when options can coexist), a slider for amounts, or
 "Something else". Picking an option rewrites your sentence in place. Things the request doesn't mention yet,
-like budget, show up as small tokens under it. Jargon-heavy choices get an "Explain me" link that widens
+like budget, sit behind an "open questions" button under it: a modal lists them as numbered questions with
+radio buttons (pick one) or checkboxes (pick any), each with "Something else", and "+ More questions" asks for
+more. Answered ones show up as small tokens under the request; click one to change it. Jargon-heavy choices get an "Explain me" link that widens
 the popover into a panel under your request: one card per option with what it means in plain words, who it suits,
 and a picture when one helps tell the options apart. Click a card to pick it; the sentence above updates as you go.
 
@@ -44,9 +46,10 @@ To see the UI without Claude, open `index.html` directly. It runs a demo with ca
 /help-me plan a relaxed weekend in Lisbon for me and my partner in March, not too expensive
 ```
 
-- Click an underline or a token to change it. Use Esc to close the popover and Alt+↓ to open the one under the caret.
+- Click an underline to change it. Use Esc to close the popover and Alt+↓ to open the one under the caret.
+- Click **open questions** (or an answered token) for the questions modal. Esc or Enter closes it, Cmd/Ctrl+Enter sends.
 - Edit the text freely. About 0.7 s after you stop typing, Haiku reads it again, and anything you've already set is kept.
-- **+ more** asks for more tokens based on what you've set so far.
+- **+ More questions** in the modal asks for more, based on what you've set so far.
 - Press Enter to send it back to Claude, or Shift+Enter for a new line. ✕ cancels and sends nothing.
 
 ## How it works

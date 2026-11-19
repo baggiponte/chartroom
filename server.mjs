@@ -54,8 +54,11 @@ job is to find those parts. Return JSON matching the schema.
    For a slider on an inline span, every stop must read naturally in place of the span.
    Option text replaces the span so the sentence still reads naturally (e.g. "espresso machine").
 2. extras (no span, a token instead): ALWAYS return 2-4 of these: the most important things the request does not say yet (budget, size, aspect ratio,
-   length, deadline...). They appear as small tokens under the sentence. Give each a token: a 1-2 word name
-   like "Budget" or "Milk". Option text is a short phrase that completes "<token>: ...", e.g. "up to €500".
+   length, deadline...). They appear as a numbered list of questions with radio buttons or checkboxes, and once
+   answered as small tokens under the sentence. Give each a token: a 1-2 word name like "Budget" or "Milk".
+   Option text is a short phrase that completes "<token>: ...", e.g. "up to €500". Give extras' options a hint:
+   a 3-8 word clause that turns the label into a full answer, shown as "<label> – <hint>"
+   (label "Very important", hint "ready in a few minutes"; label "Steam wand", hint "you froth the milk yourself").
 
 For each choice:
 - question: short, shown above the options, e.g. "What kind of machine?", "What's your budget?"
@@ -64,7 +67,7 @@ For each choice:
   "compact"). Use "single" ONLY when the options are mutually exclusive by nature (one type of thing to buy,
   a count, yes/no, beans vs pods). "slider" for amounts and continua (budget, size, how often, simple <-> hands-on).
   Before answering, check every "single": if someone could sensibly tick two of its options, make it "multi".
-- options (single/multi only, 3-6): {label, emoji, text}. label is a 1-3 word chip, emoji one fitting emoji.
+- options (single/multi only, 3-6): {label, emoji, text, hint (extras only)}. label is a 1-3 word chip, emoji one fitting emoji.
   Concrete, realistic, genuinely different. Most common first.
 - current: labels of options the request already says (often empty).
 - slider (slider only): numeric uses min/max/step/value plus template with {value} (inline: replaces the span,
@@ -90,7 +93,7 @@ const CHOICE = (extra) => ({
       items: {
         type: "object",
         required: ["label", "text"],
-        properties: { label: { type: "string" }, emoji: { type: "string" }, text: { type: "string" } },
+        properties: { label: { type: "string" }, emoji: { type: "string" }, text: { type: "string" }, hint: { type: "string" } },
       },
     },
     current: { type: "array", items: { type: "string" } },

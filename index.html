@@ -94,6 +94,61 @@ body.scrubbing, body.scrubbing * { cursor: ew-resize !important; user-select: no
 .add-more { font: inherit; font-size: 14px; color: var(--muted); background: none; border: 0; cursor: pointer; padding: 2px 0; }
 .add-more:hover { color: var(--text); }
 .add-more:disabled { opacity: .6; cursor: default; }
+.q-open { font: inherit; font-size: 15px; color: var(--text); background: var(--chip); border: 1px solid var(--line); border-radius: 999px; cursor: pointer; padding: 5px 14px 5px 8px; display: inline-flex; align-items: center; gap: 8px; }
+.q-open:hover { background: var(--chip-hover); }
+.q-open .n { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--ink); color: var(--ink-text); font-size: 13px; font-weight: 600; display: grid; place-items: center; }
+.q-open.busy { color: var(--muted); }
+
+/* questions modal: everything the request doesn't say, as a numbered list with inline radios / checkboxes */
+.qmodal { position: fixed; inset: 0; z-index: 15; display: flex; justify-content: center; align-items: flex-start; padding: 7vh 16px 16px; background: color-mix(in srgb, var(--bg) 70%, rgba(0,0,0,.25)); }
+.qmodal[hidden] { display: none; }
+.qbox { width: min(720px, 100%); max-height: 86vh; display: flex; flex-direction: column; background: var(--card); border: 1px solid var(--line); border-radius: 24px; box-shadow: var(--pop-shadow); overflow: hidden; }
+.qbox-head { display: flex; align-items: center; gap: 12px; padding: 18px 18px 10px 26px; }
+.qbox-head h2 { margin: 0; font-size: 15px; font-weight: 500; color: var(--muted); flex: 1; }
+.qbox-body { overflow: auto; padding: 0 26px; overscroll-behavior: contain; }
+.qbox-foot { display: flex; align-items: center; gap: 12px; padding: 12px 18px 16px 26px; border-top: 1px solid var(--line); }
+.qbox-foot .spacer { flex: 1; }
+.q-more { font: inherit; font-size: 14px; color: var(--muted); background: none; border: 0; cursor: pointer; padding: 6px 0; }
+.q-more:hover { color: var(--text); }
+.q-more:disabled { cursor: default; animation: shimmer 1.2s infinite ease-in-out; }
+.q-done { font: inherit; font-size: 15px; font-weight: 600; background: var(--ink); color: var(--ink-text); border: 0; border-radius: 999px; padding: 10px 22px; cursor: pointer; }
+.q { padding: 20px 0 18px; border-top: 1px solid var(--line); scroll-margin-top: 8px; }
+.q:first-child { border-top: 0; padding-top: 8px; }
+.q.flash { animation: qflash 1.2s ease-out; }
+@keyframes qflash { from { background: var(--accent-soft); } to { background: transparent; } }
+.q-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 10px; }
+.q-title { flex: 1; margin: 0; font-size: 17px; font-weight: 600; line-height: 1.4; }
+.q-tools { display: flex; gap: 14px; font-size: 13px; white-space: nowrap; }
+.q-tools button { font: inherit; background: none; border: 0; padding: 0; cursor: pointer; color: var(--muted); }
+.q-tools button:hover { color: var(--text); }
+.q-tools .explain-btn { color: var(--accent); }
+.q .explain { margin: 0 0 10px; }
+.opts { display: grid; gap: 2px; }
+.opt { display: flex; align-items: flex-start; gap: 14px; padding: 7px 8px; margin: 0 -8px; border-radius: 10px; cursor: pointer; font-size: 16px; line-height: 1.45; }
+.opt:hover { background: var(--chip-hover); }
+.opt input[type=radio], .opt input[type=checkbox] {
+  appearance: none; -webkit-appearance: none; flex: none; width: 22px; height: 22px; margin: 0; border: 1.5px solid var(--faint); border-radius: 50%;
+  background: var(--card); cursor: pointer; display: grid; place-items: center; transition: background .1s, border-color .1s;
+}
+.opt input[type=checkbox] { border-radius: 6px; }
+.opt input:checked { background: var(--ink); border-color: var(--ink); }
+.opt input[type=radio]:checked::after { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-text); }
+.opt input[type=checkbox]:checked::after { content: "✓"; color: var(--ink-text); font-size: 14px; font-weight: 700; line-height: 1; }
+.opt input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.opt .txt { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.opt .what { font-size: 14px; color: var(--muted); }
+.opt .thumb { flex: none; width: 64px; height: 44px; border-radius: 8px; overflow: hidden; background: var(--chip-hover); }
+.opt .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.opt .thumb.loading { animation: shimmer 1.2s infinite ease-in-out; }
+.opt-other input[type=text] { font: inherit; font-size: 16px; flex: 1; min-width: 0; border: 0; border-bottom: 1px solid var(--line); background: none; color: var(--text); padding: 0 0 2px; outline: none; }
+.opt-other input[type=text]:focus { border-bottom-color: var(--accent); }
+.opt-other input[type=text]::placeholder { color: var(--muted); }
+.q-slider { padding: 2px 0 4px; }
+.q-slider .slider-val { text-align: left; font-size: 18px; }
+.q-slider .slider-val.unset { font-size: 15px; padding-top: 2px; }
+.q-ends { display: grid; gap: 4px; margin-top: 10px; font-size: 14px; color: var(--muted); }
+.q-ends b { color: var(--text); font-weight: 600; }
+.q-empty { color: var(--muted); padding: 24px 0; }
 
 .toolbar { display: flex; align-items: center; gap: 14px; margin-top: 16px; min-height: 48px; }
 .status { font-size: 13px; color: var(--muted); display: inline-flex; align-items: center; gap: 8px; }
@@ -192,6 +247,9 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
   .field-text, textarea { font-size: 19px; }
   .summary { font-size: 17px; }
   .cards { grid-template-columns: 1fr; }
+  .qmodal { padding-top: 3vh; }
+  .qbox-head, .qbox-body, .qbox-foot { padding-left: 18px; padding-right: 18px; }
+  .q-head { flex-wrap: wrap; }
 }
 </style>
 </head>
@@ -214,10 +272,18 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
       </button>
     </div>
   </div>
-  <div class="hint" id="hint">Click any underlined part to flip it, drag the blue values left or right. <kbd>Enter</kbd> sends it back to Claude Code, <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new line.</div>
+  <div class="hint" id="hint">Click any underlined part to flip it, drag the blue values left or right. Open questions are what your request doesn't say yet. <kbd>Enter</kbd> sends it back to Claude Code, <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new line.</div>
 </main>
 
 <div class="pop" id="pop" hidden role="dialog"></div>
+<div class="qmodal" id="qmodal" hidden>
+  <div class="qbox" role="dialog" aria-modal="true" aria-labelledby="qTitle">
+    <div class="qbox-head"><h2 id="qTitle">Your request doesn't say these yet. Answer any, skip the rest.</h2>
+      <button class="icon-btn" id="qClose" title="Close (Esc)" aria-label="Close">✕</button></div>
+    <div class="qbox-body" id="qBody"></div>
+    <div class="qbox-foot"><button class="q-more" id="qMore">+ More questions</button><span class="spacer"></span><button class="q-done" id="qDone">Done</button></div>
+  </div>
+</div>
 <div class="scrub-hint" id="scrubHint" hidden></div>
 <div class="done" id="done" hidden>
   <div class="done-box">
@@ -346,7 +412,7 @@ function render(flashId) {
 }
 
 function renderExtras() {
-  const extras = choices.filter(c => c.extra);
+  const all = choices.filter(c => c.extra), extras = all.filter(c => c.settled), open = all.length - extras.length;
   const focused = extrasEl.contains(document.activeElement) ? document.activeElement.dataset.id : null;
   extrasEl.innerHTML = extras.map(c => {
     if (c.kind === "slider") {
@@ -359,8 +425,12 @@ function renderExtras() {
     return `<button class="token ${c.settled ? "settled" : "unset"} ${c.id === openId ? "active" : ""}" data-id="${c.id}" title="${esc(c.question)}">` +
       `<span class="k">${esc(c.token)}:</span> <span class="v">${v ? esc(v) : "?"}</span></button>`;
   }).join("") +
-  (extras.length || choices.length ? `<button class="add-more" id="more" ${moreBusy ? "disabled" : ""}>${moreBusy ? "thinking…" : "+ more"}</button>` : "");
-  const more = $("more"); if (more) more.onclick = () => analyze({ more: true });
+  // unanswered settings live in the questions modal; one button opens it
+  (open ? `<button class="q-open" id="qOpen" title="Things your request doesn't say yet"><span class="n">${open}</span>open question${open === 1 ? "" : "s"}</button>`
+    : choices.length ? `<button class="add-more" id="more" ${moreBusy ? "disabled" : ""}>${moreBusy ? "thinking…" : "+ more questions"}</button>` : "");
+  const more = $("more"); if (more) more.onclick = () => { openQuestions(); analyze({ more: true }); };
+  const qo = $("qOpen"); if (qo) qo.onclick = () => openQuestions();
+  if (qOpen) syncQuestions();
   if (focused) extrasEl.querySelector(`[data-id="${focused}"]`)?.focus();
   if (openId) positionPop();
 }
@@ -440,7 +510,7 @@ function loadImages(ch) {
   for (const o of ch.explanation?.options || []) {
     const q = (o.image || "").trim(); if (!q || images.has(q)) continue;
     images.set(q, { loading: true });
-    commonsImage(q).then(r => images.set(q, r || {}), () => images.set(q, {})).finally(() => { if (openId === ch.id) openPop(ch.id); });
+    commonsImage(q).then(r => images.set(q, r || {}), () => images.set(q, {})).finally(() => refreshChoice(ch));
   }
 }
 async function commonsImage(q) {
@@ -542,7 +612,7 @@ function bindControls(ch, rerender, onPicked) {
 
 async function toggleExplain(ch) {
   ch.explainOpen = !ch.explainOpen;
-  const refresh = () => { if (openId === ch.id) openPop(ch.id); };
+  const refresh = () => refreshChoice(ch);
   if (ch.explainOpen && !ch.explanation && !ch.explainBusy) {
     ch.explainBusy = true; ch.explainErr = ""; refresh();
     const opts = ch.kind === "slider"
@@ -583,6 +653,149 @@ function positionPop() {
 }
 function closePop() { if (!openId) return; openId = null; openedFor = null; pop.hidden = true; render(); }
 
+// ------------------------------------------------------------ questions modal
+// Settings the request doesn't mention: a numbered list, options inline as radios (single) or checkboxes (multi).
+// Answers write to the same choice objects as the popover, so tokens and the sent "- Token: value" lines stay in sync.
+const qmodal = $("qmodal"), qBody = $("qBody");
+let qOpen = false, qLastFocus = null;
+
+function refreshChoice(ch) {
+  if (openId === ch.id) openPop(ch.id);
+  if (qOpen) renderQuestion(ch);
+}
+function openQuestions(focusId) {
+  if (openId) closePop();
+  hideHint();
+  if (!qOpen) { qLastFocus = document.activeElement; qOpen = true; qmodal.hidden = false; }
+  renderQuestions(focusId);
+}
+function closeQuestions(quiet) {
+  if (!qOpen) return;
+  qOpen = false; qmodal.hidden = true;
+  const ae = document.activeElement; if (ae && ae.blur) ae.blur();
+  renderExtras();
+  if (!quiet) (qLastFocus && document.contains(qLastFocus) ? qLastFocus : ta).focus();
+}
+$("qClose").onclick = () => closeQuestions();
+$("qDone").onclick = () => closeQuestions();
+$("qMore").onclick = () => analyze({ more: true });
+qmodal.addEventListener("mousedown", (e) => { if (e.target === qmodal) closeQuestions(); });
+function syncQuestions() {
+  const b = $("qMore"); b.disabled = moreBusy; b.textContent = moreBusy ? "Thinking of more questions…" : "+ More questions";
+}
+
+function renderQuestions(focusId) {
+  const extras = choices.filter(c => c.extra), top = qBody.scrollTop;
+  qBody.innerHTML = extras.length ? extras.map((c, i) => `<section class="q" data-q="${c.id}">${questionHTML(c, i + 1)}</section>`).join("")
+    : `<div class="q-empty">${busy || moreBusy ? "Looking for questions…" : "No open questions. Ask for more below."}</div>`;
+  extras.forEach(bindQuestion);
+  syncQuestions();
+  qBody.scrollTop = top;
+  const el = focusId && qBody.querySelector(`[data-q="${focusId}"]`);
+  if (el) {
+    el.scrollIntoView({ block: "nearest" }); el.classList.add("flash");
+    (el.querySelector("input:checked") || el.querySelector("input"))?.focus({ preventScroll: true });
+  } else if (!qBody.contains(document.activeElement)) qBody.querySelector("input")?.focus({ preventScroll: true });
+}
+function renderQuestion(ch) {
+  const el = qBody.querySelector(`[data-q="${ch.id}"]`); if (!el) return;
+  const n = choices.filter(c => c.extra).indexOf(ch) + 1;
+  const ae = document.activeElement, keep = el.contains(ae) ? ae.dataset.k : null;
+  el.innerHTML = questionHTML(ch, n); bindQuestion(ch);
+  const f = keep && el.querySelector(`[data-k="${keep}"]`);
+  if (f) { f.focus({ preventScroll: true }); if (f.type === "text") f.setSelectionRange(f.value.length, f.value.length); }
+}
+
+function optLine(o) { return esc(o.label) + (o.hint ? ` – ${esc(o.hint)}` : ""); }
+function thumbHTML(ch, o) {
+  if (!ch.explainOpen || !imagesOn || !o.image) return "";
+  const img = imgState(o.image);
+  if (img.loading) return `<span class="thumb loading"></span>`;
+  return img.src && !dupImage(ch, o) ? `<span class="thumb"><img src="${esc(img.src)}" alt="" loading="lazy" onerror="this.parentNode.remove()"></span>` : "";
+}
+function questionHTML(ch, n) {
+  const ex = ch.explainOpen && !ch.explainBusy && !ch.explainErr ? explainedOptions(ch) : [];
+  const exFor = (i) => ex.find(x => x.i === i) || {};
+  const sub = (x) => ch.explainOpen && (x.what || x.good_for)
+    ? `<span class="what">${esc(x.what || "")}${x.good_for ? ` Good for ${esc(x.good_for)}.` : ""}</span>` : "";
+  const tools = (ch.explain ? `<button class="explain-btn" data-role="explain">${ch.explainOpen ? "Hide explanation" : "Explain me"}</button>` : "") +
+    (ch.settled ? `<button data-role="clear" title="Leave this open">Clear</button>` : "");
+  const head = `<div class="q-head"><h3 class="q-title">${n}. ${esc(ch.question)}</h3><span class="q-tools">${tools}</span></div>` +
+    (ch.explainOpen ? (ch.explainBusy ? `<div class="explain loading">Explaining in plain words…</div>`
+      : ch.explainErr ? `<div class="explain err">Couldn't explain: ${esc(ch.explainErr)}</div>`
+      : ch.explanation?.intro ? `<div class="explain"><p>${esc(ch.explanation.intro)}</p></div>` : "") : "");
+  const name = "q_" + ch.id;
+  if (ch.kind === "slider") {
+    const s = ch.slider;
+    if (s.stops?.length) { // a qualitative continuum reads best as a list of radios
+      return head + `<div class="opts" role="radiogroup">` + s.stops.map((st, i) => {
+        const x = exFor(i);
+        return `<label class="opt">${thumbHTML(ch, x)}<input type="radio" name="${name}" data-k="s${i}" data-stop="${i}" ${ch.touched && Math.round(ch.value) === i ? "checked" : ""}>` +
+          `<span class="txt"><span>${esc(st)}</span>${sub(x)}</span></label>`;
+      }).join("") + `</div>`;
+    }
+    const ends = ex.length ? `<div class="q-ends">${ex.map(x => `<span><b>${esc(x.label)}</b>: ${esc(x.what || "")}</span>`).join("")}</div>` : "";
+    return head + `<div class="q-slider"><div class="slider-val ${ch.touched ? "" : "unset"}" data-role="sval">${ch.touched ? esc(textFor(ch)) : "not set: drag to choose"}</div>
+      <input type="range" data-k="range" data-role="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${ch.value}" aria-label="${esc(ch.question)}">
+      <div class="slider-ends"><span>${esc(s.minLabel || fmtNum(s.min))}</span><span>${esc(s.maxLabel || fmtNum(s.max))}</span></div>${ends}</div>`;
+  }
+  const type = ch.kind === "multi" ? "checkbox" : "radio";
+  const otherOn = !!ch.custom;
+  return head + `<div class="opts" ${type === "radio" ? 'role="radiogroup"' : ""}>` + ch.options.map((o, i) => {
+    const x = exFor(i);
+    return `<label class="opt">${thumbHTML(ch, x)}<input type="${type}" name="${name}" data-k="o${i}" data-i="${i}" ${ch.selected.includes(o.label) ? "checked" : ""}>` +
+      `<span class="txt"><span>${x.what ? esc(o.label) : optLine(o)}</span>${sub(x)}</span></label>`;
+  }).join("") +
+  `<label class="opt opt-other"><input type="${type}" name="${name}" data-k="oc" data-role="other-on" ${otherOn ? "checked" : ""} aria-label="Something else">` +
+  `<input type="text" data-k="ot" data-role="other" placeholder="Something else…" value="${esc(ch.custom || ch.customDraft || "")}"></label></div>`;
+}
+
+function bindQuestion(ch) {
+  const el = qBody.querySelector(`[data-q="${ch.id}"]`); if (!el) return;
+  const redo = () => renderQuestion(ch);
+  const ex = el.querySelector('[data-role="explain"]'); if (ex) ex.onclick = () => toggleExplain(ch);
+  const cl = el.querySelector('[data-role="clear"]');
+  if (cl) cl.onclick = () => {
+    ch.selected = []; ch.custom = ""; ch.customDraft = ""; ch.touched = false;
+    if (ch.kind === "slider") ch.value = clamp(ch.slider.value ?? ch.slider.min, ch.slider.min, ch.slider.max);
+    applyChoice(ch, ""); redo();
+  };
+  if (ch.kind === "slider") {
+    el.querySelectorAll("[data-stop]").forEach(r => r.onchange = () => { ch.value = +r.dataset.stop; ch.touched = true; applyChoice(ch); redo(); });
+    const r = el.querySelector('[data-role="range"]'), out = el.querySelector('[data-role="sval"]');
+    if (r) {
+      r.oninput = () => { ch.value = Number(r.value); ch.touched = true; out.classList.remove("unset"); out.textContent = textFor(ch); applyChoice(ch); };
+      r.onchange = redo; // shows "Clear" once set
+    }
+    return;
+  }
+  el.querySelectorAll("input[data-i]").forEach(inp => inp.onchange = () => {
+    const o = ch.options[+inp.dataset.i];
+    if (ch.kind === "multi") ch.selected = inp.checked ? [...new Set([...ch.selected, o.label])] : ch.selected.filter(l => l !== o.label);
+    else { ch.selected = [o.label]; if (ch.custom) ch.customDraft = ch.custom; ch.custom = ""; }
+    applyChoice(ch); redo();
+  });
+  const on = el.querySelector('[data-role="other-on"]'), txt = el.querySelector('[data-role="other"]');
+  const setOther = (v) => {
+    ch.customDraft = v;
+    if (v && ch.kind === "single") ch.selected = [];
+    ch.custom = v; on.checked = !!v; applyChoice(ch);
+  };
+  on.onchange = () => {
+    if (on.checked) { if (txt.value.trim()) { setOther(txt.value.trim()); redo(); } else { on.checked = false; txt.focus(); } }
+    else { ch.custom = ""; applyChoice(ch); redo(); }
+  };
+  txt.oninput = () => {
+    const v = txt.value.trim();
+    if (ch.kind === "single" && v) el.querySelectorAll("input[data-i]").forEach(i => i.checked = false);
+    setOther(v);
+    const t = el.querySelector(".q-tools"); // "Clear" appears/disappears without re-rendering under the caret
+    if (t && !!t.querySelector('[data-role="clear"]') !== ch.settled) { redo(); }
+  };
+  txt.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); txt.blur(); } };
+  txt.onblur = () => { if (ch.kind === "single" && !ch.custom && !ch.selected.length) redo(); };
+}
+
 // ------------------------------------------------------------ hit testing (marks sit under the textarea)
 function markAt(x, y) {
   for (const m of backdrop.querySelectorAll("mark"))
@@ -609,7 +822,7 @@ ta.addEventListener("mouseup", (e) => {
 extrasEl.addEventListener("click", (e) => {
   const b = e.target.closest(".token"); if (!b) return;
   if (performance.now() - lastScrubEnd < 400) return; // pointerup already opened (or scrubbed) it
-  b.dataset.id === openId ? closePop() : openPop(b.dataset.id);
+  openQuestions(b.dataset.id);
 });
 document.addEventListener("mousedown", (e) => {
   if (openId && !pop.contains(e.target) && e.target !== ta && !extrasEl.contains(e.target)) closePop();
@@ -665,7 +878,7 @@ function endScrub(cancelled) {
   document.body.classList.remove("scrubbing");
   lastScrubEnd = performance.now();
   if (!ch) return;
-  if (!d.moved && !cancelled) openPop(ch.id); // click fallback
+  if (!d.moved && !cancelled) ch.extra ? openQuestions(ch.id) : openPop(ch.id); // click fallback
   else render();
 }
 document.addEventListener("pointerup", () => endScrub(false));
@@ -725,7 +938,7 @@ async function analyze({ more = false } = {}) {
   if (!text.trim()) { setStatus("", "waiting for a request"); return; }
   const my = more ? seq : ++seq;
   if (more) moreBusy = true; else busy = true;
-  render();
+  render(); syncQuestions();
   setStatus("busy", more ? `${esc(modelName)} is looking for more…` : `${esc(modelName)} is reading…`);
   const extras = choices.filter(c => c.extra);
   const payload = {
@@ -738,7 +951,7 @@ async function analyze({ more = false } = {}) {
   try {
     data = mode === "live" ? await post("/api/analyze", payload) : await demoAnalyze(text, more);
   } catch (e) {
-    if (more) { moreBusy = false; render(); }
+    if (more) { moreBusy = false; render(); syncQuestions(); }
     if (my !== seq || e.superseded) return;
     busy = false; render();
     setStatus("err", `couldn't analyse: ${esc(e.message)} · <button id="retry">retry</button>`);
@@ -746,6 +959,7 @@ async function analyze({ more = false } = {}) {
     return;
   }
   if (more) moreBusy = false; else busy = false;
+  syncQuestions();
   if (my !== seq || ta.value !== text) { render(); return; }
   if (!more) lastAnalyzed = text;
   merge(text, data, more);
@@ -777,6 +991,7 @@ function merge(text, data, more) {
   if (openId && !kept.some(k => k.id === openId)) closePop();
   choices = [...kept, ...fresh];
   render();
+  if (qOpen) renderQuestions(more ? fresh.find(c => c.extra)?.id : null);
 }
 
 async function post(path, body) {
@@ -800,6 +1015,12 @@ ta.addEventListener("keydown", (e) => {
   }
 });
 document.addEventListener("keydown", (e) => {
+  if (qOpen) {
+    if (e.key === "Escape") { e.preventDefault(); closeQuestions(); }
+    else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); closeQuestions(); submit(); }
+    else if (e.key === "Enter" && e.target.type !== "text" && e.target.tagName !== "BUTTON") { e.preventDefault(); closeQuestions(); }
+    return;
+  }
   if (e.key === "Escape" && openId) { closePop(); ta.focus(); return; }
   if (e.key === "Enter" && !e.shiftKey && e.target === document.body) { e.preventDefault(); submit(); }
   if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && e.target !== ta) { e.preventDefault(); submit(); }
@@ -815,7 +1036,7 @@ function compose() {
 $("send").onclick = submit;
 async function submit() {
   if (!ta.value.trim()) return;
-  closePop();
+  closePop(); closeQuestions(true);
   const prompt = compose();
   $("donePrompt").textContent = prompt;
   if (mode === "live") {
@@ -841,7 +1062,7 @@ async function demoAnalyze(text, more) {
   await new Promise(r => setTimeout(r, 600));
   if (more) return { model: "demo", choices: [
     { span: "", token: "Looks", question: "What look do you want?", kind: "multi", options: [
-      { label: "Classic steel", emoji: "🪞", text: "classic brushed steel" }, { label: "Retro", emoji: "📻", text: "retro" }, { label: "Matte black", emoji: "🖤", text: "matte black" } ] } ] };
+      { label: "Classic steel", emoji: "🪞", text: "classic brushed steel", hint: "brushed metal, café look" }, { label: "Retro", emoji: "📻", text: "retro", hint: "rounded, pastel, a bit playful" }, { label: "Matte black", emoji: "🖤", text: "matte black", hint: "minimal and dark" } ] } ] };
   const all = [
     { span: "coffee machine", question: "What kind of machine?", kind: "single", explain: true, options: [
       { label: "Espresso", emoji: "☕", text: "espresso machine" }, { label: "Bean-to-cup", emoji: "🫘", text: "bean-to-cup machine" },
@@ -852,7 +1073,10 @@ async function demoAnalyze(text, more) {
       { label: "Espresso", emoji: "☕", text: "espresso" }, { label: "Flat whites", emoji: "🤍", text: "flat whites" } ], current: ["Lattes"] },
     { span: "", token: "Budget", question: "What's your budget?", kind: "slider", slider: { min: 50, max: 1500, step: 50, value: 400, template: "up to €{value}", minLabel: "€50", maxLabel: "€1,500" } },
     { span: "", token: "Milk", question: "How should it froth milk?", kind: "single", explain: true, options: [
-      { label: "Automatic", emoji: "🤖", text: "automatic frothing" }, { label: "Steam wand", emoji: "♨️", text: "a manual steam wand" }, { label: "Separate frother", emoji: "🥄", text: "a separate frother is fine" } ] },
+      { label: "Automatic", emoji: "🤖", text: "automatic frothing", hint: "press a button and it froths for you" }, { label: "Steam wand", emoji: "♨️", text: "a manual steam wand", hint: "you froth the milk yourself" }, { label: "Separate frother", emoji: "🥄", text: "a separate frother is fine", hint: "a small jug on the side" } ] },
+    { span: "", token: "Warm-up", question: "How important is fast warm-up?", kind: "single", options: [
+      { label: "Very important", emoji: "⚡", text: "ready in a few minutes", hint: "ready in a few minutes" }, { label: "Not very important", emoji: "⏳", text: "10-15 minutes is fine", hint: "I can wait 10–15 minutes" },
+      { label: "Not important", emoji: "🎯", text: "quality over speed", hint: "quality matters more than speed" } ] },
     { span: "", token: "Cups", question: "How many cups a day?", kind: "slider", slider: { min: 1, max: 8, step: 1, value: 2, template: "{value} a day" } },
   ];
   return { summary: "Let's pin down which coffee machine fits your kitchen and your lattes.", model: "demo",
