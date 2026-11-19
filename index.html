@@ -458,6 +458,7 @@ async function commonsImage(q) {
   return null;
 }
 
+let openedFor = null;
 function openPop(id) {
   const ch = choices.find(c => c.id === id); if (!ch) return;
   openId = id; hideHint();
@@ -465,6 +466,7 @@ function openPop(id) {
   const wide = ch.explainOpen && !ch.explainErr;
   const numeric = ch.kind === "slider" && !ch.slider.stops?.length;
   pop.classList.toggle("wide", wide);
+  const keepScroll = openedFor === id ? pop.scrollTop : 0; openedFor = id;
   pop.innerHTML = `<div class="pop-head"><span class="pop-q">${esc(ch.question)}</span><span class="pop-kind">${KIND[ch.kind]}</span></div>
     ${explainHTML(ch)}
     ${wide ? cardsHTML(ch) : ""}
@@ -472,6 +474,7 @@ function openPop(id) {
     <div class="pop-foot"><span>${ch.explain ? `<button class="explain-btn" data-role="explain">${ch.explainOpen ? "Hide explanation" : "Explain me"}</button>` : footLeft}</span>
     <button data-role="reset">${ch.extra ? "leave open" : "reset"}</button></div>`;
   pop.hidden = false;
+  positionPop(); pop.scrollTop = keepScroll;
   const multi = ch.kind === "multi";
   // In the expanded view a pick keeps the panel open so you can compare; Esc or a click outside closes it.
   bindControls(ch, () => openPop(ch.id), () => { if (!multi && !wide) setTimeout(closePop, 200); });
@@ -561,7 +564,6 @@ function anchorFor(id) {
 }
 function positionPop() {
   const a = anchorFor(openId); if (!a) return;
-  pop.style.maxHeight = "";
   if (pop.classList.contains("wide")) {
     // the expanded panel sits under the whole request card so the sentence stays readable while you pick
     const c = document.querySelector(".card").getBoundingClientRect(), pw = pop.offsetWidth;
@@ -572,13 +574,14 @@ function positionPop() {
       return;
     }
   }
+  pop.style.maxHeight = ""; // CSS default: viewport minus a margin, scrolls inside
   const rs = a.getClientRects(); const r = rs[rs.length - 1] || a.getBoundingClientRect();
   const pw = pop.offsetWidth, ph = pop.offsetHeight;
   let top = r.bottom + 10;
   if (top + ph > innerHeight - 12) top = r.top - ph - 10 > 12 ? r.top - ph - 10 : innerHeight - ph - 12; // no room either side: keep it on screen
   pop.style.left = clamp(r.left - 12, 16, innerWidth - pw - 16) + "px"; pop.style.top = Math.max(12, top) + "px";
 }
-function closePop() { if (!openId) return; openId = null; pop.hidden = true; render(); }
+function closePop() { if (!openId) return; openId = null; openedFor = null; pop.hidden = true; render(); }
 
 // ------------------------------------------------------------ hit testing (marks sit under the textarea)
 function markAt(x, y) {
@@ -612,7 +615,7 @@ document.addEventListener("mousedown", (e) => {
   if (openId && !pop.contains(e.target) && e.target !== ta && !extrasEl.contains(e.target)) closePop();
 });
 addEventListener("resize", () => openId && positionPop());
-addEventListener("scroll", () => { hideHint(); if (openId) positionPop(); }, true);
+addEventListener("scroll", (e) => { if (pop.contains(e.target)) return; hideHint(); if (openId) positionPop(); }, true);
 
 // ------------------------------------------------------------ scrubbable numbers
 // Slider choices are dragged in place, like Tangle.js: press on the value, drag left/right,
