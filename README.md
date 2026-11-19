@@ -96,7 +96,7 @@ sequenceDiagram
     S-->>B: underlines, extras, options
     B->>W: picture search (optional)
     B->>S: POST /api/submit
-    S-->>A: request on stdout, exit 0 (cancel: exit 2; --out FILE gets JSON too)
+    S-->>A: request on stdout, exit 0 (cancel: exit 2, --out FILE also gets JSON)
 ```
 
 | flag / env | default | |
