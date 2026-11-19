@@ -1,19 +1,21 @@
 #!/usr/bin/env node
-// prompt-shaper: a local bridge between a browser prompt box and Claude Code.
+// prompt-shaper: a local bridge between a browser prompt box and any coding agent.
 //
-//   node server.mjs [--draft "text" | --stdin] [--port N] [--model haiku] [--no-open]
+//   node server.mjs [--draft "text" | --stdin] [--backend auto|claude|codex|gemini|anthropic|openai]
+//                   [--model M] [--port N] [--out FILE] [--no-open] [--no-images]
 //
-// Serves index.html, runs the "choices" analysis through the `claude` CLI
-// (so it uses your Claude Code login / subscription, no API key), and blocks
-// until you press Send in the browser. The shaped prompt is printed to stdout,
-// which is what the /shape command hands back to the Claude Code session.
-// Exit codes: 0 = sent, 2 = cancelled in the browser.
+// Serves index.html, runs the analysis through a pluggable backend (the claude, codex or gemini CLI with your
+// existing login, or an Anthropic / OpenAI-compatible API key), and blocks until you press Send in the browser.
+// The shaped prompt is printed to stdout, which is what the agent picks up and carries on with.
+// Exit codes: 0 = sent, 2 = cancelled in the browser, 3 = nobody answered in time.
+// --out FILE also writes {"status":"sent"|"cancelled"|"timeout","prompt":"..."} to FILE, for agents whose shell
+// tool can't wait minutes for a command: run it in the background and poll for the file.
 
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync, renameSync, existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir, platform } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, delimiter } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -24,10 +26,12 @@ const opt = (name, fallback) => {
   return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : fallback;
 };
 
-const MODEL = opt("--model", process.env.PROMPT_SHAPER_MODEL || "haiku");
 const PORT = Number(opt("--port", process.env.PROMPT_SHAPER_PORT || 0));
 // Explanation cards can show pictures, looked up by the browser on Wikimedia Commons (keyless). Set
 // PROMPT_SHAPER_IMAGES=0 or pass --no-images to turn that off.
+// Shown on the page ("Send to Codex"). The skill passes --agent; otherwise guess from the environment.
+const AGENT = opt("--agent", process.env.PROMPT_SHAPER_AGENT || (process.env.CLAUDECODE ? "Claude Code"
+  : process.env.GEMINI_CLI ? "Gemini CLI" : Object.keys(process.env).some((k) => k.startsWith("CODEX_")) ? "Codex" : "your agent"));
 const IMAGES = !flag("--no-images") && process.env.PROMPT_SHAPER_IMAGES !== "0";
 const log = (...m) => console.error("[prompt-shaper]", ...m);
 
@@ -119,39 +123,190 @@ const SCHEMA = {
   },
 };
 
-const running = {}; // one live process per slot; a newer request in the same slot kills the older one
+const running = {}; // one live process or request per slot; a newer request in the same slot aborts the older one
+const superseded = () => Object.assign(new Error("superseded"), { superseded: true });
 
-function runClaude(slot, system, schema, input) {
-  if (running[slot]) running[slot].kill("SIGTERM");
+// Every backend gets the same (system, schema, input) and must resolve to the parsed JSON object.
+function runCli(slot, cmd, argv, stdin, parse, opts = {}) {
+  running[slot]?.abort();
   return new Promise((resolve, reject) => {
-    const child = spawn(
-      "claude",
-      [
-        "-p", "--model", MODEL, "--output-format", "json", "--tools", "",
-        "--no-session-persistence", "--setting-sources", "", "--effort", process.env.PROMPT_SHAPER_EFFORT || "low",
-        "--system-prompt", system, "--json-schema", JSON.stringify(schema),
-      ],
-      { cwd: tmpdir(), env: { ...process.env, PROMPT_SHAPER_CHILD: "1" }, stdio: ["pipe", "pipe", "pipe"] },
-    );
-    running[slot] = child;
+    const child = spawn(cmd, argv, {
+      cwd: opts.cwd || tmpdir(), env: { ...process.env, PROMPT_SHAPER_CHILD: "1" }, stdio: ["pipe", "pipe", "pipe"],
+    });
+    const job = { abort: () => child.kill("SIGTERM") };
+    running[slot] = job;
     let out = "", err = "";
     child.stdout.on("data", (d) => (out += d));
     child.stderr.on("data", (d) => (err += d));
-    child.on("error", (e) => reject(new Error(`could not start claude CLI: ${e.message}`)));
+    child.on("error", (e) => reject(new Error(`could not start ${cmd}: ${e.message}`)));
     child.on("close", (code, signal) => {
-      if (running[slot] === child) delete running[slot];
-      if (signal) return reject(Object.assign(new Error("superseded"), { superseded: true }));
-      try {
-        const res = JSON.parse(out);
-        if (res.is_error) return reject(new Error(res.result || "claude returned an error"));
-        const data = res.structured_output ?? JSON.parse(res.result);
-        resolve({ ...data, model: Object.keys(res.modelUsage || {})[0] || MODEL, ms: res.duration_ms });
-      } catch {
-        reject(new Error(`claude exited ${code}: ${(err || out).slice(0, 400)}`));
-      }
+      if (running[slot] === job) delete running[slot];
+      if (signal) return reject(superseded());
+      try { resolve(parse(out, code)); }
+      catch (e) { reject(new Error(`${cmd} exited ${code}: ${(e.message && !e.message.startsWith("Unexpected") ? e.message + " " : "") + (err || out).slice(0, 400)}`)); }
     });
-    child.stdin.end(input);
+    child.stdin.end(stdin);
   });
+}
+
+async function runHttp(slot, url, headers, payload, parse) {
+  running[slot]?.abort();
+  const ctl = new AbortController();
+  const job = { abort: () => ctl.abort() };
+  running[slot] = job;
+  try {
+    const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify(payload), signal: ctl.signal });
+    const text = await r.text();
+    if (!r.ok) throw new Error(`${new URL(url).host} answered ${r.status}: ${text.slice(0, 400)}`);
+    return parse(JSON.parse(text));
+  } catch (e) {
+    if (e.name === "AbortError") throw superseded();
+    throw e;
+  } finally {
+    if (running[slot] === job) delete running[slot];
+  }
+}
+
+// OpenAI-style strict schemas want every property required and no extra keys. Optional fields become nullable,
+// and dropNulls() removes them again so the page sees the same shape as from the other backends.
+function strict(schema) {
+  if (schema.type === "array") return { ...schema, items: strict(schema.items) };
+  if (schema.type !== "object") return schema;
+  const req = new Set(schema.required || []);
+  const properties = {};
+  for (const [k, v] of Object.entries(schema.properties || {})) {
+    const sv = strict(v);
+    properties[k] = req.has(k) ? sv : { anyOf: [sv, { type: "null" }] };
+  }
+  return { type: "object", properties, required: Object.keys(properties), additionalProperties: false };
+}
+const dropNulls = (v) => Array.isArray(v) ? v.map(dropNulls)
+  : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).filter(([, x]) => x !== null).map(([k, x]) => [k, dropNulls(x)]))
+  : v;
+
+// For backends without schema enforcement: take the outermost {...} out of the reply.
+function jsonFrom(text) {
+  const a = text.indexOf("{"), b = text.lastIndexOf("}");
+  if (a < 0 || b < a) throw new Error("no JSON in reply");
+  return JSON.parse(text.slice(a, b + 1));
+}
+const withSchema = (system, schema) =>
+  `${system}\n\nReply with one JSON object only, no prose and no code fences, matching this JSON Schema:\n${JSON.stringify(schema)}`;
+
+const BACKENDS = {
+  // Claude Code CLI: uses your Claude login, no key.
+  claude: {
+    model: "haiku",
+    run: (slot, system, schema, input) => runCli(slot, "claude", [
+      "-p", "--model", MODEL, "--output-format", "json", "--tools", "",
+      "--no-session-persistence", "--setting-sources", "", "--effort", EFFORT,
+      "--system-prompt", system, "--json-schema", JSON.stringify(schema),
+    ], input, (out) => {
+      const res = JSON.parse(out);
+      if (res.is_error) throw new Error(res.result || "claude returned an error");
+      return { data: res.structured_output ?? JSON.parse(res.result), model: Object.keys(res.modelUsage || {})[0], ms: res.duration_ms };
+    }),
+  },
+  // Codex CLI: uses your ChatGPT/Codex login. The schema file makes the last message valid JSON.
+  codex: {
+    model: "",
+    run: (slot, system, schema, input) => {
+      const dir = mkdtempSync(join(tmpdir(), "prompt-shaper-"));
+      const schemaFile = join(dir, "schema.json"), outFile = join(dir, "out.json");
+      writeFileSync(schemaFile, JSON.stringify(strict(schema)));
+      const t0 = Date.now();
+      return runCli(slot, "codex", [
+        "exec", "--skip-git-repo-check", "--sandbox", "read-only", "--color", "never",
+        ...(MODEL ? ["-m", MODEL] : []), "-c", `model_reasoning_effort="${EFFORT}"`,
+        "--output-schema", schemaFile, "--output-last-message", outFile, "-",
+      ], `${system}\n\n${input}`, () => {
+        const data = dropNulls(jsonFrom(readFileSync(outFile, "utf8")));
+        return { data, ms: Date.now() - t0 };
+      }, { cwd: dir }).finally(() => rmSync(dir, { recursive: true, force: true }));
+    },
+  },
+  // Gemini CLI: uses your Google login. No schema flag, so the schema goes in the prompt.
+  gemini: {
+    model: "gemini-2.5-flash",
+    run: (slot, system, schema, input) => {
+      const t0 = Date.now();
+      return runCli(slot, "gemini", ["-m", MODEL, "--output-format", "json", "-p", withSchema(system, schema)], input, (out) => {
+        const res = jsonFrom(out);
+        if (res.error) throw new Error(res.error.message || JSON.stringify(res.error));
+        return { data: jsonFrom(res.response ?? ""), ms: Date.now() - t0 };
+      });
+    },
+  },
+  // Anthropic API key. A forced tool call returns input that matches the schema.
+  anthropic: {
+    model: "claude-haiku-5-5",
+    run: (slot, system, schema, input) => {
+      const t0 = Date.now();
+      return runHttp(slot, `${(process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com").replace(/\/$/, "")}/v1/messages`, {
+        "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01",
+      }, {
+        model: MODEL, max_tokens: 4096, system,
+        messages: [{ role: "user", content: input }],
+        tools: [{ name: "answer", description: "Return the answer.", input_schema: schema }],
+        tool_choice: { type: "tool", name: "answer" },
+      }, (res) => {
+        const call = (res.content || []).find((c) => c.type === "tool_use");
+        if (!call) throw new Error("no structured answer in reply");
+        return { data: call.input, model: res.model, ms: Date.now() - t0 };
+      });
+    },
+  },
+  // OpenAI or any OpenAI-compatible endpoint (OpenRouter, Ollama, LM Studio...) via OPENAI_BASE_URL.
+  openai: {
+    model: "gpt-5-mini",
+    run: (slot, system, schema, input) => {
+      const t0 = Date.now();
+      return runHttp(slot, `${(process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "")}/chat/completions`, {
+        authorization: `Bearer ${process.env.OPENAI_API_KEY || ""}`,
+      }, {
+        model: MODEL,
+        messages: [{ role: "system", content: system }, { role: "user", content: input }],
+        response_format: { type: "json_schema", json_schema: { name: "answer", strict: true, schema: strict(schema) } },
+      }, (res) => {
+        const text = res.choices?.[0]?.message?.content;
+        if (!text) throw new Error("empty reply");
+        return { data: dropNulls(jsonFrom(text)), model: res.model, ms: Date.now() - t0 };
+      });
+    },
+  },
+};
+
+function onPath(cmd) {
+  const exts = platform() === "win32" ? ["", ".cmd", ".exe"] : [""];
+  return (process.env.PATH || "").split(delimiter).some((d) => d && exts.some((e) => existsSync(join(d, cmd + e))));
+}
+
+// Pick a backend: an explicit choice wins; then the agent we were started from; then whatever is installed.
+function pickBackend() {
+  const asked = opt("--backend", process.env.PROMPT_SHAPER_BACKEND || "auto");
+  if (asked !== "auto") {
+    if (!BACKENDS[asked]) { log(`unknown backend "${asked}", use one of: auto, ${Object.keys(BACKENDS).join(", ")}`); process.exit(1); }
+    return asked;
+  }
+  const env = process.env;
+  const host = env.CLAUDECODE ? "claude" : env.GEMINI_CLI ? "gemini"
+    : Object.keys(env).some((k) => k.startsWith("CODEX_")) ? "codex" : null;
+  if (host && onPath(host)) return host;
+  for (const cli of ["claude", "codex", "gemini"]) if (onPath(cli)) return cli;
+  if (env.ANTHROPIC_API_KEY) return "anthropic";
+  if (env.OPENAI_API_KEY || env.OPENAI_BASE_URL) return "openai";
+  log("no backend found: install the claude, codex or gemini CLI, or set ANTHROPIC_API_KEY or OPENAI_API_KEY");
+  process.exit(1);
+}
+
+const BACKEND = pickBackend();
+const MODEL = opt("--model", process.env.PROMPT_SHAPER_MODEL || BACKENDS[BACKEND].model);
+const EFFORT = process.env.PROMPT_SHAPER_EFFORT || "low";
+
+async function runModel(slot, system, schema, input) {
+  const { data, model, ms } = await BACKENDS[BACKEND].run(slot, system, schema, input);
+  return { ...dropNulls(data), model: model || MODEL || BACKEND, ms };
 }
 
 async function analyze(text, settled = [], answers = [], asked = [], more = false) {
@@ -164,7 +319,7 @@ async function analyze(text, settled = [], answers = [], asked = [], more = fals
   if (asked.length) input += `\n\nExtras already shown (do not repeat them):\n` + asked.map((q) => `- ${q}`).join("\n");
   if (more) input += `\n\nReturn no underlines and only 2-3 NEW extras that build on the answers so far ` +
     `and would most sharpen the result. No inline choices.`;
-  const data = await runClaude("analyze", SYSTEM, SCHEMA, input);
+  const data = await runModel("analyze", SYSTEM, SCHEMA, input);
   const underlines = (data.underlines || []).filter((u) => u.span && text.toLowerCase().includes(u.span.toLowerCase()));
   const extras = (data.extras || []).map((e) => ({ ...e, span: "" }));
   return { summary: data.summary, choices: more ? extras : [...underlines, ...extras], model: data.model, ms: data.ms };
@@ -204,7 +359,7 @@ const EXPLAIN_SCHEMA = {
 
 function explain(text, question, options) {
   const input = `Request: ${text}\nQuestion: ${question}\nOptions:\n` + options.map((o) => `- ${o}`).join("\n");
-  return runClaude("explain:" + question, EXPLAIN_SYSTEM, EXPLAIN_SCHEMA, input);
+  return runModel("explain:" + question, EXPLAIN_SYSTEM, EXPLAIN_SCHEMA, input);
 }
 
 // ---------------------------------------------------------------- http
@@ -223,9 +378,18 @@ function send(res, status, obj) {
   res.end(JSON.stringify(obj));
 }
 
+const OUT = opt("--out", process.env.PROMPT_SHAPER_OUT || "");
+const STATUS = { 0: "sent", 2: "cancelled", 3: "timeout" };
+
 function finish(code, text) {
-  for (const c of Object.values(running)) c.kill("SIGTERM");
+  for (const j of Object.values(running)) j.abort();
   if (text) process.stdout.write(text.endsWith("\n") ? text : text + "\n");
+  if (OUT) {
+    try { // write then rename, so a poller never reads half a file
+      writeFileSync(OUT + ".tmp", JSON.stringify({ status: STATUS[code] || "error", prompt: text || "" }) + "\n");
+      renameSync(OUT + ".tmp", OUT);
+    } catch (e) { log(`could not write ${OUT}: ${e.message}`); }
+  }
   setTimeout(() => process.exit(code), 150);
 }
 
@@ -236,7 +400,7 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
       return res.end(html());
     }
-    if (req.method === "GET" && url.pathname === "/api/init") return send(res, 200, { draft, model: MODEL, images: IMAGES });
+    if (req.method === "GET" && url.pathname === "/api/init") return send(res, 200, { draft, model: MODEL || BACKEND, backend: BACKEND, agent: AGENT, images: IMAGES });
     if (req.method === "POST" && url.pathname === "/api/analyze") {
       const { text = "", settled = [], answers = [], asked = [], more = false } = await body(req);
       if (text.trim().split(/\s+/).length < 2) return send(res, 200, { summary: "", choices: [] });
@@ -277,9 +441,14 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+// Don't wait forever, e.g. when the agent ran us in the background and moved on.
+const TIMEOUT_MIN = Number(process.env.PROMPT_SHAPER_TIMEOUT_MIN || 30);
+if (TIMEOUT_MIN > 0) setTimeout(() => { log(`no answer after ${TIMEOUT_MIN} min, giving up`); finish(3, ""); }, TIMEOUT_MIN * 60000).unref();
+
 server.listen(PORT, "127.0.0.1", () => {
   const url = `http://127.0.0.1:${server.address().port}/`;
   log(`open ${url}  (waiting for Send; Ctrl+C to abort)`);
+  log(`backend: ${BACKEND}${MODEL ? ` (${MODEL})` : ""}`);
   if (flag("--no-open")) return;
   const cmd = process.env.PROMPT_SHAPER_BROWSER ||
     (platform() === "darwin" ? "open" : platform() === "win32" ? "explorer" : "xdg-open");

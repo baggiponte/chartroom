@@ -267,12 +267,12 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
       <button class="icon-btn" id="cancel" title="Cancel and send nothing back" aria-label="Cancel">✕</button>
       <span class="status" id="status"><span class="dot"></span><span id="statusText">idle</span></span>
       <span class="spacer"></span>
-      <button class="send" id="send" title="Send to Claude Code (Enter)" aria-label="Send">
+      <button class="send" id="send" title="Send to your agent (Enter)" aria-label="Send">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
       </button>
     </div>
   </div>
-  <div class="hint" id="hint">Click any underlined part to flip it, drag the blue values left or right. Open questions are what your request doesn't say yet. <kbd>Enter</kbd> sends it back to Claude Code, <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new line.</div>
+  <div class="hint" id="hint">Click any underlined part to flip it, drag the blue values left or right. Open questions are what your request doesn't say yet. <kbd>Enter</kbd> sends it back to <span class="agentName">your agent</span>, <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new line.</div>
 </main>
 
 <div class="pop" id="pop" hidden role="dialog"></div>
@@ -287,8 +287,8 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
 <div class="scrub-hint" id="scrubHint" hidden></div>
 <div class="done" id="done" hidden>
   <div class="done-box">
-    <h2 id="doneTitle">Sent to Claude Code</h2>
-    <p id="doneSub">You can close this tab. Claude is picking it up from here:</p>
+    <h2 id="doneTitle">Sent to <span class="agentName">your agent</span></h2>
+    <p id="doneSub">You can close this tab. <span class="agentName">Your agent</span> is picking it up from here:</p>
     <pre id="donePrompt"></pre>
   </div>
 </div>
@@ -299,7 +299,7 @@ const $ = (id) => document.getElementById(id);
 const ta = $("ta"), backdrop = $("backdrop"), pop = $("pop"), extrasEl = $("extras");
 const EXAMPLE = "Help me choose a coffee machine for my small kitchen, something good for lattes.";
 
-let mode = "live", modelName = "haiku", imagesOn = true;
+let mode = "live", modelName = "the model", agentName = "your agent", imagesOn = true;
 let choices = [];            // inline (span in the text) and extras (span "", shown as tokens)
 let summary = "";
 let seq = 0, timer = null, lastAnalyzed = null, busy = false, moreBusy = false;
@@ -1041,18 +1041,18 @@ async function submit() {
   $("donePrompt").textContent = prompt;
   if (mode === "live") {
     try { await post("/api/submit", { prompt }); }
-    catch (e) { setStatus("err", "couldn't reach Claude Code: " + esc(e.message)); return; }
+    catch (e) { setStatus("err", "couldn't reach the help-me server: " + esc(e.message)); return; }
   } else {
     try { await navigator.clipboard.writeText(prompt); } catch {}
     $("doneTitle").textContent = "Copied to clipboard";
-    $("doneSub").textContent = "Demo mode (opened without the /help-me command). Paste this into Claude Code:";
+    $("doneSub").textContent = "Demo mode (opened without the /help-me command). Paste this into your agent:";
   }
   $("done").hidden = false;
 }
 $("cancel").onclick = async () => {
   if (mode === "live") { try { await post("/api/cancel", {}); } catch {} }
   $("doneTitle").textContent = "Cancelled";
-  $("doneSub").textContent = "Nothing was sent to Claude Code. You can close this tab.";
+  $("doneSub").textContent = `Nothing was sent to ${agentName}. You can close this tab.`;
   $("donePrompt").textContent = ta.value;
   $("done").hidden = false;
 };
@@ -1105,7 +1105,9 @@ async function demoExplain(ch, opts) {
   try {
     if (location.protocol === "file:") throw 0;
     const r = await fetch("/api/init"); if (!r.ok) throw 0;
-    const j = await r.json(); modelName = j.model || "haiku"; ta.value = j.draft || ""; imagesOn = j.images !== false;
+    const j = await r.json(); modelName = j.model || "the model"; agentName = j.agent || "your agent";
+    document.querySelectorAll(".agentName").forEach((el, i) => el.textContent = i === 2 ? agentName.replace(/^./, (c) => c.toUpperCase()) : agentName);
+    $("send").title = `Send to ${agentName} (Enter)`; ta.value = j.draft || ""; imagesOn = j.images !== false;
   } catch {
     mode = "demo"; modelName = "demo"; ta.value = EXAMPLE;
     $("hint").innerHTML = "Demo mode: opened without the <code>/help-me</code> command, so the underlines are a canned example.";

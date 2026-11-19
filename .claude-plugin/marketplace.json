@@ -2,6 +2,6 @@
   "name": "prompt-shaper-local",
   "owner": { "name": "Luca" },
   "plugins": [
-    { "name": "prompt-shaper", "source": "./", "description": "/help-me: answer a few clicks of questions in the browser before Claude works on your request." }
+    { "name": "prompt-shaper", "source": "./", "description": "/help-me: shape a vague request in the browser before the agent works on it." }
   ]
 }
