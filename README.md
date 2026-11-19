@@ -1,5 +1,7 @@
 # prompt-shaper
 
+![/help-me demo: flipping underlined phrases, Explain me, the open questions modal, dragging a number, then Enter](docs/demo.gif)
+
 `/help-me` for Claude Code. Type `/help-me I want to choose a coffee machine` and a page opens in your browser
 with your request on it. A small model (Haiku) reads it in the background and puts a dotted underline under
 every part you could flip: *coffee machine*, *small kitchen*, *good for lattes*. Click one and a popover
