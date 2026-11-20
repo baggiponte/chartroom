@@ -173,7 +173,7 @@ body.scrubbing, body.scrubbing * { cursor: ew-resize !important; user-select: no
 .ocard:hover .credit { opacity: 1; }
 /* help me decide */
 .ocard.rec:not(.on) { border-color: var(--accent); border-style: dashed; }
-.ocard .badge { align-self: flex-start; font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 2px 7px; margin-bottom: 2px; }
+.ocard .badge { justify-self: start; margin-right: 26px; font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 2px 7px; margin-bottom: 2px; }
 .decide-start { font: inherit; font-size: 14px; font-weight: 500; display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px 8px 13px; margin: 2px 0 12px; border-radius: 999px; border: 1px solid var(--accent); background: var(--accent-soft); color: var(--text); cursor: pointer; }
 .decide-start:hover { background: var(--chip-hover); }
 .decide { border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; margin: 0 0 12px; display: grid; gap: 14px; }
@@ -190,6 +190,47 @@ body.scrubbing, body.scrubbing * { cursor: ew-resize !important; user-select: no
 .decide-rec button:disabled { opacity: .45; cursor: default; }
 .decide-busy { font-size: 14px; color: var(--muted); animation: shimmer 1.2s infinite ease-in-out; }
 .decide-err { font-size: 14px; color: var(--danger); }
+/* help me decide: near full-page sheet over the request */
+.pop.sheet {
+  inset: max(16px, 3vh) 0 auto; margin: 0 auto; width: min(1120px, calc(100vw - 32px)); max-height: none; height: calc(100vh - 2 * max(16px, 3vh));
+  padding: 0; display: flex; flex-direction: column; overflow: hidden; border-radius: 26px;
+  box-shadow: var(--pop-shadow), 0 0 0 100vmax rgba(0,0,0,.32);
+}
+.pop.sheet[hidden] { display: none; }
+.sheet-head { display: flex; align-items: flex-start; gap: 14px; padding: 22px 26px 16px; border-bottom: 1px solid var(--line); }
+.sheet-title { flex: 1; min-width: 0; }
+.sheet-kicker { font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: .02em; }
+.sheet-q { font-size: 24px; line-height: 1.3; font-weight: 600; margin-top: 2px; }
+.sheet-head .link { font: inherit; font-size: 14px; background: none; border: 0; color: var(--muted); cursor: pointer; padding: 8px 4px; white-space: nowrap; }
+.sheet-head .link:hover { color: var(--text); }
+.sheet-x { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--chip); color: var(--text); cursor: pointer; font-size: 17px; flex: none; }
+.sheet-x:hover { background: var(--chip-hover); }
+.sheet-body { flex: 1; min-height: 0; overflow: auto; display: grid; grid-template-columns: minmax(300px, 400px) 1fr; align-items: start; }
+.sheet-you { padding: 22px 26px 28px; display: grid; gap: 22px; border-right: 1px solid var(--line); position: sticky; top: 0; }
+.sheet-opts { padding: 22px 26px 28px; min-width: 0; }
+.sheet-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: -10px; }
+.sheet-opts .sheet-label { margin-bottom: 10px; }
+.pop.sheet .decide-rec { flex-direction: column; align-items: stretch; padding: 14px 16px; font-size: 15px; }
+.pop.sheet .decide-rec span { flex: none; }
+.pop.sheet .decide-rec button { align-self: flex-start; padding: 9px 18px; font-size: 15px; }
+.pop.sheet .dq { gap: 10px; }
+.pop.sheet .dq-q { font-size: 16px; font-weight: 500; }
+.pop.sheet .explain { font-size: 15px; margin: 0 0 16px; }
+.pop.sheet .cards { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.sheet-foot { display: flex; align-items: center; gap: 14px; padding: 14px 26px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+.sheet-foot span { flex: 1; min-width: 0; }
+.sheet-foot b { color: var(--text); font-weight: 600; }
+.sheet-done { font: inherit; font-size: 15px; font-weight: 600; background: var(--ink); color: var(--ink-text); border: 0; border-radius: 999px; padding: 10px 20px; cursor: pointer; white-space: nowrap; }
+@media (max-width: 760px) {
+  .pop.sheet { inset: 8px 0 auto; width: calc(100vw - 16px); height: calc(100vh - 16px); border-radius: 20px; }
+  .sheet-head { padding: 16px 16px 12px; gap: 8px; }
+  .sheet-q { font-size: 19px; }
+  .sheet-head .link { display: none; }
+  .sheet-body { display: block; }
+  .sheet-you { position: static; border-right: 0; border-bottom: 1px solid var(--line); padding: 16px; gap: 18px; }
+  .sheet-opts { padding: 16px 16px 24px; }
+  .sheet-foot { padding: 12px 16px; }
+}
 .cards.skeleton .ocard { height: 120px; animation: shimmer 1.2s infinite ease-in-out; cursor: default; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -574,8 +615,12 @@ function openPop(id) {
     : isAsk(ch) ? (ch.settled ? `you asked “${esc(ch.orig)}”` : "your question: pick an answer to write it in") : `was “${esc(ch.orig)}”`;
   const wide = ch.explainOpen && !ch.explainErr;
   const numeric = ch.kind === "slider" && !ch.slider.stops?.length;
-  pop.classList.toggle("wide", wide);
-  const keepScroll = openedFor === id ? pop.scrollTop : 0; openedFor = id;
+  const sheet = wide && !!ch.decide && canDecide(ch);
+  pop.classList.toggle("wide", wide && !sheet);
+  pop.classList.toggle("sheet", sheet);
+  const scroller = () => sheet ? pop.querySelector(".sheet-body") : pop;
+  const keepScroll = openedFor === id ? (scroller()?.scrollTop || 0) : 0; openedFor = id;
+  if (sheet) { openSheet(ch, keepScroll); return; }
   pop.innerHTML = `<div class="pop-head"><span class="pop-q">${esc(ch.question)}</span><span class="pop-kind">${KIND[ch.kind]}</span></div>
     ${explainHTML(ch)}
     ${wide ? decideHTML(ch) + cardsHTML(ch) : ""}
@@ -660,6 +705,28 @@ function bindControls(ch, rerender, onPicked) {
 }
 
 // ------------------------------------------------------------ help me decide
+// Once Help me decide starts, the panel grows into a near full-page sheet: questions about you on the left,
+// the explained options on the right, and what the request will say at the bottom.
+function openSheet(ch, keepScroll) {
+  const picked = [...explainedOptions(ch).filter(o => isPicked(ch, o)).map(o => o.label), ...(ch.custom ? [ch.custom] : [])];
+  pop.style.left = pop.style.top = pop.style.maxHeight = "";
+  pop.innerHTML = `<div class="sheet-head"><div class="sheet-title"><div class="sheet-kicker">🧭 Help me decide</div><div class="sheet-q">${esc(ch.question)}</div></div>` +
+    `<button class="link" data-role="decide-restart">Start over</button>` +
+    `<button class="sheet-x" data-role="sheet-close" aria-label="Back to request" title="Back to request (Esc)">✕</button></div>` +
+    `<div class="sheet-body"><section class="sheet-you"><div class="sheet-label">About you</div>${decideBody(ch)}</section>` +
+    `<section class="sheet-opts"><div class="sheet-label">Your options</div>${explainHTML(ch)}${cardsHTML(ch)}${otherHTML(ch)}</section></div>` +
+    `<div class="sheet-foot"><span>${picked.length ? `Your request will say <b>${esc(picked.join(", "))}</b>` : "Nothing picked yet"}</span>` +
+    `<button class="sheet-done" data-role="sheet-close">Back to request</button></div>`;
+  pop.hidden = false;
+  pop.querySelector(".sheet-body").scrollTop = keepScroll;
+  bindControls(ch, () => openPop(ch.id), () => {});
+  pop.querySelectorAll("[data-card]").forEach(b => b.onclick = () => pickCard(ch, +b.dataset.card));
+  bindDecide(ch);
+  pop.querySelectorAll('[data-role="sheet-close"]').forEach(b => b.onclick = () => { closePop(); ta.focus(); });
+  const rs = pop.querySelector('[data-role="decide-restart"]');
+  if (rs) rs.onclick = () => { ch.decide = { qs: [], rec: null, busy: false, err: "", seq: 0 }; runDecide(ch); };
+  render();
+}
 function optionLabels(ch) {
   return ch.kind === "slider"
     ? (ch.slider.stops?.length ? ch.slider.stops : [ch.slider.minLabel || String(ch.slider.min), ch.slider.maxLabel || String(ch.slider.max)])
@@ -669,8 +736,11 @@ function canDecide(ch) { return (ch.kind !== "slider" || ch.slider.stops?.length
 function isRecommended(ch, o) { return !!ch.decide?.rec && o.i >= 0 && ch.decide.rec.label.toLowerCase() === String(o.label).toLowerCase(); }
 function decideHTML(ch) {
   if (!canDecide(ch) || ch.explainBusy) return "";
+  if (!ch.decide) return `<button class="decide-start" data-role="decide"><span class="emo">🧭</span>Help me decide</button>`;
+  return `<div class="decide"><div class="decide-head"><b>Help me decide</b><button data-role="decide-close">close</button></div>${decideBody(ch)}</div>`;
+}
+function decideBody(ch) {
   const d = ch.decide;
-  if (!d) return `<button class="decide-start" data-role="decide"><span class="emo">🧭</span>Help me decide</button>`;
   const rec = d.rec && explainedOptions(ch).find(o => isRecommended(ch, o));
   const recHTML = rec ? `<div class="decide-rec"><span><b>Suggested: ${esc(rec.label)}.</b> ${esc(d.rec.why || "")}</span>` +
     `<button data-role="decide-pick" ${isPicked(ch, rec) ? "disabled" : ""}>${isPicked(ch, rec) ? "Picked" : `Pick ${esc(rec.label)}`}</button></div>` : "";
@@ -681,8 +751,7 @@ function decideHTML(ch) {
   const status = d.busy ? `<div class="decide-busy">${d.qs.length ? "Weighing your answers…" : "Thinking of questions about you…"}</div>`
     : d.err ? `<div class="decide-err">Couldn't help decide: ${esc(d.err)}</div>`
     : d.qs.length && !answered ? `<div class="decide-head">Answer any of these and I'll suggest one.</div>` : "";
-  return `<div class="decide"><div class="decide-head"><b>Help me decide</b><button data-role="decide-close">close</button></div>` +
-    recHTML + qs + status + `</div>`;
+  return recHTML + qs + status;
 }
 function bindDecide(ch) {
   const start = pop.querySelector('[data-role="decide"]');
@@ -741,6 +810,7 @@ function anchorFor(id) {
   return backdrop.querySelector(`mark[data-id="${id}"]`) || extrasEl.querySelector(`[data-id="${id}"]`);
 }
 function positionPop() {
+  if (pop.classList.contains("sheet")) return; // placed by CSS
   const a = anchorFor(openId); if (!a) return;
   if (pop.classList.contains("wide")) {
     // the expanded panel sits under the whole request card so the sentence stays readable while you pick
@@ -759,7 +829,10 @@ function positionPop() {
   if (top + ph > innerHeight - 12) top = r.top - ph - 10 > 12 ? r.top - ph - 10 : innerHeight - ph - 12; // no room either side: keep it on screen
   pop.style.left = clamp(r.left - 12, 16, innerWidth - pw - 16) + "px"; pop.style.top = Math.max(12, top) + "px";
 }
-function closePop() { if (!openId) return; openId = null; openedFor = null; pop.hidden = true; render(); }
+function closePop() {
+  if (!openId) return;
+  if (pop.classList.contains("sheet")) { const c = choices.find(c => c.id === openId); if (c) c.explainOpen = false; } // reopen as the small popover; Help me decide resumes the sheet
+  openId = null; openedFor = null; pop.hidden = true; render(); }
 
 function refreshChoice(ch) {
   if (openId === ch.id) openPop(ch.id);
