@@ -4,7 +4,7 @@ description: Opens a browser page where the user shapes a vague request by click
 compatibility: Needs Node 18+, a local browser, and one analysis backend (the claude, codex or gemini CLI, or ANTHROPIC_API_KEY / OPENAI_API_KEY).
 allowed-tools: Bash(node:*)
 metadata:
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # help-me
@@ -21,8 +21,8 @@ The request is what the user asked for help with: the text after `/help-me`, or 
 stdin with a quoted heredoc so nothing in it gets expanded:
 
 ```bash
-node "SKILL_DIR/server.mjs" --stdin --agent "<your name, e.g. Codex>" <<'HELP_ME_EOF'
-<the user's request, verbatim>
+node "SKILL_DIR/server.mjs" --stdin --agent "<your name, e.g. Codex>" [override flags] <<'HELP_ME_EOF'
+<the user's request, verbatim, minus any overrides (see below)>
 HELP_ME_EOF
 ```
 
@@ -33,9 +33,27 @@ HELP_ME_EOF
 - If your shell tool cannot wait that long, start it in the background with `--out /tmp/help-me-$$.json`
   added, tell the user to finish in the browser, and check that file every few seconds until it exists. It
   then holds `{"status": "sent" | "cancelled" | "timeout", "prompt": "..."}`.
-- The analysis picks a backend by itself (your own CLI first when it can tell which agent you are, then
-  `claude`, `codex`, `gemini`, then API keys). Pass `--backend claude|codex|gemini|anthropic|openai` only if
-  the user asks for one, or if the first run fails because the chosen one is not set up.
+- Don't pass settings the user didn't ask for. Their defaults are already read from
+  `~/.config/prompt-shaper/config.json` and `PROMPT_SHAPER_*` env vars, and without them the server picks a
+  backend by itself (your own CLI first, then `claude`, `codex`, `gemini`, then API keys).
+
+### Overrides in the request
+
+The user can tack instructions for the page itself onto the request. Turn each into a flag and **remove it
+from the request** you pass on stdin, so the page only shows what they want help with:
+
+| The user says something like | Flag |
+|---|---|
+| "use gemini", "with codex", "via claude", "use my OpenAI key" | `--backend gemini` (or `claude`, `codex`, `anthropic`, `openai`) |
+| "with sonnet", "use gpt-5" | `--model <name>` (with `--backend` if the model implies one) |
+| "think harder", "high effort" | `--effort high` |
+| "no pictures", "without images" / "with pictures" | `--no-images` / `--images` |
+| "don't open the browser", "I'm on SSH" | `--no-open` (then give them the URL from the logs) |
+| "on port 8080" | `--port 8080` |
+
+Only strip what is clearly about running the page. "Help me choose between Gemini and Claude" is the
+request, not an override. If the first run fails because the chosen backend is not set up, say so and offer
+to run it again with another one.
 
 Lines on stderr starting with `[prompt-shaper]` are logs. One of them has the page URL. If no browser opened
 (for example over SSH), give the user that URL.

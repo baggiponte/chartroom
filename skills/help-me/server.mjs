@@ -2,7 +2,11 @@
 // prompt-shaper: a local bridge between a browser prompt box and any coding agent.
 //
 //   node server.mjs [--draft "text" | --stdin] [--backend auto|claude|codex|gemini|anthropic|openai]
-//                   [--model M] [--port N] [--out FILE] [--no-open] [--no-images]
+//                   [--model M] [--effort E] [--port N] [--out FILE] [--no-open] [--images | --no-images]
+//
+// Every setting is read from, in this order: the flag, then a PROMPT_SHAPER_* env var, then
+// $XDG_CONFIG_HOME/prompt-shaper/config.json (default ~/.config/...; PROMPT_SHAPER_CONFIG points elsewhere),
+// then the built-in default. Agents can set the env vars in their own global config (see README).
 //
 // Serves index.html, runs the analysis through a pluggable backend (the claude, codex or gemini CLI with your
 // existing login, or an Anthropic / OpenAI-compatible API key), and blocks until you press Send in the browser.
@@ -14,7 +18,7 @@
 import http from "node:http";
 import { spawn } from "node:child_process";
 import { readFileSync, writeFileSync, renameSync, existsSync, mkdtempSync, rmSync } from "node:fs";
-import { tmpdir, platform } from "node:os";
+import { tmpdir, platform, homedir } from "node:os";
 import { dirname, join, delimiter } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -26,14 +30,41 @@ const opt = (name, fallback) => {
   return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : fallback;
 };
 
-const PORT = Number(opt("--port", process.env.PROMPT_SHAPER_PORT || 0));
-// Explanation cards can show pictures, looked up by the browser on Wikimedia Commons (keyless). Set
-// PROMPT_SHAPER_IMAGES=0 or pass --no-images to turn that off.
-// Shown on the page ("Send to Codex"). The skill passes --agent; otherwise guess from the environment.
-const AGENT = opt("--agent", process.env.PROMPT_SHAPER_AGENT || (process.env.CLAUDECODE ? "Claude Code"
-  : process.env.GEMINI_CLI ? "Gemini CLI" : Object.keys(process.env).some((k) => k.startsWith("CODEX_")) ? "Codex" : "your agent"));
-const IMAGES = !flag("--no-images") && process.env.PROMPT_SHAPER_IMAGES !== "0";
 const log = (...m) => console.error("[prompt-shaper]", ...m);
+
+// ---------------------------------------------------------------- settings
+// Defaults live in a small JSON file, e.g. {"backend": "gemini", "images": false}. Keys: backend, model,
+// effort, images, open, port, browser, timeoutMin, agent.
+const CONFIG_FILE = process.env.PROMPT_SHAPER_CONFIG ||
+  join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "prompt-shaper", "config.json");
+const CONFIG = (() => {
+  if (!existsSync(CONFIG_FILE)) return {};
+  try {
+    const c = JSON.parse(readFileSync(CONFIG_FILE, "utf8"));
+    if (!c || typeof c !== "object" || Array.isArray(c)) throw new Error("not a JSON object");
+    return c;
+  } catch (e) { log(`ignoring ${CONFIG_FILE}: ${e.message}`); return {}; }
+})();
+const ENV_NAME = (key) => "PROMPT_SHAPER_" + key.replace(/[A-Z]/g, (c) => "_" + c).toUpperCase(); // timeoutMin -> PROMPT_SHAPER_TIMEOUT_MIN
+// flag > env > config file > fallback
+const setting = (key, flagName, fallback) => {
+  const v = opt(flagName, process.env[ENV_NAME(key)] ?? CONFIG[key]);
+  return v === undefined || v === "" ? fallback : v;
+};
+const onOff = (key, fallback) => { // --images / --no-images, PROMPT_SHAPER_IMAGES=0|1, "images": false
+  if (flag(`--${key}`)) return true;
+  if (flag(`--no-${key}`)) return false;
+  const v = process.env[ENV_NAME(key)] ?? CONFIG[key];
+  if (v === undefined || v === "") return fallback;
+  return !["0", "false", "no", "off"].includes(String(v).toLowerCase());
+};
+
+const PORT = Number(setting("port", "--port", 0));
+// Explanation cards can show pictures, looked up by the browser on Wikimedia Commons (keyless).
+const IMAGES = onOff("images", true);
+// Shown on the page ("Send to Codex"). The skill passes --agent; otherwise guess from the environment.
+const AGENT = setting("agent", "--agent", process.env.CLAUDECODE ? "Claude Code"
+  : process.env.GEMINI_CLI ? "Gemini CLI" : Object.keys(process.env).some((k) => k.startsWith("CODEX_")) ? "Codex" : "your agent");
 
 async function readStdin() {
   const chunks = [];
@@ -284,7 +315,7 @@ function onPath(cmd) {
 
 // Pick a backend: an explicit choice wins; then the agent we were started from; then whatever is installed.
 function pickBackend() {
-  const asked = opt("--backend", process.env.PROMPT_SHAPER_BACKEND || "auto");
+  const asked = String(setting("backend", "--backend", "auto")).toLowerCase();
   if (asked !== "auto") {
     if (!BACKENDS[asked]) { log(`unknown backend "${asked}", use one of: auto, ${Object.keys(BACKENDS).join(", ")}`); process.exit(1); }
     return asked;
@@ -301,8 +332,12 @@ function pickBackend() {
 }
 
 const BACKEND = pickBackend();
-const MODEL = opt("--model", process.env.PROMPT_SHAPER_MODEL || BACKENDS[BACKEND].model);
-const EFFORT = process.env.PROMPT_SHAPER_EFFORT || "low";
+// A model belongs to the backend it was set with: "model" in the config file is dropped when the backend
+// itself comes from an env var or a flag, so `--backend gemini` doesn't try to run gemini with "haiku".
+const rank = (key, flagName) => flag(flagName) ? 0 : process.env[ENV_NAME(key)] ? 1 : CONFIG[key] !== undefined ? 2 : 3;
+const MODEL = rank("model", "--model") <= rank("backend", "--backend") ? setting("model", "--model", BACKENDS[BACKEND].model)
+  : BACKENDS[BACKEND].model;
+const EFFORT = setting("effort", "--effort", "low");
 
 async function runModel(slot, system, schema, input) {
   const { data, model, ms } = await BACKENDS[BACKEND].run(slot, system, schema, input);
@@ -442,15 +477,15 @@ const server = http.createServer(async (req, res) => {
 });
 
 // Don't wait forever, e.g. when the agent ran us in the background and moved on.
-const TIMEOUT_MIN = Number(process.env.PROMPT_SHAPER_TIMEOUT_MIN || 30);
+const TIMEOUT_MIN = Number(setting("timeoutMin", "--timeout-min", 30));
 if (TIMEOUT_MIN > 0) setTimeout(() => { log(`no answer after ${TIMEOUT_MIN} min, giving up`); finish(3, ""); }, TIMEOUT_MIN * 60000).unref();
 
 server.listen(PORT, "127.0.0.1", () => {
   const url = `http://127.0.0.1:${server.address().port}/`;
   log(`open ${url}  (waiting for Send; Ctrl+C to abort)`);
-  log(`backend: ${BACKEND}${MODEL ? ` (${MODEL})` : ""}`);
-  if (flag("--no-open")) return;
-  const cmd = process.env.PROMPT_SHAPER_BROWSER ||
+  log(`backend: ${BACKEND}${MODEL ? ` (${MODEL})` : ""}${IMAGES ? "" : ", no pictures"}${Object.keys(CONFIG).length ? `, defaults from ${CONFIG_FILE}` : ""}`);
+  if (!onOff("open", true)) return;
+  const cmd = setting("browser", "--browser", "") ||
     (platform() === "darwin" ? "open" : platform() === "win32" ? "explorer" : "xdg-open");
   try { spawn(cmd, [url], { stdio: "ignore", detached: true }).on("error", () => {}).unref(); } catch {}
 });

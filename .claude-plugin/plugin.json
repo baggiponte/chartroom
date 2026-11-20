@@ -1,6 +1,6 @@
 {
   "name": "prompt-shaper",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "/help-me opens a browser page around your request: flip the underlined parts, answer open questions, and the sharpened request goes back to the agent.",
   "author": { "name": "Luca" }
 }

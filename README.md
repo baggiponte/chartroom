@@ -42,12 +42,11 @@ claude plugin marketplace add baggiponte/prompt-shaper
 claude plugin install prompt-shaper@prompt-shaper-local
 ```
 
-**From a clone**, linked so `git pull` updates it:
+**Without npm**, clone it and link the skill folder into your agent's skill folder (table below), so `git pull` updates it:
 
 ```bash
-git clone https://github.com/baggiponte/prompt-shaper
-bash prompt-shaper/install.sh          # links into ~/.claude, ~/.codex, ~/.gemini, ~/.config/opencode, ~/.agents if present
-bash prompt-shaper/install.sh codex    # or just the agents you name
+git clone https://github.com/baggiponte/prompt-shaper ~/src/prompt-shaper
+ln -s ~/src/prompt-shaper/skills/help-me ~/.claude/skills/help-me
 ```
 
 | Agent | Skill folder | How to call it |
@@ -99,17 +98,52 @@ sequenceDiagram
     S-->>A: request on stdout, exit 0 (cancel: exit 2, --out FILE also gets JSON)
 ```
 
-| flag / env | default | |
-|---|---|---|
-| `--backend` / `PROMPT_SHAPER_BACKEND` | `auto` | see [Backends](#backends) |
-| `--model` / `PROMPT_SHAPER_MODEL` | per backend | model for the analysis |
-| `PROMPT_SHAPER_EFFORT` | `low` | effort level (claude, codex) |
-| `--agent` / `PROMPT_SHAPER_AGENT` | guessed | agent name shown on the page, e.g. "Send to Codex" |
-| `--out FILE` | | also write `{"status","prompt"}` to FILE when done |
-| `PROMPT_SHAPER_TIMEOUT_MIN` | `30` | give up (exit 3) if nobody answers |
-| `--port` / `PROMPT_SHAPER_PORT` | random | fixed port, e.g. for SSH forwarding |
-| `--no-open`, `PROMPT_SHAPER_BROWSER` | system opener | don't open a browser, or pick which one |
-| `--no-images` / `PROMPT_SHAPER_IMAGES=0` | on | skip the Wikimedia Commons pictures |
+## Configuration
+
+Set your defaults once, then override them in the request when you need to.
+
+**Defaults** go in `~/.config/prompt-shaper/config.json` (or `$XDG_CONFIG_HOME/prompt-shaper/config.json`;
+`PROMPT_SHAPER_CONFIG` points at another file). Every agent reads the same file:
+
+```json
+{ "backend": "gemini", "images": false }
+```
+
+**Per request**, just say it. The skill tells the agent to turn phrases about the page into flags and drop
+them from the request, so `/help-me use codex, no pictures: plan a weekend in Lisbon` shapes "plan a weekend
+in Lisbon" with `--backend codex --no-images`.
+
+A flag beats a `PROMPT_SHAPER_*` env var, which beats the config file, which beats the default. A `model` from
+the config file is dropped when the request picks another backend.
+
+| config key | flag | env | default | |
+|---|---|---|---|---|
+| `backend` | `--backend` | `PROMPT_SHAPER_BACKEND` | `auto` | see [Backends](#backends) |
+| `model` | `--model` | `PROMPT_SHAPER_MODEL` | per backend | model for the analysis |
+| `effort` | `--effort` | `PROMPT_SHAPER_EFFORT` | `low` | effort level (claude, codex) |
+| `images` | `--images` / `--no-images` | `PROMPT_SHAPER_IMAGES=0` | `true` | Wikimedia Commons pictures in "Explain me" |
+| `open` | `--no-open` | `PROMPT_SHAPER_OPEN=0` | `true` | open a browser at all |
+| `browser` | `--browser` | `PROMPT_SHAPER_BROWSER` | system opener | which browser command to use |
+| `port` | `--port` | `PROMPT_SHAPER_PORT` | random | fixed port, e.g. for SSH forwarding |
+| `timeoutMin` | `--timeout-min` | `PROMPT_SHAPER_TIMEOUT_MIN` | `30` | give up (exit 3) if nobody answers |
+| | `--agent` | `PROMPT_SHAPER_AGENT` | guessed | agent name on the page, e.g. "Send to Codex" |
+| | `--out FILE` | | | also write `{"status","prompt"}` to FILE when done |
+
+### In your agent's own config
+
+Agents don't have a place for a skill's settings, but most can set env vars for the commands they run, and
+that's enough. Use it only when one agent should differ from the rest; otherwise the config file is simpler.
+
+- **Claude Code**, `~/.claude/settings.json`: `{ "env": { "PROMPT_SHAPER_BACKEND": "claude" } }`
+- **Codex**, `~/.codex/config.toml`:
+  ```toml
+  [shell_environment_policy]
+  set = { PROMPT_SHAPER_BACKEND = "codex" }
+  ```
+- **Gemini CLI**, `~/.gemini/.env`: `PROMPT_SHAPER_BACKEND=gemini` (a `.env` in your project is read instead, if there is one)
+- **Others**: export the variable in your shell profile.
+
+You rarely need even that: with `backend` on `auto`, each agent already uses its own CLI.
 
 ## Backends
 
