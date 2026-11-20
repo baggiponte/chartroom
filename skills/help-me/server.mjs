@@ -398,6 +398,50 @@ function explain(text, question, options) {
   return runModel("explain:" + question, EXPLAIN_SYSTEM, EXPLAIN_SCHEMA, input);
 }
 
+const DECIDE_SYSTEM = `Someone is stuck choosing between options for one question in a short questionnaire about their request.
+Help them decide by asking about THEM, not about the options: their habits, budget, space, skill, time, priorities.
+Each question must be one they can answer instantly from their own life (e.g. "How often do you steam milk?",
+"How much counter space do you have?") and whose answer clearly favours some options over others.
+Never ask them to pick between the options directly, and never ask something the request or their answers already say.
+Return JSON:
+- questions: NEW questions only, each with question (max 12 words) and 2-4 options (label max 5 words, optional emoji),
+  answerable with one tap. With no answers yet return the 3 questions that split the options best. Once they have
+  answered, return 0-2 follow-ups, and only if the choice is still genuinely close; otherwise return none.
+- recommendation: once at least one answer points somewhere, the option that fits best: label copied exactly from the
+  options, and why = one sentence (max 25 words) tying it to their answers in plain words. Omit it with no answers.`;
+
+const DECIDE_SCHEMA = {
+  type: "object",
+  required: ["questions"],
+  properties: {
+    questions: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["question", "options"],
+        properties: {
+          question: { type: "string" },
+          options: { type: "array", items: { type: "object", required: ["label"], properties: { label: { type: "string" }, emoji: { type: "string" } } } },
+        },
+      },
+    },
+    recommendation: { type: "object", required: ["label", "why"], properties: { label: { type: "string" }, why: { type: "string" } } },
+  },
+};
+
+async function decide(text, question, options, answers = [], asked = []) {
+  let input = `Request: ${text}\nQuestion: ${question}\nOptions:\n` + options.map((o) => `- ${o}`).join("\n");
+  if (answers.length) input += `\n\nTheir answers so far:\n` + answers.map((a) => `- ${a.q} ${a.a}`).join("\n");
+  if (asked.length) input += `\n\nAlready asked (do not repeat):\n` + asked.map((q) => `- ${q}`).join("\n");
+  const data = await runModel("decide:" + question, DECIDE_SYSTEM, DECIDE_SCHEMA, input);
+  const lc = new Set(options.map((o) => o.toLowerCase()));
+  if (data.recommendation && !lc.has(String(data.recommendation.label).toLowerCase())) delete data.recommendation;
+  if (!answers.length) delete data.recommendation;
+  const seen = new Set(asked.map((q) => q.toLowerCase()));
+  data.questions = (data.questions || []).filter((q) => q.question && !seen.has(q.question.toLowerCase()) && (q.options || []).length >= 2);
+  return data;
+}
+
 // ---------------------------------------------------------------- http
 const html = () => readFileSync(join(HERE, "index.html"));
 
@@ -459,6 +503,17 @@ const server = http.createServer(async (req, res) => {
         return send(res, 200, data);
       } catch (e) {
         log(e.message);
+        return send(res, e.superseded ? 409 : 500, { error: e.message });
+      }
+    }
+    if (req.method === "POST" && url.pathname === "/api/decide") {
+      const { text = "", question = "", options = [], answers = [], asked = [] } = await body(req);
+      try {
+        const data = await decide(text, question, options, answers, asked);
+        log(`helped decide "${question}" in ${data.ms} ms${data.recommendation ? `: ${data.recommendation.label}` : ""}`);
+        return send(res, 200, data);
+      } catch (e) {
+        if (!e.superseded) log(e.message);
         return send(res, e.superseded ? 409 : 500, { error: e.message });
       }
     }

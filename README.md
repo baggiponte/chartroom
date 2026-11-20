@@ -50,6 +50,7 @@ server and opens a browser: approve it.
 | Click an underline | pick an option, or "Something else" (Alt+↓ opens the one at the caret) |
 | Drag a blue value | change a number or amount (arrow keys work too) |
 | Explain me | show what each option means and who it suits, with pictures when they help |
+| Help me decide | in the Explain me panel: a few questions about you (habits, budget, space) that narrow the options, then a suggested pick |
 | Question cards | answer what the request doesn't say yet; the answer is written into the request as a sentence. **+ More questions** asks for more |
 | Type | edit freely. The model reads the text again and keeps what you set |
 | Enter / Shift+Enter / ✕ | send / new line / cancel and send nothing |
@@ -65,7 +66,7 @@ sequenceDiagram
     participant W as Wikimedia Commons
     A->>S: /help-me runs node skills/help-me/server.mjs --stdin (blocks)
     S->>B: serve index.html on 127.0.0.1, open browser
-    B->>S: POST /api/analyze, /api/explain
+    B->>S: POST /api/analyze, /api/explain, /api/decide
     S->>M: prompt
     M-->>S: JSON
     S-->>B: underlines, extras, options

@@ -190,6 +190,25 @@ body.scrubbing, body.scrubbing * { cursor: ew-resize !important; user-select: no
 .ocard.on .tick { background: var(--accent); border-color: var(--accent); color: #fff; }
 .ocard .credit { position: absolute; left: 8px; top: 8px; font-size: 11px; padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,.45); color: #fff; text-decoration: none; opacity: 0; transition: opacity .12s; }
 .ocard:hover .credit { opacity: 1; }
+/* help me decide: questions about you that narrow the options down, then a suggested pick */
+.ocard.rec:not(.on) { border-color: var(--accent); border-style: dashed; }
+.ocard .badge { align-self: flex-start; font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 2px 7px; margin-bottom: 2px; }
+.decide-start { font: inherit; font-size: 14px; font-weight: 500; display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px 8px 13px; margin: 2px 0 12px; border-radius: 999px; border: 1px solid var(--accent); background: var(--accent-soft); color: var(--text); cursor: pointer; }
+.decide-start:hover { background: var(--chip-hover); }
+.decide { border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; margin: 0 0 12px; display: grid; gap: 14px; }
+.decide-head { display: flex; align-items: baseline; gap: 12px; font-size: 13px; color: var(--muted); }
+.decide-head b { flex: 1; font-size: 15px; font-weight: 600; color: var(--text); }
+.decide-head button { font: inherit; font-size: 13px; background: none; border: 0; padding: 0; color: var(--muted); cursor: pointer; }
+.decide-head button:hover { color: var(--text); }
+.dq { display: grid; gap: 8px; }
+.dq-q { font-size: 15px; }
+.dq .chip { padding: 6px 13px 6px 11px; font-size: 14px; gap: 7px; }
+.decide-rec { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--accent-soft); border-radius: 12px; padding: 10px 12px; font-size: 14px; line-height: 1.45; }
+.decide-rec span { flex: 1 1 260px; }
+.decide-rec button { font: inherit; font-size: 14px; font-weight: 600; background: var(--ink); color: var(--ink-text); border: 0; border-radius: 999px; padding: 7px 14px; cursor: pointer; white-space: nowrap; }
+.decide-rec button:disabled { opacity: .45; cursor: default; }
+.decide-busy { font-size: 14px; color: var(--muted); animation: shimmer 1.2s infinite ease-in-out; }
+.decide-err { font-size: 14px; color: var(--danger); }
 .cards.skeleton .ocard { height: 120px; animation: shimmer 1.2s infinite ease-in-out; cursor: default; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -499,9 +518,10 @@ function cardsHTML(ch) {
       : img.src && !dupImage(ch, o) ? `<span class="pic"><img src="${esc(img.src)}" alt="${esc(o.label)}" loading="lazy" onerror="this.parentNode.remove()"></span>` +
         (img.page ? `<a class="credit" href="${esc(img.page)}" target="_blank" rel="noopener" title="${esc(img.title || "")}">Wikimedia</a>` : "") : "";
     const clickable = o.i >= 0;
-    return `<button class="ocard ${ch.kind === "multi" ? "multi" : ""} ${isPicked(ch, o) ? "on" : ""} ${clickable ? "" : "static"}" ${clickable ? `data-card="${o.i}"` : "disabled"}>` +
+    const rec = isRecommended(ch, o);
+    return `<button class="ocard ${ch.kind === "multi" ? "multi" : ""} ${isPicked(ch, o) ? "on" : ""} ${rec ? "rec" : ""} ${clickable ? "" : "static"}" ${clickable ? `data-card="${o.i}"` : "disabled"}>` +
       pic + (clickable ? `<span class="tick">✓</span>` : "") +
-      `<span class="body"><span class="name">${o.emoji ? `<span class="emo">${esc(o.emoji)}</span>` : ""}${esc(o.label)}</span>` +
+      `<span class="body">${rec ? `<span class="badge">Suggested for you</span>` : ""}<span class="name">${o.emoji ? `<span class="emo">${esc(o.emoji)}</span>` : ""}${esc(o.label)}</span>` +
       (o.what ? `<span class="what">${esc(o.what)}</span>` : "") +
       (o.good_for ? `<span class="for">Good for: ${esc(o.good_for)}</span>` : "") +
       `</span></button>`;
@@ -549,7 +569,7 @@ function openPop(id) {
   const keepScroll = openedFor === id ? pop.scrollTop : 0; openedFor = id;
   pop.innerHTML = `<div class="pop-head"><span class="pop-q">${esc(ch.question)}</span><span class="pop-kind">${KIND[ch.kind]}</span></div>
     ${explainHTML(ch)}
-    ${wide ? cardsHTML(ch) : ""}
+    ${wide ? decideHTML(ch) + cardsHTML(ch) : ""}
     <div>${wide && !numeric ? otherHTML(ch) : controlsHTML(ch)}</div>
     <div class="pop-foot"><span>${ch.explain ? `<button class="explain-btn" data-role="explain">${ch.explainOpen ? "Hide explanation" : "Explain me"}</button>` : footLeft}</span>
     <button data-role="reset">${ch.extra ? "leave open" : ch.promo ? "remove sentence" : "reset"}</button></div>`;
@@ -559,6 +579,7 @@ function openPop(id) {
   // In the expanded view a pick keeps the panel open so you can compare; Esc or a click outside closes it.
   bindControls(ch, () => openPop(ch.id), () => { if (!multi && !wide) setTimeout(closePop, 200); });
   pop.querySelectorAll("[data-card]").forEach(b => b.onclick = () => pickCard(ch, +b.dataset.card));
+  bindDecide(ch);
   const ex = pop.querySelector('[data-role="explain"]'); if (ex) ex.onclick = () => toggleExplain(ch);
   pop.querySelector('[data-role="reset"]').onclick = () => {
     ch.selected = []; ch.custom = ""; ch.touched = false;
@@ -618,6 +639,67 @@ function bindControls(ch, rerender, onPicked) {
       } else if (ev.key === "Escape") { closePop(); ta.focus(); }
     };
   };
+}
+
+// ------------------------------------------------------------ help me decide
+// Asks a few questions about the person (habits, budget, space...) whose answers point at one option, then
+// suggests it on the cards. Answers stay in the panel; picking still happens on the cards or with "Pick it".
+function optionLabels(ch) {
+  return ch.kind === "slider"
+    ? (ch.slider.stops?.length ? ch.slider.stops : [ch.slider.minLabel || String(ch.slider.min), ch.slider.maxLabel || String(ch.slider.max)])
+    : ch.options.map(o => o.label);
+}
+function canDecide(ch) { return (ch.kind !== "slider" || ch.slider.stops?.length > 1) && optionLabels(ch).length > 1; }
+function isRecommended(ch, o) { return !!ch.decide?.rec && o.i >= 0 && ch.decide.rec.label.toLowerCase() === String(o.label).toLowerCase(); }
+function decideHTML(ch) {
+  if (!canDecide(ch) || ch.explainBusy) return "";
+  const d = ch.decide;
+  if (!d) return `<button class="decide-start" data-role="decide"><span class="emo">🧭</span>Help me decide</button>`;
+  const rec = d.rec && explainedOptions(ch).find(o => isRecommended(ch, o));
+  const recHTML = rec ? `<div class="decide-rec"><span><b>Suggested: ${esc(rec.label)}.</b> ${esc(d.rec.why || "")}</span>` +
+    `<button data-role="decide-pick" ${isPicked(ch, rec) ? "disabled" : ""}>${isPicked(ch, rec) ? "Picked" : `Pick ${esc(rec.label)}`}</button></div>` : "";
+  const qs = d.qs.map((q, qi) => `<div class="dq"><div class="dq-q">${esc(q.question)}</div><div class="chips">` +
+    q.options.map((o, oi) => `<button class="chip ${q.answer === o.label ? "on" : ""}" data-dq="${qi}" data-da="${oi}">` +
+      (o.emoji ? `<span class="emo">${esc(o.emoji)}</span>` : "") + `${esc(o.label)}</button>`).join("") + `</div></div>`).join("");
+  const answered = d.qs.filter(q => q.answer).length;
+  const status = d.busy ? `<div class="decide-busy">${d.qs.length ? "Weighing your answers…" : "Thinking of questions about you…"}</div>`
+    : d.err ? `<div class="decide-err">Couldn't help decide: ${esc(d.err)}</div>`
+    : d.qs.length && !answered ? `<div class="decide-head">Answer any of these and I'll suggest one.</div>` : "";
+  return `<div class="decide"><div class="decide-head"><b>Help me decide</b><button data-role="decide-close">close</button></div>` +
+    recHTML + qs + status + `</div>`;
+}
+function bindDecide(ch) {
+  const start = pop.querySelector('[data-role="decide"]');
+  if (start) start.onclick = () => { ch.decide = { qs: [], rec: null, busy: false, err: "", seq: 0 }; runDecide(ch); };
+  const close = pop.querySelector('[data-role="decide-close"]');
+  if (close) close.onclick = () => { ch.decide = null; refreshChoice(ch); };
+  pop.querySelectorAll("[data-dq]").forEach(b => b.onclick = () => {
+    const q = ch.decide.qs[+b.dataset.dq], o = q.options[+b.dataset.da];
+    q.answer = q.answer === o.label ? "" : o.label;
+    runDecide(ch);
+  });
+  const pick = pop.querySelector('[data-role="decide-pick"]');
+  if (pick) pick.onclick = () => {
+    const o = explainedOptions(ch).find(x => isRecommended(ch, x));
+    if (o && !isPicked(ch, o)) pickCard(ch, o.i);
+  };
+}
+async function runDecide(ch) {
+  const d = ch.decide; if (!d) return;
+  const my = ++d.seq;
+  d.busy = true; d.err = ""; refreshChoice(ch);
+  const answers = d.qs.filter(q => q.answer).map(q => ({ q: q.question, a: q.answer }));
+  const payload = { text: ta.value, question: ch.question, options: optionLabels(ch), answers, asked: d.qs.map(q => q.question) };
+  try {
+    const r = mode === "live" ? await post("/api/decide", payload) : await demoDecide(ch, payload);
+    if (ch.decide !== d || my !== d.seq) return;
+    d.qs.push(...(r.questions || []).map(q => ({ question: q.question, options: q.options || [], answer: "" })));
+    d.rec = answers.length ? (r.recommendation || d.rec) : null;
+  } catch (e) {
+    if (e.superseded || ch.decide !== d || my !== d.seq) return;
+    d.err = e.message;
+  }
+  d.busy = false; refreshChoice(ch);
 }
 
 async function toggleExplain(ch) {
@@ -1051,6 +1133,29 @@ async function demoExplain(ch, opts) {
       { label: "Steam wand", what: "You steam the milk yourself. Silkiest foam once you learn, latte art possible.", good_for: "people who want café-style milk" },
       { label: "Separate frother", what: "A small jug that heats and whips milk on its own. Cheap, foam is airier.", good_for: "pod or filter machines" } ] };
   return { intro: "This changes which machines fit you.", options: opts.map(l => ({ label: l, what: "A reasonable choice; it depends on your taste." })) };
+}
+
+async function demoDecide(ch, { options, answers, asked }) {
+  await new Promise(r => setTimeout(r, 500));
+  const machine = ch.question === "What kind of machine?";
+  const bank = machine ? [
+    { question: "How often will you make milk drinks?", options: [
+      { label: "Every day", emoji: "🥛", fav: "Espresso" }, { label: "A few times a week", emoji: "📅", fav: "Bean-to-cup" }, { label: "Rarely", emoji: "🫗", fav: "Filter" } ] },
+    { question: "How much fiddling do you enjoy?", options: [
+      { label: "Love the ritual", emoji: "🧪", fav: "Espresso" }, { label: "Some is fine", emoji: "👌", fav: "Bean-to-cup" }, { label: "One button please", emoji: "🔘", fav: "Pod" } ] },
+    { question: "Rough budget?", options: [
+      { label: "Under €150", emoji: "🪙", fav: "Pod" }, { label: "€150–600", emoji: "💶", fav: "Espresso" }, { label: "€600+", emoji: "💎", fav: "Bean-to-cup" } ] },
+  ] : [
+    { question: "How much time do you have in the morning?", options: options.map((l, i) => ({ label: ["Seconds", "A few minutes", "No rush"][i % 3], fav: l })) },
+    { question: "What matters most?", options: options.map((l, i) => ({ label: ["Ease", "Quality", "Price"][i % 3], fav: l })) },
+  ];
+  const fresh = bank.filter(q => !asked.includes(q.question));
+  if (!answers.length) return { model: "demo", questions: fresh };
+  const votes = {};
+  for (const a of answers) { const o = bank.find(q => q.question === a.q)?.options.find(o => o.label === a.a); if (o) votes[o.fav] = (votes[o.fav] || 0) + 1; }
+  const best = Object.entries(votes).sort((a, b) => b[1] - a[1])[0]?.[0];
+  return { model: "demo", questions: [], recommendation: best && {
+    label: best, why: `From what you said (${answers.map(a => a.a.toLowerCase()).join(", ")}), ${best.toLowerCase()} fits you best.` } };
 }
 
 // ------------------------------------------------------------ boot
