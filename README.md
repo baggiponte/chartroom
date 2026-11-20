@@ -6,7 +6,8 @@
 ![/help-me demo: flipping underlined phrases, Explain me, filling in a blank, dragging a number, then Enter](docs/demo.gif)
 
 `/help-me I want to choose a coffee machine` opens your request in a page. A small model underlines what you
-could change: click to flip it, or drag a blue value. What you haven't said yet becomes a sentence with a blank
+could change: click to flip it, or drag a blue value. Questions you asked in the request get a wavy underline
+and a few answers to pick from. What you haven't said yet becomes a sentence with a blank
 ("My budget is [budget].") that you click to fill; unfilled ones are dropped. Press **Enter** and the request
 goes back to your agent, like [plannotator](https://github.com/backnotprop/plannotator) does for plans:
 
@@ -47,6 +48,7 @@ server and opens a browser: approve it.
 | Drag a blue value | change a number or amount (arrow keys work too) |
 | Explain me | show what each option means and who it suits, with pictures when they help |
 | Help me decide | in the Explain me panel: a few questions about you (habits, budget, space) that narrow the options, then a suggested pick |
+| Answer a wavy question | a question you wrote ("What do I do with the water heater?") gets concrete answers; picking one rewrites it as a statement ("With the water heater, I'll replace it with a heat pump.") |
 | Fill a [blank] | answer what the request didn't say; unfilled sentences are left out when you send. **+ More questions** adds more |
 | Type | edit freely. The model reads the text again and keeps what you set |
 | Enter / Shift+Enter / ✕ | send / new line / cancel and send nothing |

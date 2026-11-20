@@ -60,6 +60,8 @@ mark {
   transition: background .15s;
 }
 mark.settled { text-decoration: underline solid var(--accent); text-decoration-thickness: 1.5px; }
+/* a question the request asks: answer it in place */
+mark.ask:not(.settled) { text-decoration: underline wavy var(--accent); text-decoration-thickness: 1.5px; text-underline-offset: 5px; }
 mark.hover, mark.active { background: var(--chip-hover); }
 mark.flash { animation: flash .7s ease-out; }
 @keyframes flash { from { background: var(--accent-soft); } to { background: transparent; } }
@@ -259,7 +261,7 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
 (() => {
 const $ = (id) => document.getElementById(id);
 const ta = $("ta"), backdrop = $("backdrop"), pop = $("pop"), extrasEl = $("extras");
-const EXAMPLE = "Help me choose a coffee machine for my small kitchen, something good for lattes.";
+const EXAMPLE = "Help me choose a coffee machine for my small kitchen, something good for lattes. Should I get a grinder too?";
 
 let mode = "live", modelName = "the model", agentName = "your agent", imagesOn = true;
 let choices = [];            // inline (span in the text) and extras (span "", shown as tokens)
@@ -272,7 +274,7 @@ const dismissed = new Set(); // questions whose sentence you removed: don't ask 
 function makeChoice(c) {
   const ch = {
     id: "c" + (++uid), span: c.span || "", question: c.question || "Choose", kind: c.kind || "multi",
-    token: c.token || "", sentence: c.sentence || "", promo: null, options: (c.options || []).filter(o => o && o.label && o.text),
+    token: c.token || "", sentence: c.sentence || "", promo: null, statement: c.span ? c.statement || "" : "", options: (c.options || []).filter(o => o && o.label && o.text),
     selected: [], custom: "", slider: c.slider || null, value: null, touched: false,
     orig: c.span || "", cur: c.span || "", start: -1, end: -1, settled: false, extra: !c.span,
     explain: !!c.explain, explanation: null, explainOpen: false, explainBusy: false, explainErr: "",
@@ -300,7 +302,16 @@ function numberIn(t) {
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const fmtNum = (v) => (Number.isInteger(v) ? v : Math.round(v * 100) / 100).toLocaleString();
 
+// A question in the request ("What do I do with the water heater?") becomes its statement once answered
+// ("With the water heater, I'll repair it."), and goes back to the question when cleared.
 function textFor(ch) {
+  if (!ch.statement) return valueFor(ch);
+  if (!isSet(ch)) return ch.orig;
+  let t = ch.statement.trim();
+  if (!t.includes("{value}")) t = t.replace(/[.!?]?$/, ": {value}.");
+  return t.replace("{value}", valueFor(ch)).replaceAll("{value}", "");
+}
+function valueFor(ch) {
   if (ch.kind === "slider") {
     const s = ch.slider;
     if (s.stops && s.stops.length) return s.stops[Math.round(ch.value)] ?? ch.orig;
@@ -430,7 +441,7 @@ function render(flashId) {
   for (const c of marks) {
     if (c.start < pos) continue;
     html += esc(text.slice(pos, c.start));
-    const cls = [c.kind === "slider" ? "scrub" : "", drag?.id === c.id ? "scrubbing" : "", c.settled ? "settled" : "", c.promo && !c.settled ? "ph" : "", c.id === openId ? "active" : "", c.id === hoverId ? "hover" : "", c.id === flashId ? "flash" : ""].join(" ");
+    const cls = [c.kind === "slider" ? "scrub" : "", drag?.id === c.id ? "scrubbing" : "", c.settled ? "settled" : "", c.promo && !c.settled ? "ph" : "", c.statement ? "ask" : "", c.id === openId ? "active" : "", c.id === hoverId ? "hover" : "", c.id === flashId ? "flash" : ""].join(" ");
     html += `<mark data-id="${c.id}" class="${cls}">${esc(text.slice(c.start, c.end))}</mark>`;
     pos = c.end;
   }
@@ -468,6 +479,7 @@ function setStatus(kind, msg) {
 }
 
 // ------------------------------------------------------------ popover (shared by underlines and tokens)
+const isAsk = (ch) => !!ch.statement;
 const KIND = { single: "pick one", multi: "pick any", slider: "slide, or drag the value in place" };
 
 function controlsHTML(ch) {
@@ -558,7 +570,8 @@ let openedFor = null;
 function openPop(id) {
   const ch = choices.find(c => c.id === id); if (!ch) return;
   openId = id; hideHint();
-  const footLeft = ch.extra ? "not in your request yet" : ch.promo ? (ch.settled ? "you added this" : "left out if you don't pick") : `was “${esc(ch.orig)}”`;
+  const footLeft = ch.extra ? "not in your request yet" : ch.promo ? (ch.settled ? "you added this" : "left out if you don't pick")
+    : isAsk(ch) ? (ch.settled ? `you asked “${esc(ch.orig)}”` : "your question: pick an answer to write it in") : `was “${esc(ch.orig)}”`;
   const wide = ch.explainOpen && !ch.explainErr;
   const numeric = ch.kind === "slider" && !ch.slider.stops?.length;
   pop.classList.toggle("wide", wide);
@@ -570,7 +583,7 @@ function openPop(id) {
     <div class="pop-note">${footLeft}</div>
     <div class="pop-foot"><span class="pop-tools">${wide ? `<button class="explain-btn" data-role="explain">Hide explanation</button>`
       : `${canDecide(ch) ? `<button class="explain-btn" data-role="decide-open">🧭 Help me decide</button>` : ""}<button class="explain-btn" data-role="explain">Explain me</button>`}</span>
-    <span>${ch.promo ? `<button data-role="remove">remove sentence</button>` : ""}${ch.promo && !ch.settled ? "" : `${ch.promo ? " · " : ""}<button data-role="reset">${ch.extra ? "leave open" : ch.promo ? "clear" : "reset"}</button>`}</span></div>`;
+    <span>${ch.promo ? `<button data-role="remove">remove sentence</button>` : ""}${ch.promo && !ch.settled ? "" : `${ch.promo ? " · " : ""}<button data-role="reset">${ch.extra ? "leave open" : ch.promo ? "clear" : isAsk(ch) ? "back to question" : "reset"}</button>`}</span></div>`;
   pop.hidden = false;
   positionPop(); pop.scrollTop = keepScroll;
   const multi = ch.kind === "multi";
@@ -1023,6 +1036,9 @@ async function demoAnalyze(text, more) {
     { span: "", token: "Looks", sentence: "I like a {value} look.", question: "What look do you want?", kind: "multi", options: [
       { label: "Classic steel", emoji: "🪞", text: "classic brushed steel" }, { label: "Retro", emoji: "📻", text: "retro" }, { label: "Matte black", emoji: "🖤", text: "matte black" } ] } ] };
   const all = [
+    { span: "Should I get a grinder too?", statement: "I'd also like {value}.", question: "Get a grinder too?", kind: "single", explain: true, options: [
+      { label: "Built-in grinder", emoji: "⚙️", text: "a machine with a built-in grinder" }, { label: "Separate grinder", emoji: "🫘", text: "a separate burr grinder" },
+      { label: "No grinder", emoji: "🚫", text: "to keep using pre-ground coffee" } ] },
     { span: "coffee machine", question: "What kind of machine?", kind: "single", explain: true, options: [
       { label: "Espresso", emoji: "☕", text: "espresso machine" }, { label: "Bean-to-cup", emoji: "🫘", text: "bean-to-cup machine" },
       { label: "Pod", emoji: "💊", text: "pod machine" }, { label: "Filter", emoji: "🫗", text: "filter coffee machine" } ] },

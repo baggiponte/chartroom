@@ -63,6 +63,16 @@ const SYSTEM = `You help someone sharpen a request before an AI assistant works 
 The user will see their own sentence with dotted underlines on the parts they can flip in one click, so your main
 job is to find those parts. Return JSON matching the schema.
 
+0. asks: questions the request itself asks, of the user themselves or of you, e.g. "What do I do with the water
+   heating system?", "Should we go by train or car?", "Not sure which colours to use?". Return [] when there is none.
+   span = the whole question copied EXACTLY from the request, including its question mark. Offer 3-5 concrete,
+   realistic answers as options (for the water heater: repair it / replace it with a heat pump / switch to a gas
+   boiler / leave it as is). sentence = a short first-person statement in the request's language that replaces the
+   question once answered, with {value} where the answer goes, e.g. "With the water heating system, I'll {value}.",
+   "We'll go {value}.". Option text must read naturally in place of {value} ("repair it", "replace it with a heat
+   pump", "by train"); for multi, option texts get joined with "and". kind is "single" or "multi", never "slider".
+   Set explain true when the options involve trade-offs a newcomer would need explained (costs, how they work).
+   Do not return underlines or extras for anything inside a question you returned as an ask.
 1. underlines (span = a phrase copied EXACTLY from the request, same case and punctuation, usually 1-3 words).
    Underline every part of the request that could reasonably be different and would change the result:
    the main object ("coffee machine" -> espresso / bean-to-cup / filter / pod), quantities ("two posters"),
@@ -99,11 +109,14 @@ Also return summary: one short sentence about what you'll figure out together, e
 "Let's pin down which coffee machine fits how you drink coffee."
 Keep option texts under 10 words. If the request is too short to understand, return no choices and say what's missing.`;
 
-const CHOICE = (extra) => ({
+// what: "underline" (a phrase to flip), "extra" (a missing setting) or "ask" (a question the request asks)
+const CHOICE = (what) => ({
   type: "object",
-  required: extra ? ["token", "sentence", "question", "kind"] : ["span", "question", "kind"],
+  required: { extra: ["token", "sentence", "question", "kind"], ask: ["span", "sentence", "question", "kind"] }[what]
+    || ["span", "question", "kind"],
   properties: {
-    ...(extra ? { token: { type: "string" }, sentence: { type: "string" } } : { span: { type: "string" } }),
+    ...(what === "extra" ? { token: { type: "string" }, sentence: { type: "string" } }
+      : what === "ask" ? { span: { type: "string" }, sentence: { type: "string" } } : { span: { type: "string" } }),
     question: { type: "string" },
     kind: { type: "string", enum: ["single", "multi", "slider"] },
     explain: { type: "boolean" },
@@ -127,14 +140,15 @@ const CHOICE = (extra) => ({
   },
 });
 
-// Two separate lists keep Haiku from mixing up "underline this phrase" and "add this missing setting".
+// Separate lists keep Haiku from mixing up "answer this question", "underline this phrase" and "add this missing setting".
 const SCHEMA = {
   type: "object",
-  required: ["summary", "underlines", "extras"],
+  required: ["summary", "asks", "underlines", "extras"],
   properties: {
     summary: { type: "string" },
-    underlines: { type: "array", items: CHOICE(false) },
-    extras: { type: "array", items: CHOICE(true) },
+    asks: { type: "array", items: CHOICE("ask") },
+    underlines: { type: "array", items: CHOICE("underline") },
+    extras: { type: "array", items: CHOICE("extra") },
   },
 };
 
@@ -336,9 +350,13 @@ async function analyze(text, settled = [], answers = [], asked = [], more = fals
   if (more) input += `\n\nReturn no underlines and only 2-3 NEW extras that build on the answers so far ` +
     `and would most sharpen the result. No inline choices.`;
   const data = await runModel("analyze", SYSTEM, SCHEMA, input);
-  const underlines = (data.underlines || []).filter((u) => u.span && text.toLowerCase().includes(u.span.toLowerCase()));
+  const inText = (c) => c.span && text.toLowerCase().includes(c.span.toLowerCase());
+  // asks come first so they win over any underline Haiku put inside the same question
+  const asks = (data.asks || []).filter(inText).map(({ sentence, ...a }) =>
+    ({ ...a, kind: a.kind === "slider" ? "single" : a.kind, statement: sentence }));
+  const underlines = (data.underlines || []).filter(inText);
   const extras = (data.extras || []).map((e) => ({ ...e, span: "" }));
-  return { summary: data.summary, choices: more ? extras : [...underlines, ...extras], model: data.model, ms: data.ms };
+  return { summary: data.summary, choices: more ? extras : [...asks, ...underlines, ...extras], model: data.model, ms: data.ms };
 }
 
 const EXPLAIN_SYSTEM = `Someone is answering a short questionnaire so an assistant can help with their request.
