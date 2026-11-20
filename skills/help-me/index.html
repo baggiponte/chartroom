@@ -249,12 +249,24 @@ body.scrubbing, body.scrubbing * { cursor: ew-resize !important; user-select: no
 input[type=range] { width: 100%; accent-color: var(--ink); }
 .slider-ends { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
 
-.done { position: fixed; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 88%, transparent); z-index: 20; padding: 16px; }
-.done[hidden] { display: none; }
-.done-box { background: var(--card); border-radius: 24px; box-shadow: var(--pop-shadow); padding: 28px; max-width: 560px; width: 100%; }
-.done-box h2 { margin: 0 0 6px; font-size: 20px; }
-.done-box p { margin: 0 0 14px; color: var(--muted); }
-.done-box pre { white-space: pre-wrap; background: var(--bg); border-radius: 14px; padding: 14px 16px; margin: 0; font: inherit; font-size: 15px; max-height: 50vh; overflow: auto; }
+/* after Send (or Cancel) the page stays browsable but read-only */
+.ended-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 8px 12px; font-size: 14px; color: var(--muted); }
+.ended-bar[hidden] { display: none; }
+.ended-bar .pill { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px 5px 10px; border-radius: 999px; background: var(--chip); border: 1px solid var(--line); color: var(--text); font-weight: 600; }
+.ended-bar .pill .ok { width: 18px; height: 18px; border-radius: 50%; background: #2f9e5b; color: #fff; display: grid; place-items: center; font-size: 11px; }
+.ended-bar.cancelled .pill .ok { background: var(--faint); }
+.ended-bar button { font: inherit; color: var(--muted); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.ended-bar button:hover { color: var(--text); }
+.ended-prompt { white-space: pre-wrap; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; margin: 0 0 12px; font: inherit; font-size: 15px; max-height: 40vh; overflow: auto; }
+.ended-prompt[hidden] { display: none; }
+body.ended textarea { caret-color: transparent; }
+body.ended .card { box-shadow: none; border: 1px solid var(--line); }
+body.ended #cancel, body.ended #more { display: none; }
+body.ended .pop [data-ro], body.ended .pop .pop-kind { display: none; }
+body.ended .pop button:disabled, body.ended .pop input:disabled { cursor: default; }
+body.ended .pop .chip:disabled:hover { background: var(--chip); }
+body.ended .pop .chip.on:disabled:hover { background: var(--ink); }
+.pop .ro-note { font-size: 13px; color: var(--muted); }
 
 @media (max-width: 560px) {
   body { padding-top: 6vh; }
@@ -269,6 +281,8 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
 <main>
   <div class="summary" id="summary"><span class="icon">✳️</span><span class="text" id="summaryText">Reading your request…</span></div>
 
+  <div class="ended-bar" id="endedBar" hidden><span class="pill"><span class="ok">✓</span><span id="endedTitle">Sent</span></span><span id="endedSub">read-only</span><button id="endedShow">see what was sent</button></div>
+  <pre class="ended-prompt" id="endedPrompt" hidden></pre>
   <div class="card">
     <div class="field">
       <div class="backdrop field-text" id="backdrop" aria-hidden="true"></div>
@@ -290,13 +304,6 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
 
 <div class="pop" id="pop" hidden role="dialog"></div>
 <div class="scrub-hint" id="scrubHint" hidden></div>
-<div class="done" id="done" hidden>
-  <div class="done-box">
-    <h2 id="doneTitle">Sent to <span class="agentName">your agent</span></h2>
-    <p id="doneSub">You can close this tab.</p>
-    <pre id="donePrompt"></pre>
-  </div>
-</div>
 
 <script>
 (() => {
@@ -309,6 +316,7 @@ let choices = [];            // inline (span in the text) and extras (span "", s
 let summary = "";
 let seq = 0, timer = null, lastAnalyzed = null, busy = false, moreBusy = false;
 let openId = null, hoverId = null, uid = 0;
+let ended = null;            // "sent" | "cancelled": the page stays open to look back at, but nothing changes or is sent again
 const dismissed = new Set(); // questions whose sentence you removed: don't ask them again
 
 // ------------------------------------------------------------ choice model
@@ -396,6 +404,7 @@ function shiftAfter(ch, at, delta) {
 const isSet = (ch) => ch.kind === "slider" ? ch.touched : (ch.selected.length > 0 || !!ch.custom);
 const placeholderFor = (ch) => `[${(ch.token || "answer").toLowerCase()}]`;
 function applyChoice(ch, override) {
+  if (ended) return;
   if (ch.extra) {
     const set = override === "" ? false : isSet(ch);
     if (set) { promote(ch); return; }
@@ -489,7 +498,7 @@ function render(flashId) {
   backdrop.innerHTML = html + esc(text.slice(pos)) + "​";
   ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px";
   $("summaryText").textContent = summary || (busy ? "Reading your request…" : text.trim() ? "" : "What do you need help with?");
-  $("send").disabled = !text.trim();
+  $("send").disabled = !text.trim() || !!ended;
   renderExtras();
 }
 
@@ -541,6 +550,7 @@ function controlsHTML(ch) {
 function explainHTML(c) {
   if (!c.explainOpen) return "";
   if (c.explainBusy) return `<div class="explain loading">Explaining in plain words…</div>`;
+  if (c.explainGone && !c.explanation) return `<div class="explain">You didn't open this before sending, and explanations need the session, which has ended.</div>`;
   if (c.explainErr) return `<div class="explain err">Couldn't explain: ${esc(c.explainErr)}</div>`;
   const e = c.explanation; if (!e) return "";
   return `<div class="explain"><p>${esc(e.intro)}</p></div>`;
@@ -630,6 +640,7 @@ function openPop(id) {
       : `${canDecide(ch) ? `<button class="explain-btn" data-role="decide-open">🧭 Help me decide</button>` : ""}<button class="explain-btn" data-role="explain">Explain me</button>`}</span>
     <span>${ch.promo ? `<button data-role="remove">remove sentence</button>` : ""}${ch.promo && !ch.settled ? "" : `${ch.promo ? " · " : ""}<button data-role="reset">${ch.extra ? "leave open" : ch.promo ? "clear" : isAsk(ch) ? "back to question" : "reset"}</button>`}</span></div>`;
   pop.hidden = false;
+  lockPop(ch);
   positionPop(); pop.scrollTop = keepScroll;
   const multi = ch.kind === "multi";
   // In the expanded view a pick keeps the panel open so you can compare; Esc or a click outside closes it.
@@ -650,6 +661,17 @@ function openPop(id) {
   };
   const rm = pop.querySelector('[data-role="remove"]'); if (rm) rm.onclick = () => demote(ch);
   render();
+}
+
+// once sent, a popover still shows what you picked (and why), but its controls no longer change anything
+function lockPop(ch) {
+  if (!ended) return;
+  pop.querySelectorAll('.chip[data-i], [data-custom], [data-card], [data-dq], [data-role="decide-pick"], input[type=range]').forEach(el => el.disabled = true);
+  pop.querySelectorAll('[data-role="other"], [data-role="reset"], [data-role="remove"], [data-role="decide-restart"], [data-role="decide"], [data-role="decide-open"]').forEach(el => el.dataset.ro = "");
+  // a "remove sentence · reset" row would leave a stray dot; say what the state is instead
+  const foot = pop.querySelector(".pop-foot > span:last-child");
+  if (foot) foot.innerHTML = `<span class="ro-note">${ended === "sent" ? "sent" : "cancelled"} · read-only</span>`;
+  const dq = pop.querySelector(".decide-head:not(:has(b))"); if (dq && ch.decide && !ch.decide.rec) dq.textContent = "You didn't answer these before sending.";
 }
 
 function otherHTML(ch) {
@@ -715,9 +737,10 @@ function openSheet(ch, keepScroll) {
     `<button class="sheet-x" data-role="sheet-close" aria-label="Back to request" title="Back to request (Esc)">✕</button></div>` +
     `<div class="sheet-body"><section class="sheet-you"><div class="sheet-label">About you</div>${decideBody(ch)}</section>` +
     `<section class="sheet-opts"><div class="sheet-label">Your options</div>${explainHTML(ch)}${cardsHTML(ch)}${otherHTML(ch)}</section></div>` +
-    `<div class="sheet-foot"><span>${picked.length ? `Your request will say <b>${esc(picked.join(", "))}</b>` : "Nothing picked yet"}</span>` +
+    `<div class="sheet-foot"><span>${picked.length ? `${ended ? "You sent" : "Your request will say"} <b>${esc(picked.join(", "))}</b>` : "Nothing picked yet"}</span>` +
     `<button class="sheet-done" data-role="sheet-close">Back to request</button></div>`;
   pop.hidden = false;
+  lockPop(ch);
   pop.querySelector(".sheet-body").scrollTop = keepScroll;
   bindControls(ch, () => openPop(ch.id), () => {});
   pop.querySelectorAll("[data-card]").forEach(b => b.onclick = () => pickCard(ch, +b.dataset.card));
@@ -770,7 +793,7 @@ function bindDecide(ch) {
   };
 }
 async function runDecide(ch) {
-  const d = ch.decide; if (!d) return;
+  const d = ch.decide; if (!d || ended) return;
   const my = ++d.seq;
   d.busy = true; d.err = ""; refreshChoice(ch);
   const answers = d.qs.filter(q => q.answer).map(q => ({ q: q.question, a: q.answer }));
@@ -790,7 +813,9 @@ async function runDecide(ch) {
 async function toggleExplain(ch) {
   ch.explainOpen = !ch.explainOpen;
   const refresh = () => refreshChoice(ch);
-  if (ch.explainOpen && !ch.explanation && !ch.explainBusy) {
+  if (ch.explainOpen && !ch.explanation && !ch.explainBusy && ended) {
+    ch.explainErr = ""; ch.explainGone = true;
+  } else if (ch.explainOpen && !ch.explanation && !ch.explainBusy) {
     ch.explainBusy = true; ch.explainErr = ""; refresh();
     const opts = ch.kind === "slider"
       ? (ch.slider.stops?.length ? ch.slider.stops : [ch.slider.minLabel || String(ch.slider.min), ch.slider.maxLabel || String(ch.slider.max)])
@@ -840,7 +865,7 @@ function refreshChoice(ch) {
 const moreBtn = $("more");
 moreBtn.onclick = () => analyze({ more: true });
 function renderMore() {
-  moreBtn.hidden = !lastAnalyzed;
+  moreBtn.hidden = !lastAnalyzed || !!ended;
   moreBtn.disabled = moreBusy;
   moreBtn.textContent = moreBusy ? "Thinking of more…" : "+ More questions";
 }
@@ -890,6 +915,7 @@ function pxPerStep(ch) {
   return clamp(280 / n, 4, 40); // whole range in ~280px, but never too twitchy or too sluggish
 }
 function scrubTo(ch, v) {
+  if (ended) return;
   const s = ch.slider;
   const n = Math.round((clamp(v, s.min, s.max) - s.min) / s.step);
   const next = clamp(+(s.min + n * s.step).toFixed(6), s.min, s.max);
@@ -906,6 +932,7 @@ function showHint(ch, html) {
 }
 function hideHint() { hintEl.hidden = true; }
 function startScrub(ch, e) {
+  if (ended) { openPop(ch.id); lastScrubEnd = performance.now(); return; }
   if (openId) closePop();
   drag = { id: ch.id, x0: e.clientX, v0: ch.value, moved: false };
   hideHint();
@@ -958,6 +985,7 @@ extrasEl.addEventListener("pointerout", (e) => {
 
 // keyboard: arrows nudge (Shift = x10), Home/End jump
 function scrubKey(ch, e) {
+  if (ended) return false;
   const s = ch.slider, big = e.shiftKey ? 10 : 1;
   const d = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 }[e.key];
   if (d) scrubTo(ch, ch.value + d * big * s.step);
@@ -981,6 +1009,7 @@ ta.addEventListener("keydown", (e) => {
 function schedule(ms = 700) { clearTimeout(timer); timer = setTimeout(() => analyze(), ms); }
 
 async function analyze({ more = false } = {}) {
+  if (ended) return;
   const text = ta.value;
   if (!more && text === lastAnalyzed) return;
   if (!text.trim()) { setStatus("", "waiting for a request"); return; }
@@ -1080,27 +1109,39 @@ function compose() {
 }
 $("send").onclick = submit;
 async function submit() {
-  if (!withoutOpen()) return;
+  if (ended || !withoutOpen()) return;
   closePop();
   const prompt = compose();
-  $("donePrompt").textContent = prompt;
   if (mode === "live") {
     try { await post("/api/submit", { prompt }); }
     catch (e) { setStatus("err", "couldn't reach the help-me server: " + esc(e.message)); return; }
+    end("sent", `Sent to ${agentName}`, "read-only now: click an underline to look back at what you picked and why", prompt);
   } else {
     try { await navigator.clipboard.writeText(prompt); } catch {}
-    $("doneTitle").textContent = "Copied to clipboard";
-    $("doneSub").textContent = "Demo mode. Paste this into your agent:";
+    end("sent", "Copied to clipboard", "demo mode: paste it into your agent", prompt);
   }
-  $("done").hidden = false;
 }
 $("cancel").onclick = async () => {
+  if (ended) return;
   if (mode === "live") { try { await post("/api/cancel", {}); } catch {} }
-  $("doneTitle").textContent = "Cancelled";
-  $("doneSub").textContent = `Nothing was sent to ${agentName}. You can close this tab.`;
-  $("donePrompt").textContent = ta.value;
-  $("done").hidden = false;
+  closePop();
+  end("cancelled", "Cancelled", `nothing was sent to ${agentName}`, "");
 };
+// The help-me server exits once you send, so from here on everything the page shows comes from what it already has.
+function end(kind, title, sub, prompt) {
+  ended = kind; clearTimeout(timer); seq++; busy = moreBusy = false;
+  for (const c of choices) if (c.decide) { c.decide.busy = false; c.decide.seq++; }
+  document.body.classList.add("ended");
+  ta.readOnly = true; ta.blur();
+  $("endedBar").hidden = false; $("endedBar").classList.toggle("cancelled", kind === "cancelled");
+  $("endedTitle").textContent = title; $("endedSub").textContent = sub;
+  const pre = $("endedPrompt"), show = $("endedShow");
+  pre.textContent = prompt; show.hidden = !prompt;
+  show.onclick = () => { pre.hidden = !pre.hidden; show.textContent = pre.hidden ? "see what was sent" : "hide what was sent"; };
+  $("hint").textContent = kind === "sent" ? "This session is closed. Underlines, Explain me and Help me decide still show what you chose; run /help-me again to start a new one." : "This session is closed. Run /help-me again to start a new one.";
+  setStatus("", kind === "sent" ? "sent" : "cancelled");
+  render();
+}
 
 // ------------------------------------------------------------ demo (opened as a plain file)
 async function demoAnalyze(text, more) {
