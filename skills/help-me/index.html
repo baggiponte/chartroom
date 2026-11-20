@@ -60,17 +60,14 @@ mark {
   transition: background .15s;
 }
 mark.settled { text-decoration: underline solid var(--accent); text-decoration-thickness: 1.5px; }
-/* a question the request asks: answer it in place */
 mark.ask:not(.settled) { text-decoration: underline wavy var(--accent); text-decoration-thickness: 1.5px; text-underline-offset: 5px; }
 mark.hover, mark.active { background: var(--chip-hover); }
 mark.flash { animation: flash .7s ease-out; }
 @keyframes flash { from { background: var(--accent-soft); } to { background: transparent; } }
 textarea.on-mark { cursor: pointer; }
-/* open-question placeholders: "My budget is [budget]." */
 mark.ph { color: var(--accent); background: var(--accent-soft); text-decoration: underline dotted var(--accent); text-decoration-thickness: 2px; }
 mark.ph.hover, mark.ph.active { background: color-mix(in srgb, var(--accent) 24%, transparent); }
 
-/* extras */
 .extras { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin-top: 14px; min-height: 0; }
 .extras:empty { display: none; }
 .token {
@@ -82,7 +79,6 @@ mark.ph.hover, mark.ph.active { background: color-mix(in srgb, var(--accent) 24%
 .token.unset .v { color: var(--faint); }
 .token.settled { text-decoration: underline solid var(--accent); text-decoration-thickness: 1.5px; }
 
-/* scrubbable numbers */
 mark.scrub { color: var(--accent); text-decoration: underline dashed var(--accent); text-decoration-thickness: 1.5px; text-underline-offset: 6px; }
 mark.scrub.settled { text-decoration-style: solid; }
 mark.scrubbing, .token.scrubbing { background: var(--accent-soft); }
@@ -120,7 +116,6 @@ body.scrubbing, body.scrubbing * { cursor: ew-resize !important; user-select: no
 .hint { text-align: center; color: var(--muted); font-size: 14px; margin-top: 22px; }
 .hint kbd { font: inherit; font-size: 12px; border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; background: var(--card); }
 
-/* popover */
 .pop { position: fixed; z-index: 10; width: min(420px, calc(100vw - 32px)); background: var(--card); border-radius: 22px; box-shadow: var(--pop-shadow); padding: 18px 18px 12px; border: 1px solid var(--line); max-height: calc(100vh - 24px); overflow: auto; }
 .pop[hidden] { display: none; }
 .pop-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 2px 4px 12px; }
@@ -141,7 +136,6 @@ body.scrubbing, body.scrubbing * { cursor: ew-resize !important; user-select: no
 .explain.loading { color: var(--muted); animation: shimmer 1.2s infinite ease-in-out; }
 .explain.err { color: var(--danger); background: none; padding: 0; }
 
-/* expanded explanation */
 .pop.wide { width: min(780px, calc(100vw - 32px)); padding: 22px 22px 14px; }
 .pop.wide .pop-q { font-size: 18px; color: var(--text); }
 .pop.wide .explain { font-size: 15px; margin-bottom: 14px; }
@@ -171,7 +165,6 @@ body.scrubbing, body.scrubbing * { cursor: ew-resize !important; user-select: no
 .ocard.on .tick { background: var(--accent); border-color: var(--accent); color: #fff; }
 .ocard .credit { position: absolute; left: 8px; top: 8px; font-size: 11px; padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,.45); color: #fff; text-decoration: none; opacity: 0; transition: opacity .12s; }
 .ocard:hover .credit { opacity: 1; }
-/* help me decide */
 .ocard.rec:not(.on) { border-color: var(--accent); border-style: dashed; }
 .ocard .badge { justify-self: start; margin-right: 26px; font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 2px 7px; margin-bottom: 2px; }
 .decide-start { font: inherit; font-size: 14px; font-weight: 500; display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px 8px 13px; margin: 2px 0 12px; border-radius: 999px; border: 1px solid var(--accent); background: var(--accent-soft); color: var(--text); cursor: pointer; }
@@ -190,7 +183,6 @@ body.scrubbing, body.scrubbing * { cursor: ew-resize !important; user-select: no
 .decide-rec button:disabled { opacity: .45; cursor: default; }
 .decide-busy { font-size: 14px; color: var(--muted); animation: shimmer 1.2s infinite ease-in-out; }
 .decide-err { font-size: 14px; color: var(--danger); }
-/* help me decide: near full-page sheet over the request */
 .pop.sheet {
   inset: max(16px, 3vh) 0 auto; margin: 0 auto; width: min(1120px, calc(100vw - 32px)); max-height: none; height: calc(100vh - 2 * max(16px, 3vh));
   padding: 0; display: flex; flex-direction: column; overflow: hidden; border-radius: 26px;
@@ -249,7 +241,6 @@ body.scrubbing, body.scrubbing * { cursor: ew-resize !important; user-select: no
 input[type=range] { width: 100%; accent-color: var(--ink); }
 .slider-ends { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
 
-/* after Send (or Cancel) the page stays browsable but read-only */
 .ended-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 8px 12px; font-size: 14px; color: var(--muted); }
 .ended-bar[hidden] { display: none; }
 .ended-bar .pill { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px 5px 10px; border-radius: 999px; background: var(--chip); border: 1px solid var(--line); color: var(--text); font-weight: 600; }
@@ -273,7 +264,6 @@ body.ended .pop .chip:disabled:hover { background: var(--chip); }
 body.ended .pop .chip.on:disabled:hover { background: var(--ink); }
 .pop .ro-note { font-size: 13px; color: var(--muted); }
 
-/* ------------------------------------------------------------ journey: where you are on the way back to your agent */
 .layout { width: 100%; max-width: 760px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-content: start; }
 @media (min-width: 1140px) {
   .layout { max-width: 1072px; grid-template-columns: minmax(0, 760px) 256px; gap: 56px; align-items: start; }
@@ -283,7 +273,7 @@ body.ended .pop .chip.on:disabled:hover { background: var(--ink); }
 .j-steps { list-style: none; margin: 0; padding: 0; }
 .j-step { position: relative; display: grid; grid-template-columns: 22px 1fr; column-gap: 12px; padding-bottom: 20px; }
 .j-step:last-child { padding-bottom: 0; }
-.j-step::before { /* the line down to the next step */
+.j-step::before {
   content: ""; position: absolute; left: 10px; top: 24px; bottom: 2px; width: 2px; border-radius: 2px; background: var(--line);
 }
 .j-step:last-child::before { display: none; }
@@ -316,7 +306,6 @@ body.ended .pop .chip.on:disabled:hover { background: var(--ink); }
 @media (min-width: 1140px) {
   .journey { position: sticky; top: 24px; padding-top: 4px; }
 }
-/* narrower: a compact stepper above the request; the current step's "what to do" sits under it */
 @media (max-width: 1139.98px) {
   .journey { order: -1; margin: 0 8px; }
   .j-head { display: none; }
@@ -338,11 +327,10 @@ body.ended .pop .chip.on:disabled:hover { background: var(--ink); }
   body { padding-top: 8vh; }
 }
 @media (max-width: 760px) {
-  .j-step:not(.now) .j-title { display: none; } /* phone: dots for the other steps, the name only for where you are */
+  .j-step:not(.now) .j-title { display: none; }
   .j-step:not(:last-child)::after { width: 14px; }
 }
 
-/* the request card: what is happening, and what to do */
 .card-progress { position: absolute; top: 0; left: 26px; right: 26px; height: 3px; border-radius: 3px; overflow: hidden; opacity: 0; transition: opacity .2s; pointer-events: none; }
 .card-progress::after { content: ""; position: absolute; top: 0; bottom: 0; width: 34%; border-radius: 3px; background: var(--accent); animation: slide 1.3s infinite ease-in-out; }
 .card.working .card-progress { opacity: 1; }
@@ -411,15 +399,14 @@ const ta = $("ta"), backdrop = $("backdrop"), pop = $("pop"), extrasEl = $("extr
 const EXAMPLE = "Help me choose a coffee machine for my small kitchen, something good for lattes. Should I get a grinder too?";
 
 let mode = "live", modelName = "the model", agentName = "your agent", imagesOn = true;
-let choices = [];            // inline (span in the text) and extras (span "", shown as tokens)
+let choices = [];
 let summary = "";
 let seq = 0, timer = null, lastAnalyzed = null, busy = false, moreBusy = false;
 let openId = null, hoverId = null, uid = 0;
 let ended = null;            // "sent" | "cancelled": the page stays open to look back at, but nothing changes or is sent again
-const dismissed = new Set(); // questions whose sentence you removed: don't ask them again
-const removedQs = [];        // the same, as written, for the notes under what was sent
+const dismissed = new Set();
+const removedQs = [];
 
-// ------------------------------------------------------------ choice model
 function makeChoice(c) {
   const ch = {
     id: "c" + (++uid), span: c.span || "", question: c.question || "Choose", kind: c.kind || "multi",
@@ -451,8 +438,6 @@ function numberIn(t) {
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const fmtNum = (v) => (Number.isInteger(v) ? v : Math.round(v * 100) / 100).toLocaleString();
 
-// A question in the request ("What do I do with the water heater?") becomes its statement once answered
-// ("With the water heater, I'll repair it."), and goes back to the question when cleared.
 function textFor(ch) {
   if (!ch.statement) return valueFor(ch);
   if (!isSet(ch)) return ch.orig;
@@ -479,7 +464,6 @@ function tokenValue(ch) {
   return [...ch.options.filter(o => ch.selected.includes(o.label)).map(o => o.label), ch.custom].filter(Boolean).join(", ");
 }
 
-// ------------------------------------------------------------ inline phrases <-> text
 const overlaps = (ranges, a, b) => ranges.some(([s, e]) => a < e && b > s);
 function relocate(text) {
   const taken = [];
@@ -511,7 +495,7 @@ function applyChoice(ch, override) {
     ch.settled = false; renderExtras(); return;
   }
   let next = override ?? textFor(ch);
-  if (ch.promo) { // an open question: clearing the answer puts the placeholder back
+  if (ch.promo) {
     const set = override !== "" && isSet(ch);
     next = set ? next : placeholderFor(ch);
     override = undefined; ch.settled = set;
@@ -566,7 +550,7 @@ function dismiss(ch) {
   if (!removedQs.includes(ch.question)) removedQs.push(ch.question);
   dismissed.add(ch.question.toLowerCase()); if (ch.token) dismissed.add(ch.token.toLowerCase());
 }
-function demote(ch) { // "remove sentence": take it out and don't ask again
+function demote(ch) {
   let text = ta.value; const [a, b] = sentenceRange(ch, text);
   text = text.slice(0, a) + text.slice(b);
   shiftAfter(ch, b, a - b);
@@ -582,7 +566,6 @@ function withoutOpen(text = ta.value) {
   return text.replace(/[ \t]+$/gm, "").trim();
 }
 
-// ------------------------------------------------------------ rendering
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 function render(flashId) {
@@ -632,17 +615,14 @@ function setStatus(kind, msg) {
   journey();
 }
 
-// ------------------------------------------------------------ journey: where you are on the way back to your agent
 // Four steps: the model reads -> you shape it -> you read it over and send -> your agent takes over.
 // The side timeline (a compact stepper on narrow screens), the toolbar status and the Send button all say
 // what is happening now and what you're expected to do.
 let statusKind = "", readInfo = "", nudgeId = null;
 const cap = (s) => String(s).replace(/^./, (c) => c.toUpperCase());
-// what still needs you: blanks to fill and questions you asked that have no answer yet
 function openItems() {
   return choices.filter(c => !c.extra && c.start >= 0 && ((c.promo && !c.settled) || (c.statement && !isSet(c)))).sort((a, b) => a.start - b.start);
 }
-// model calls in flight after the first read; you can keep going while they run
 function waits() {
   const w = [];
   if (busy && lastAnalyzed) w.push(`${esc(cap(modelName))} is re-reading your edit`);
@@ -706,7 +686,6 @@ function journey() {
     (then && !ended ? `<div class="j-then">Then: ${then.title.replace(/^./, c => c.toLowerCase())}.</div>` : "");
   document.querySelectorAll('#journey [data-j="next"]').forEach(b => b.onclick = showNext);
 
-  // the request card itself
   const card = $("card");
   card.classList.toggle("working", !ended && (busy || moreBusy || w.length > 0));
   card.classList.toggle("reading", !ended && busy && !lastAnalyzed);
@@ -722,7 +701,6 @@ function journey() {
   }
 }
 
-// ------------------------------------------------------------ popover (shared by underlines and tokens)
 const isAsk = (ch) => !!ch.statement;
 const KIND = { single: "pick one", multi: "pick any", slider: "slide, or drag the value in place" };
 
@@ -781,8 +759,8 @@ function cardsHTML(ch) {
   }).join("") + `</div>`;
 }
 
-// ------------------------------------------------------------ pictures (Wikimedia Commons, no key; quietly absent on failure)
-const images = new Map(); // query -> {loading} | {src, page, title} | {}
+// Pictures come from Wikimedia Commons (no key needed) and are quietly left out when a lookup fails.
+const images = new Map();
 function imgState(q) { return images.get(q) || { loading: true }; }
 function dupImage(ch, o) { // two options landing on the same picture would mislead; keep only the first
   const src = images.get(o.image)?.src;
@@ -857,12 +835,10 @@ function openPop(id) {
   render();
 }
 
-// once sent, a popover still shows what you picked (and why), but its controls no longer change anything
 function lockPop(ch) {
   if (!ended) return;
   pop.querySelectorAll('.chip[data-i], [data-custom], [data-card], [data-dq], [data-role="decide-pick"], input[type=range]').forEach(el => el.disabled = true);
   pop.querySelectorAll('[data-role="other"], [data-role="reset"], [data-role="remove"], [data-role="decide-restart"], [data-role="decide"], [data-role="decide-open"]').forEach(el => el.dataset.ro = "");
-  // a "remove sentence · reset" row would leave a stray dot; say what the state is instead
   const foot = pop.querySelector(".pop-foot > span:last-child");
   if (foot) foot.innerHTML = `<span class="ro-note">${ended === "sent" ? "sent" : "cancelled"} · read-only</span>`;
   const dq = pop.querySelector(".decide-head:not(:has(b))"); if (dq && ch.decide && !ch.decide.rec) dq.textContent = "You didn't answer these before sending.";
@@ -920,9 +896,6 @@ function bindControls(ch, rerender, onPicked) {
   };
 }
 
-// ------------------------------------------------------------ help me decide
-// Once Help me decide starts, the panel grows into a near full-page sheet: questions about you on the left,
-// the explained options on the right, and what the request will say at the bottom.
 function openSheet(ch, keepScroll) {
   const picked = [...explainedOptions(ch).filter(o => isPicked(ch, o)).map(o => o.label), ...(ch.custom ? [ch.custom] : [])];
   pop.style.left = pop.style.top = pop.style.maxHeight = "";
@@ -1041,11 +1014,11 @@ function positionPop() {
       return;
     }
   }
-  pop.style.maxHeight = ""; // CSS default: viewport minus a margin, scrolls inside
+  pop.style.maxHeight = "";
   const rs = a.getClientRects(); const r = rs[rs.length - 1] || a.getBoundingClientRect();
   const pw = pop.offsetWidth, ph = pop.offsetHeight;
   let top = r.bottom + 10;
-  if (top + ph > innerHeight - 12) top = r.top - ph - 10 > 12 ? r.top - ph - 10 : innerHeight - ph - 12; // no room either side: keep it on screen
+  if (top + ph > innerHeight - 12) top = r.top - ph - 10 > 12 ? r.top - ph - 10 : innerHeight - ph - 12;
   pop.style.left = clamp(r.left - 12, 16, innerWidth - pw - 16) + "px"; pop.style.top = Math.max(12, top) + "px";
 }
 function closePop() {
@@ -1064,7 +1037,7 @@ function renderMore() {
   moreBtn.innerHTML = moreBusy ? "Thinking<span class=\"long\"> of more</span>…" : "+ More<span class=\"long\"> questions</span>";
 }
 
-// ------------------------------------------------------------ hit testing (marks sit under the textarea)
+// Marks sit under the textarea, so clicks are hit-tested against their boxes.
 function markAt(x, y) {
   for (const m of backdrop.querySelectorAll("mark"))
     for (const r of m.getClientRects()) if (x >= r.left && x <= r.right && y >= r.top - 2 && y <= r.bottom + 4) return m.dataset.id;
@@ -1082,14 +1055,14 @@ ta.addEventListener("mousemove", (e) => {
 });
 ta.addEventListener("mouseleave", () => { hoverId = null; ta.classList.remove("on-mark", "on-scrub"); hideHint(); backdrop.querySelectorAll("mark.hover").forEach(m => m.classList.remove("hover")); });
 ta.addEventListener("mouseup", (e) => {
-  if (performance.now() - lastScrubEnd < 400) return; // a scrub just handled this press
+  if (performance.now() - lastScrubEnd < 400) return;
   if (ta.selectionStart !== ta.selectionEnd) return;
   const id = markAt(e.clientX, e.clientY);
   if (id) { id === openId ? closePop() : openPop(id); } else closePop();
 });
 extrasEl.addEventListener("click", (e) => {
   const b = e.target.closest(".token"); if (!b) return;
-  if (performance.now() - lastScrubEnd < 400) return; // pointerup already opened (or scrubbed) it
+  if (performance.now() - lastScrubEnd < 400) return;
   b.dataset.id === openId ? closePop() : openPop(b.dataset.id);
 });
 document.addEventListener("mousedown", (e) => {
@@ -1098,8 +1071,6 @@ document.addEventListener("mousedown", (e) => {
 addEventListener("resize", () => openId && positionPop());
 addEventListener("scroll", (e) => { if (pop.contains(e.target)) return; hideHint(); if (openId) positionPop(); }, true);
 
-// ------------------------------------------------------------ scrubbable numbers
-// A press without movement opens the popover instead.
 let drag = null, lastScrubEnd = 0;
 const hintEl = $("scrubHint");
 const byId = (id) => id ? choices.find(c => c.id === id) : null;
@@ -1147,13 +1118,12 @@ function endScrub(cancelled) {
   document.body.classList.remove("scrubbing");
   lastScrubEnd = performance.now();
   if (!ch) return;
-  if (!d.moved && !cancelled) openPop(ch.id); // click fallback
+  if (!d.moved && !cancelled) openPop(ch.id);
   else render();
 }
 document.addEventListener("pointerup", () => endScrub(false));
 document.addEventListener("pointercancel", () => endScrub(true));
 
-// inline values live under the textarea, so hit-test there
 ta.addEventListener("pointerdown", (e) => {
   if (e.button !== 0) return;
   const ch = byId(markAt(e.clientX, e.clientY));
@@ -1165,7 +1135,6 @@ ta.addEventListener("touchstart", (e) => { // stop the page from scrolling while
   const t = e.touches[0]; if (t && isScrub(byId(markAt(t.clientX, t.clientY)))) e.preventDefault();
 }, { passive: false });
 
-// tokens under the request
 extrasEl.addEventListener("pointerdown", (e) => {
   const b = e.target.closest(".token.scrub"); if (!b || e.button !== 0) return;
   e.preventDefault(); b.focus(); startScrub(byId(b.dataset.id), e);
@@ -1177,7 +1146,6 @@ extrasEl.addEventListener("pointerout", (e) => {
   if (e.target.closest(".token.scrub") && !e.relatedTarget?.closest?.(".token.scrub")) hideHint();
 });
 
-// keyboard: arrows nudge (Shift = x10), Home/End jump
 function scrubKey(ch, e) {
   if (ended) return false;
   const s = ch.slider, big = e.shiftKey ? 10 : 1;
@@ -1192,14 +1160,12 @@ extrasEl.addEventListener("keydown", (e) => {
   const b = e.target.closest(".token.scrub"); if (!b) return;
   const ch = byId(b.dataset.id); if (ch) { hideHint(); scrubKey(ch, e); }
 });
-// in the text: put the caret on a blue value and use Alt+Left/Right
 ta.addEventListener("keydown", (e) => {
   if (!e.altKey || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
   const p = ta.selectionStart, ch = choices.find(c => !c.extra && c.kind === "slider" && p >= c.start && p <= c.end);
   if (ch && scrubKey(ch, e)) ta.setSelectionRange(ch.end, ch.end);
 });
 
-// ------------------------------------------------------------ analysis
 function schedule(ms = 700) { clearTimeout(timer); timer = setTimeout(() => analyze(), ms); }
 
 async function analyze({ more = false } = {}) {
@@ -1235,7 +1201,7 @@ async function analyze({ more = false } = {}) {
   if (!more) lastAnalyzed = text;
   if (!more) readInfo = mode === "demo" ? "the demo" : `${data.model || modelName}${data.ms ? ` in ${(data.ms / 1000).toFixed(1)}s` : ""}`;
   merge(text, data, more);
-  if (first) { // point at the first thing that needs you
+  if (first) {
     nudgeId = openItems()[0]?.id || null;
     if (nudgeId) { render(); setTimeout(() => { nudgeId = null; }, 3300); }
   }
@@ -1265,7 +1231,6 @@ function merge(text, data, more) {
   }
   if (openId && !kept.some(k => k.id === openId)) closePop();
   choices = [...kept, ...fresh];
-  // already-answered extras stay as tokens under the request
   for (const ch of fresh) if (ch.extra && !ch.settled) promote(ch);
   if (fresh.some(c => c.promo)) lastAnalyzed = more ? lastAnalyzed : ta.value;
   render();
@@ -1275,13 +1240,11 @@ async function post(path, body) {
   const r = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const j = await r.json().catch(() => ({}));
   if (r.status === 409) throw Object.assign(new Error("superseded"), { superseded: true });
-  // 404: an older server process is answering a newer page.
   if (r.status === 404) throw new Error("the running server is older than this page. Run /help-me again to restart it");
   if (!r.ok) throw new Error(j.error || r.statusText);
   return j;
 }
 
-// ------------------------------------------------------------ editing & keys
 ta.addEventListener("input", () => {
   relocate(ta.value); render();
   if (ta.value !== skipNextAnalysisFor) schedule();
@@ -1299,14 +1262,12 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && e.target !== ta) { e.preventDefault(); submit(); }
 });
 
-// ------------------------------------------------------------ send / cancel
 function compose() {
   let out = withoutOpen();
   const set = choices.filter(c => c.extra && c.settled);
   if (set.length) out += "\n\n" + set.map(c => `- ${c.token}: ${textFor(c)}`).join("\n");
   return out;
 }
-// what the sent text does and doesn't carry, in plain words
 function sentNotes() {
   const text = ta.value, n = [], q = (s) => `<b>${esc(s)}</b>`;
   const open = choices.filter(c => c.promo && !c.settled && c.start >= 0);
@@ -1360,7 +1321,7 @@ function end(kind, title, sub, prompt, notes = []) {
   render();
 }
 
-// ------------------------------------------------------------ demo (opened as a plain file)
+// Demo mode: the page was opened as a plain file, with no server behind it.
 async function demoAnalyze(text, more) {
   await new Promise(r => setTimeout(r, 600));
   if (more) return { model: "demo", choices: [
@@ -1426,7 +1387,6 @@ async function demoDecide(ch, { options, answers, asked }) {
     label: best, why: `From what you said (${answers.map(a => a.a.toLowerCase()).join(", ")}), ${best.toLowerCase()} fits you best.` } };
 }
 
-// ------------------------------------------------------------ boot
 (async () => {
   try {
     if (location.protocol === "file:") throw 0;

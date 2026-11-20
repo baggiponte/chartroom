@@ -19,7 +19,6 @@ const opt = (name, fallback) => {
 
 const log = (...m) => console.error("[prompt-shaper]", ...m);
 
-// ---------------------------------------------------------------- settings
 const CONFIG_FILE = process.env.PROMPT_SHAPER_CONFIG ||
   join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "prompt-shaper", "config.json");
 const CONFIG = (() => {
@@ -30,8 +29,7 @@ const CONFIG = (() => {
     return c;
   } catch (e) { log(`ignoring ${CONFIG_FILE}: ${e.message}`); return {}; }
 })();
-const ENV_NAME = (key) => "PROMPT_SHAPER_" + key.replace(/[A-Z]/g, (c) => "_" + c).toUpperCase(); // timeoutMin -> PROMPT_SHAPER_TIMEOUT_MIN
-// flag > env > config file > fallback
+const ENV_NAME = (key) => "PROMPT_SHAPER_" + key.replace(/[A-Z]/g, (c) => "_" + c).toUpperCase();
 const setting = (key, flagName, fallback) => {
   const v = opt(flagName, process.env[ENV_NAME(key)] ?? CONFIG[key]);
   return v === undefined || v === "" ? fallback : v;
@@ -57,7 +55,6 @@ async function readStdin() {
 
 const draft = flag("--stdin") ? (await readStdin()).trim() : opt("--draft", "");
 
-// ---------------------------------------------------------------- analysis
 const SYSTEM = `You help someone sharpen a request before an AI assistant works on it. The request might be a decision
 ("help me choose a coffee machine"), a task ("plan a weekend in Lisbon") or a prompt ("make two posters for our lab").
 The user will see their own sentence with dotted underlines on the parts they can flip in one click, so your main
@@ -109,7 +106,6 @@ Also return summary: one short sentence about what you'll figure out together, e
 "Let's pin down which coffee machine fits how you drink coffee."
 Keep option texts under 10 words. If the request is too short to understand, return no choices and say what's missing.`;
 
-// what: "underline" (a phrase to flip), "extra" (a missing setting) or "ask" (a question the request asks)
 const CHOICE = (what) => ({
   type: "object",
   required: { extra: ["token", "sentence", "question", "kind"], ask: ["span", "sentence", "question", "kind"] }[what]
@@ -155,7 +151,6 @@ const SCHEMA = {
 const running = {}; // one live process or request per slot; a newer request in the same slot aborts the older one
 const superseded = () => Object.assign(new Error("superseded"), { superseded: true });
 
-// Every backend gets the same (system, schema, input) and must resolve to the parsed JSON object.
 function runCli(slot, cmd, argv, stdin, parse, opts = {}) {
   running[slot]?.abort();
   return new Promise((resolve, reject) => {
@@ -214,7 +209,6 @@ const dropNulls = (v) => Array.isArray(v) ? v.map(dropNulls)
   : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).filter(([, x]) => x !== null).map(([k, x]) => [k, dropNulls(x)]))
   : v;
 
-// For backends without schema enforcement: take the outermost {...} out of the reply.
 function jsonFrom(text) {
   const a = text.indexOf("{"), b = text.lastIndexOf("}");
   if (a < 0 || b < a) throw new Error("no JSON in reply");
@@ -236,7 +230,6 @@ const BACKENDS = {
       return { data: res.structured_output ?? JSON.parse(res.result), model: Object.keys(res.modelUsage || {})[0], ms: res.duration_ms };
     }),
   },
-  // The schema file makes the last message valid JSON.
   codex: {
     model: "",
     run: (slot, system, schema, input) => {
@@ -351,7 +344,6 @@ async function analyze(text, settled = [], answers = [], asked = [], more = fals
     `and would most sharpen the result. No inline choices.`;
   const data = await runModel("analyze", SYSTEM, SCHEMA, input);
   const inText = (c) => c.span && text.toLowerCase().includes(c.span.toLowerCase());
-  // asks come first so they win over any underline Haiku put inside the same question
   const asks = (data.asks || []).filter(inText).map(({ sentence, ...a }) =>
     ({ ...a, kind: a.kind === "slider" ? "single" : a.kind, statement: sentence }));
   const underlines = (data.underlines || []).filter(inText);
@@ -440,7 +432,6 @@ async function decide(text, question, options, answers = [], asked = []) {
   return data;
 }
 
-// ---------------------------------------------------------------- http
 // Read once, so a running server never serves a page newer than its own code.
 const PAGE = readFileSync(join(HERE, "index.html"));
 
