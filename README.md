@@ -4,11 +4,12 @@
 It's an [Agent Skill](https://agentskills.io), so it works in Claude Code, Codex, Gemini CLI, OpenCode, Cursor
 and the other agents that read `SKILL.md`.
 
-![/help-me demo: flipping underlined phrases, Explain me, the open questions modal, dragging a number, then Enter](docs/demo.gif)
+![/help-me demo: flipping underlined phrases, Explain me, answering a question card, dragging a number, then Enter](docs/demo.gif)
 
 `/help-me I want to choose a coffee machine` opens a page with your request on it. A small model underlines every
 part you could change. Click one to flip it, or drag a blue value left or right. "Explain me" shows
-the options in plain words. Things you haven't said yet, like budget, wait behind an **open questions** button.
+the options in plain words. Things you haven't said yet, like budget, show up as question cards under the request. Answer one and it
+becomes a sentence in the request ("My budget is up to €400.") that you can flip in place like the rest.
 Press **Enter** and the shaped request goes back to your agent, a bit like
 [plannotator](https://github.com/backnotprop/plannotator) does for plans:
 
@@ -49,7 +50,7 @@ server and opens a browser: approve it.
 | Click an underline | pick an option, or "Something else" (Alt+↓ opens the one at the caret) |
 | Drag a blue value | change a number or amount (arrow keys work too) |
 | Explain me | show what each option means and who it suits, with pictures when they help |
-| open questions | answer what the request doesn't say yet. **+ More questions** asks for more |
+| Question cards | answer what the request doesn't say yet; the answer is written into the request as a sentence. **+ More questions** asks for more |
 | Type | edit freely. The model reads the text again and keeps what you set |
 | Enter / Shift+Enter / ✕ | send / new line / cancel and send nothing |
 

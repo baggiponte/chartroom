@@ -89,11 +89,12 @@ job is to find those parts. Return JSON matching the schema.
    For a slider on an inline span, every stop must read naturally in place of the span.
    Option text replaces the span so the sentence still reads naturally (e.g. "espresso machine").
 2. extras (no span, a token instead): ALWAYS return 2-4 of these: the most important things the request does not say yet (budget, size, aspect ratio,
-   length, deadline...). They appear as a numbered list of questions with radio buttons or checkboxes, and once
-   answered as small tokens under the sentence. Give each a token: a 1-2 word name like "Budget" or "Milk".
-   Option text is a short phrase that completes "<token>: ...", e.g. "up to €500". Give extras' options a hint:
-   a 3-8 word clause that turns the label into a full answer, shown as "<label> – <hint>"
-   (label "Very important", hint "ready in a few minutes"; label "Steam wand", hint "you froth the milk yourself").
+   length, deadline...). They appear as small "Token: ?" chips under the request. Give each a token: a 1-2 word
+   name like "Budget" or "Milk". Once answered, the answer is written into the request as a new sentence, so give
+   each extra a sentence: a short first-person sentence with {value} where the answer goes, written in the
+   request's language, that does not start with {value} (e.g. "I mostly make {value}.", "My budget is {value}.",
+   "I'd like it to froth milk with {value}."). Option text (and slider template/stops) must read naturally in
+   place of {value}; for multi, several option texts get joined with "and" (e.g. "lattes and flat whites").
 
 For each choice:
 - question: short, shown above the options, e.g. "What kind of machine?", "What's your budget?"
@@ -102,11 +103,11 @@ For each choice:
   "compact"). Use "single" ONLY when the options are mutually exclusive by nature (one type of thing to buy,
   a count, yes/no, beans vs pods). "slider" for amounts and continua (budget, size, how often, simple <-> hands-on).
   Before answering, check every "single": if someone could sensibly tick two of its options, make it "multi".
-- options (single/multi only, 3-6): {label, emoji, text, hint (extras only)}. label is a 1-3 word chip, emoji one fitting emoji.
+- options (single/multi only, 3-6): {label, emoji, text}. label is a 1-3 word chip, emoji one fitting emoji.
   Concrete, realistic, genuinely different. Most common first.
 - current: labels of options the request already says (often empty).
 - slider (slider only): numeric uses min/max/step/value plus template with {value} (inline: replaces the span,
-  e.g. "{value} posters"; extras: completes the token, e.g. "up to €{value}"). For a qualitative continuum give 3-5
+  e.g. "{value} posters"; extras: fills the sentence, e.g. "up to €{value}"). For a qualitative continuum give 3-5
   stops ordered from minLabel to maxLabel, min=0, max=stops-1, step=1, template "". value is a sensible default.
 - explain: true when a newcomer might not understand the question or how its options differ (jargon, technical
   terms, trade-offs that need context, e.g. "dark Italian vs light single-origin", "steam wand vs automatic
@@ -117,9 +118,9 @@ Keep option texts under 10 words. If the request is too short to understand, ret
 
 const CHOICE = (extra) => ({
   type: "object",
-  required: extra ? ["token", "question", "kind"] : ["span", "question", "kind"],
+  required: extra ? ["token", "sentence", "question", "kind"] : ["span", "question", "kind"],
   properties: {
-    ...(extra ? { token: { type: "string" } } : { span: { type: "string" } }),
+    ...(extra ? { token: { type: "string" }, sentence: { type: "string" } } : { span: { type: "string" } }),
     question: { type: "string" },
     kind: { type: "string", enum: ["single", "multi", "slider"] },
     explain: { type: "boolean" },
@@ -128,7 +129,7 @@ const CHOICE = (extra) => ({
       items: {
         type: "object",
         required: ["label", "text"],
-        properties: { label: { type: "string" }, emoji: { type: "string" }, text: { type: "string" }, hint: { type: "string" } },
+        properties: { label: { type: "string" }, emoji: { type: "string" }, text: { type: "string" } },
       },
     },
     current: { type: "array", items: { type: "string" } },
