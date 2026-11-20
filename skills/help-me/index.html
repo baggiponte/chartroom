@@ -418,7 +418,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 (() => {
 const $ = (id) => document.getElementById(id);
 const ta = $("ta"), backdrop = $("backdrop"), pop = $("pop"), extrasEl = $("extras");
-const EXAMPLE = "Help me choose a coffee machine for my small kitchen, something good for lattes. Should I get a grinder too?";
+const EXAMPLE = "Help me choose a home coffee machine for my small kitchen, something good for lattes.";
 
 let mode = "live", modelName = "the model", agentName = "your agent", imagesOn = true;
 let choices = [];
@@ -1676,6 +1676,9 @@ async function demoAnalyze(text, more) {
     { span: "Should I get a grinder too?", statement: "I'd also like {value}.", question: "Get a grinder too?", kind: "single", explain: true, options: [
       { label: "Built-in grinder", emoji: "⚙️", text: "a machine with a built-in grinder" }, { label: "Separate grinder", emoji: "🫘", text: "a separate burr grinder" },
       { label: "No grinder", emoji: "🚫", text: "to keep using pre-ground coffee" } ] },
+    { span: "Which heating system should it have?", statement: "For heating, I'd like {value}.", question: "Which heating system?", kind: "single", explain: true, options: [
+      { label: "Thermoblock", emoji: "⚡", text: "a thermoblock" }, { label: "Single boiler", emoji: "🫖", text: "a single boiler" },
+      { label: "Heat exchanger", emoji: "🔁", text: "a heat exchanger" }, { label: "Dual boiler", emoji: "♨️", text: "a dual boiler" } ] },
     { span: "coffee machine", question: "What kind of machine?", kind: "single", explain: true, options: [
       { label: "Espresso", emoji: "☕", text: "espresso machine" }, { label: "Bean-to-cup", emoji: "🫘", text: "bean-to-cup machine" },
       { label: "Pod", emoji: "💊", text: "pod machine" }, { label: "Filter", emoji: "🫗", text: "filter coffee machine" } ] },
@@ -1686,6 +1689,8 @@ async function demoAnalyze(text, more) {
     { span: "", token: "Budget", sentence: "My budget is {value}.", question: "What's your budget?", kind: "slider", slider: { min: 50, max: 1500, step: 50, value: 400, template: "up to €{value}", minLabel: "€50", maxLabel: "€1,500" } },
     { span: "", token: "Milk", sentence: "For milk I'd like {value}.", question: "How should it froth milk?", kind: "single", explain: true, options: [
       { label: "Automatic", emoji: "🤖", text: "automatic frothing" }, { label: "Steam wand", emoji: "♨️", text: "a manual steam wand" }, { label: "Separate frother", emoji: "🥄", text: "a separate frother" } ] },
+    { span: "", token: "Counter space", sentence: "I have {value} of counter space.", question: "How much counter space?", kind: "single", options: [
+      { label: "About 25 cm", emoji: "📏", text: "about 25 cm" }, { label: "About 40 cm", emoji: "📐", text: "about 40 cm" }, { label: "Plenty", emoji: "🧱", text: "plenty" } ] },
     { span: "", token: "Cups", sentence: "I drink about {value}.", question: "How many cups a day?", kind: "slider", slider: { min: 1, max: 8, step: 1, value: 2, template: "{value} cups a day" } },
   ];
   return { summary: "Let's pin down which coffee machine fits your kitchen and your lattes.", model: "demo",
@@ -1707,6 +1712,13 @@ async function demoExplain(ch, opts) {
       { label: "Bean-to-cup", what: "Grinds and brews at the push of a button. Convenient, pricier, bulkier.", good_for: "busy mornings, several drinkers", image: "bean to cup coffee machine" },
       { label: "Pod", what: "Cheap and tidy, but each cup costs more and the taste is limited.", good_for: "one quick cup a day", image: "coffee capsule machine" },
       { label: "Filter", what: "Brews a jug of milder coffee. No lattes without a separate frother.", good_for: "black coffee by the mug", image: "drip coffee maker" } ] };
+  if (ch.question === "Which heating system?") return {
+    intro: "The heating system decides how long you wait between pulling a shot and steaming milk.",
+    options: [
+      { label: "Thermoblock", what: "Heats water on demand. Ready in a minute, but steam is weak and shots vary.", good_for: "small budgets, the odd latte", image: "thermoblock espresso machine" },
+      { label: "Single boiler", what: "One boiler for coffee and steam, so you wait while it switches temperature.", good_for: "mostly espresso, few milk drinks", image: "single boiler espresso machine" },
+      { label: "Heat exchanger", what: "Brews and steams at once from one big boiler. Fast, needs a cooling flush.", good_for: "back-to-back milk drinks", image: "heat exchanger espresso machine" },
+      { label: "Dual boiler", what: "Separate boilers for coffee and steam. Stable and fast, but big and pricey.", good_for: "daily lattes, enthusiasts", image: "dual boiler espresso machine" } ] };
   if (ch.question === "How should it froth milk?") return {
     intro: "Lattes need steamed milk. How the machine does it decides how much skill it takes and how silky the foam gets.",
     options: [
@@ -1719,7 +1731,15 @@ async function demoExplain(ch, opts) {
 async function demoDecide(ch, { options, answers, asked }) {
   await new Promise(r => setTimeout(r, 500));
   const machine = ch.question === "What kind of machine?";
-  const bank = machine ? [
+  const heating = ch.question === "Which heating system?";
+  const bank = heating ? [
+    { question: "How many milk drinks in a row?", options: [
+      { label: "Just one", emoji: "☕", fav: "Single boiler" }, { label: "Two or three", emoji: "👫", fav: "Heat exchanger" }, { label: "A whole round", emoji: "🎉", fav: "Dual boiler" } ] },
+    { question: "How long can you wait for it to heat up?", options: [
+      { label: "A minute", emoji: "⏱️", fav: "Thermoblock" }, { label: "10 minutes", emoji: "⌛", fav: "Heat exchanger" }, { label: "I'll put it on a timer", emoji: "⏰", fav: "Dual boiler" } ] },
+    { question: "How much space can it take?", options: [
+      { label: "As little as possible", emoji: "🤏", fav: "Thermoblock" }, { label: "A normal machine", emoji: "📦", fav: "Heat exchanger" }, { label: "Whatever it needs", emoji: "🏗️", fav: "Dual boiler" } ] },
+  ] : machine ? [
     { question: "How often will you make milk drinks?", options: [
       { label: "Every day", emoji: "🥛", fav: "Espresso" }, { label: "A few times a week", emoji: "📅", fav: "Bean-to-cup" }, { label: "Rarely", emoji: "🫗", fav: "Filter" } ] },
     { question: "How much fiddling do you enjoy?", options: [

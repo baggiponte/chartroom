@@ -3,7 +3,7 @@
 `/help-me` for any coding agent: shape a vague request by clicking on it, then hand it back. It's an
 [Agent Skill](https://agentskills.io), so it works in Claude Code, Codex, Gemini CLI, OpenCode, Cursor and others.
 
-![/help-me demo: flipping underlined phrases, Explain me, filling in a blank, dragging a number, then Enter](docs/demo.gif)
+![/help-me demo: flipping underlines, multiselect, dragging a number, removing a sentence, a question in the text, Explain me, Help me decide, Tidy up and ranking, then Shift+Enter](docs/demo.gif)
 
 `/help-me I want to choose a coffee machine` opens your request in a page. A small model underlines what you
 could change: click to flip it, or drag a blue value. Questions you asked in the request get a wavy underline
