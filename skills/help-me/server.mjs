@@ -460,9 +460,10 @@ function send(res, status, obj) {
 const OUT = opt("--out", process.env.PROMPT_SHAPER_OUT || "");
 const STATUS = { 0: "sent", 2: "cancelled", 3: "timeout" };
 
+const printed = (text) => text ? (text.endsWith("\n") ? text : text + "\n") : "";
 function finish(code, text) {
   for (const j of Object.values(running)) j.abort();
-  if (text) process.stdout.write(text.endsWith("\n") ? text : text + "\n");
+  if (text) process.stdout.write(printed(text));
   if (OUT) {
     try { // write then rename, so a poller never reads half a file
       writeFileSync(OUT + ".tmp", JSON.stringify({ status: STATUS[code] || "error", prompt: text || "" }) + "\n");
@@ -518,7 +519,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === "POST" && url.pathname === "/api/submit") {
       const { prompt = "" } = await body(req);
-      send(res, 200, { ok: true });
+      send(res, 200, { ok: true, sent: printed(prompt) });
       return finish(0, prompt);
     }
     if (req.method === "POST" && url.pathname === "/api/cancel") {

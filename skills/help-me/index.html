@@ -257,8 +257,13 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
 .ended-bar.cancelled .pill .ok { background: var(--faint); }
 .ended-bar button { font: inherit; color: var(--muted); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .ended-bar button:hover { color: var(--text); }
-.ended-prompt { white-space: pre-wrap; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; margin: 0 0 12px; font: inherit; font-size: 15px; max-height: 40vh; overflow: auto; }
-.ended-prompt[hidden] { display: none; }
+.ended-sent { margin: 0 0 12px; }
+.ended-sent[hidden] { display: none; }
+.ended-prompt { white-space: pre-wrap; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; margin: 0; font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; max-height: 40vh; overflow: auto; }
+.sent-notes { margin: 8px 8px 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
+.sent-notes:empty { display: none; }
+.sent-notes li + li { margin-top: 3px; }
+.sent-notes b { color: var(--text); font-weight: 600; }
 body.ended textarea { caret-color: transparent; }
 body.ended .card { box-shadow: none; border: 1px solid var(--line); }
 body.ended #cancel, body.ended #more { display: none; }
@@ -282,7 +287,7 @@ body.ended .pop .chip.on:disabled:hover { background: var(--ink); }
   <div class="summary" id="summary"><span class="icon">✳️</span><span class="text" id="summaryText">Reading your request…</span></div>
 
   <div class="ended-bar" id="endedBar" hidden><span class="pill"><span class="ok">✓</span><span id="endedTitle">Sent</span></span><span id="endedSub">read-only</span><button id="endedShow">see what was sent</button></div>
-  <pre class="ended-prompt" id="endedPrompt" hidden></pre>
+  <div class="ended-sent" id="endedSent" hidden><pre class="ended-prompt" id="endedPrompt"></pre><ul class="sent-notes" id="sentNotes"></ul></div>
   <div class="card">
     <div class="field">
       <div class="backdrop field-text" id="backdrop" aria-hidden="true"></div>
@@ -318,6 +323,7 @@ let seq = 0, timer = null, lastAnalyzed = null, busy = false, moreBusy = false;
 let openId = null, hoverId = null, uid = 0;
 let ended = null;            // "sent" | "cancelled": the page stays open to look back at, but nothing changes or is sent again
 const dismissed = new Set(); // questions whose sentence you removed: don't ask them again
+const removedQs = [];        // the same, as written, for the notes under what was sent
 
 // ------------------------------------------------------------ choice model
 function makeChoice(c) {
@@ -463,6 +469,7 @@ function sentenceRange(ch, text) {
   return [a, b];
 }
 function dismiss(ch) {
+  if (!removedQs.includes(ch.question)) removedQs.push(ch.question);
   dismissed.add(ch.question.toLowerCase()); if (ch.token) dismissed.add(ch.token.toLowerCase());
 }
 function demote(ch) { // "remove sentence": take it out and don't ask again
@@ -1107,18 +1114,35 @@ function compose() {
   if (set.length) out += "\n\n" + set.map(c => `- ${c.token}: ${textFor(c)}`).join("\n");
   return out;
 }
+// what the sent text does and doesn't carry, in plain words
+function sentNotes() {
+  const text = ta.value, n = [], q = (s) => `<b>${esc(s)}</b>`;
+  const open = choices.filter(c => c.promo && !c.settled && c.start >= 0);
+  if (open.length) n.push(`Left out, unanswered: ${open.map(c => q(c.question)).join(", ")}.`);
+  const unset = choices.filter(c => c.extra && !c.settled);
+  if (unset.length) n.push(`Not sent: ${unset.map(c => q(c.token || c.question)).join(", ")}.`);
+  if (removedQs.length) n.push(`Removed by you: ${removedQs.map(q).join(", ")}.`);
+  const asks = choices.filter(c => c.statement && !c.extra && c.start >= 0 && !isSet(c));
+  if (asks.length) n.push(`Sent as the question you wrote: ${asks.map(c => q(c.orig)).join(", ")}.`);
+  const kept = choices.filter(c => !c.extra && !c.promo && !c.statement && c.start >= 0 && text.slice(c.start, c.end) === c.orig);
+  if (kept.length) n.push(`Kept as you wrote it: ${kept.map(c => q(c.orig)).join(", ")}.`);
+  n.push("Explain me and Help me decide stay on this page. Only the text above goes back.");
+  return n;
+}
 $("send").onclick = submit;
 async function submit() {
   if (ended || !withoutOpen()) return;
   closePop();
-  const prompt = compose();
+  const prompt = compose(), notes = sentNotes();
   if (mode === "live") {
-    try { await post("/api/submit", { prompt }); }
+    let r;
+    try { r = await post("/api/submit", { prompt }); }
     catch (e) { setStatus("err", "couldn't reach the help-me server: " + esc(e.message)); return; }
-    end("sent", `Sent to ${agentName}`, "read-only now: click an underline to look back at what you picked and why", prompt);
+    // r.sent is exactly what the server printed for the agent
+    end("sent", `Sent to ${agentName}`, "read-only now: click an underline to look back at what you picked and why", r?.sent ?? prompt, notes);
   } else {
     try { await navigator.clipboard.writeText(prompt); } catch {}
-    end("sent", "Copied to clipboard", "demo mode: paste it into your agent", prompt);
+    end("sent", "Copied to clipboard", "demo mode: paste it into your agent", prompt, notes);
   }
 }
 $("cancel").onclick = async () => {
@@ -1128,15 +1152,16 @@ $("cancel").onclick = async () => {
   end("cancelled", "Cancelled", `nothing was sent to ${agentName}`, "");
 };
 // The help-me server exits once you send, so from here on everything the page shows comes from what it already has.
-function end(kind, title, sub, prompt) {
+function end(kind, title, sub, prompt, notes = []) {
   ended = kind; clearTimeout(timer); seq++; busy = moreBusy = false;
   for (const c of choices) if (c.decide) { c.decide.busy = false; c.decide.seq++; }
   document.body.classList.add("ended");
   ta.readOnly = true; ta.blur();
   $("endedBar").hidden = false; $("endedBar").classList.toggle("cancelled", kind === "cancelled");
   $("endedTitle").textContent = title; $("endedSub").textContent = sub;
-  const pre = $("endedPrompt"), show = $("endedShow");
-  pre.textContent = prompt; show.hidden = !prompt;
+  const pre = $("endedSent"), show = $("endedShow");
+  $("endedPrompt").textContent = prompt; show.hidden = !prompt;
+  $("sentNotes").innerHTML = notes.map(s => `<li>${s}</li>`).join("");
   show.onclick = () => { pre.hidden = !pre.hidden; show.textContent = pre.hidden ? "see what was sent" : "hide what was sent"; };
   $("hint").textContent = kind === "sent" ? "This session is closed. Underlines, Explain me and Help me decide still show what you chose; run /help-me again to start a new one." : "This session is closed. Run /help-me again to start a new one.";
   setStatus("", kind === "sent" ? "sent" : "cancelled");
