@@ -97,6 +97,10 @@ body.scrubbing, body.scrubbing * { cursor: ew-resize !important; user-select: no
 .add-more:disabled { opacity: .6; cursor: default; animation: shimmer 1.2s infinite ease-in-out; }
 .add-more[hidden] { display: none; }
 .ph-sample { color: var(--accent); background: var(--accent-soft); border-radius: 4px; }
+.backdrop .hd { color: var(--muted); }
+.card.tidied .backdrop { animation: tidied .6s ease-out; }
+@keyframes tidied { from { opacity: .35; } to { opacity: 1; } }
+.add-more.undo { color: var(--accent); }
 
 .toolbar { display: flex; align-items: center; gap: 14px; margin-top: 16px; min-height: 48px; }
 .status { font-size: 13px; color: var(--muted); display: inline-flex; align-items: center; gap: 8px; }
@@ -257,7 +261,7 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
 .sent-notes b { color: var(--text); font-weight: 600; }
 body.ended textarea { caret-color: transparent; }
 body.ended .card { box-shadow: none; border: 1px solid var(--line); }
-body.ended #cancel, body.ended #more { display: none; }
+body.ended #cancel, body.ended #more, body.ended #tidy { display: none; }
 body.ended .pop [data-ro], body.ended .pop .pop-kind { display: none; }
 body.ended .pop button:disabled, body.ended .pop input:disabled { cursor: default; }
 body.ended .pop .chip:disabled:hover { background: var(--chip); }
@@ -350,7 +354,8 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
   .field-text, textarea { font-size: 19px; }
   .summary { font-size: 17px; }
   .cards { grid-template-columns: 1fr; }
-  .status { white-space: nowrap; }
+  .status { white-space: nowrap; min-width: 0; overflow: hidden; }
+  .status #statusText { overflow: hidden; text-overflow: ellipsis; }
   .add-more .long { display: none; }
   .toolbar { gap: 10px; }
 }
@@ -374,6 +379,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
       <button class="icon-btn" id="cancel" title="Cancel and send nothing back" aria-label="Cancel">✕</button>
       <span class="status" id="status"><span class="dot"></span><span id="statusText">idle</span></span>
       <span class="spacer"></span>
+      <button class="add-more" id="tidy" hidden title="Reorder your sentences into a paragraph, must-haves and nice-to-haves, without changing a word">Tidy up</button>
       <button class="add-more" id="more" hidden>+ More questions</button>
       <button class="send" id="send" title="Send to your agent (Shift+Enter)" aria-label="Send">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
@@ -528,7 +534,7 @@ function promote(ch) {
   if (!value) return;
   const { pre, post } = sentenceParts(ch);
   let text = ta.value.replace(/\s+$/, "");
-  const sep = !text ? "" : /[.!?:;…)]$/.test(text) ? " " : ". ";
+  const sep = !text ? "" : /\n[ \t]*- [^\n]*$/.test(text) ? "\n- " : /[.!?:;…)]$/.test(text) ? " " : ". ";
   ch.promo = { sep, pre, post };
   ch.extra = false; ch.settled = set;
   ch.start = text.length + sep.length + pre.length; ch.end = ch.start + value.length;
@@ -542,7 +548,13 @@ function sentenceRange(ch, text) {
   let a = ch.start, b = ch.end;
   if (text.slice(a - pre.length, a) === pre && text.slice(b, b + post.length) === post) {
     a -= pre.length; b += post.length;
-    if (text.slice(a - sep.length, a) === sep) a -= sep.length;
+    if (sep && text.slice(a - sep.length, a) === sep) a -= sep.length;
+    else {
+      const ls = text.lastIndexOf("\n", a - 1) + 1, lineEnd = b === text.length || text[b] === "\n";
+      if (/^[ \t]*(?:[-*•][ \t]+)?$/.test(text.slice(ls, a)) && lineEnd) { a = ls; if (text[b] === "\n") b++; else if (a > 0) a--; }
+      else if (text[b] === " ") b++;
+      else if (text[a - 1] === " ") a--;
+    }
   }
   return [a, b];
 }
@@ -563,10 +575,16 @@ function demote(ch) {
 function withoutOpen(text = ta.value) {
   const open = choices.filter(c => c.promo && !c.settled && c.start >= 0).sort((x, y) => y.start - x.start);
   for (const ch of open) { const [a, b] = sentenceRange(ch, text); text = text.slice(0, a) + text.slice(b); }
+  if (tidyHeads.size) { // a heading whose list emptied out goes too
+    const lines = text.split("\n").filter(l => !/^[ \t]*[-*•][ \t]*$/.test(l));
+    text = lines.filter((l, i) => !(isHeading(l) && !(lines[i + 1] || "").trim())).join("\n").replace(/\n{3,}/g, "\n\n");
+  }
   return text.replace(/[ \t]+$/gm, "").trim();
 }
 
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+// plain text between underlines; headings added by Tidy up are dimmed (colour only, so the caret stays aligned)
+const plain = (s) => !tidyHeads.size ? esc(s) : s.split("\n").map(l => isHeading(l) ? `<span class="hd">${esc(l)}</span>` : esc(l)).join("\n");
 
 function render(flashId) {
   const text = ta.value;
@@ -574,12 +592,12 @@ function render(flashId) {
   let html = "", pos = 0;
   for (const c of marks) {
     if (c.start < pos) continue;
-    html += esc(text.slice(pos, c.start));
+    html += plain(text.slice(pos, c.start));
     const cls = [c.kind === "slider" ? "scrub" : "", drag?.id === c.id ? "scrubbing" : "", c.settled ? "settled" : "", c.promo && !c.settled ? "ph" : "", c.statement ? "ask" : "", c.id === openId ? "active" : "", c.id === hoverId ? "hover" : "", c.id === flashId ? "flash" : "", c.id === nudgeId ? "nudge" : ""].join(" ");
     html += `<mark data-id="${c.id}" class="${cls}">${esc(text.slice(c.start, c.end))}</mark>`;
     pos = c.end;
   }
-  backdrop.innerHTML = html + esc(text.slice(pos)) + "​";
+  backdrop.innerHTML = html + plain(text.slice(pos)) + "​";
   ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px";
   $("summaryText").textContent = summary || (busy ? "Reading your request…" : text.trim() ? "" : "What do you need help with?");
   $("send").disabled = !text.trim() || !!ended;
@@ -602,7 +620,7 @@ function renderExtras() {
       `<span class="k">${esc(c.token)}:</span> <span class="v">${v ? esc(v) : "?"}</span></button>`;
   }).join("") +
   "";
-  renderMore();
+  renderMore(); renderTidy();
   if (focused) extrasEl.querySelector(`[data-id="${focused}"]`)?.focus();
   if (openId) positionPop();
 }
@@ -627,6 +645,7 @@ function waits() {
   const w = [];
   if (busy && lastAnalyzed) w.push(`${esc(cap(modelName))} is re-reading your edit`);
   if (moreBusy) w.push(`${esc(cap(modelName))} is looking for more questions`);
+  if (tidyBusy) w.push(`${esc(cap(modelName))} is sorting it into must-haves and nice-to-haves`);
   for (const c of choices) {
     if (c.explainBusy) w.push(`Explaining “${esc(c.question)}”`);
     if (c.decide?.busy) w.push(c.decide.qs.length ? `Weighing your answers on “${esc(c.question)}”` : `Thinking of questions about you for “${esc(c.question)}”`);
@@ -661,7 +680,9 @@ function journey() {
       next: "Underlines appear on your request: click them to flip choices and fill the blanks.",
       done: ended ? "Shaped." : "Nothing left open. You can still flip any underline." },
     { title: "Read it over and send",
-      now: `Everything's answered. Give it a last read, then press <b>Shift+Enter</b> or ↑ to send it to ${agent}.`,
+      now: `Everything's answered. Give it a last read, then press <b>Shift+Enter</b> or ↑ to send it to ${agent}.` +
+        (tidyUndo && ta.value === tidyUndo.after ? ` Not how you'd group it? <button data-j="tidy">Undo tidy</button>.`
+          : !hasTidyLayout() && segments(ta.value).length >= 5 ? ` Long? <button data-j="tidy">Tidy it up</button> into a short paragraph, must-haves and nice-to-haves.` : ""),
       next: `Press <b>Shift+Enter</b> whenever it reads right. You can send early: unfilled blanks are left out.`,
       done: ended === "cancelled" ? "Cancelled before sending." : "Sent." },
     { title: `Back to ${agent}`,
@@ -685,6 +706,7 @@ function journey() {
     (w.length ? `<ul class="j-waits">${w.map(x => `<li>${x}…</li>`).join("")}</ul>` : "") +
     (then && !ended ? `<div class="j-then">Then: ${then.title.replace(/^./, c => c.toLowerCase())}.</div>` : "");
   document.querySelectorAll('#journey [data-j="next"]').forEach(b => b.onclick = showNext);
+  document.querySelectorAll('#journey [data-j="tidy"]').forEach(b => b.onclick = tidyOrUndo);
 
   const card = $("card");
   card.classList.toggle("working", !ended && (busy || moreBusy || w.length > 0));
@@ -1037,6 +1059,119 @@ function renderMore() {
   moreBtn.innerHTML = moreBusy ? "Thinking<span class=\"long\"> of more</span>…" : "+ More<span class=\"long\"> questions</span>";
 }
 
+// Tidy up: the model reorders whole sentences into a paragraph (goal and context) plus headed lists (must-haves,
+// nice to have). It never rewords, so every underline and blank moves with its sentence and stays clickable,
+// and what you see is exactly what gets sent. Undo works until the text changes again.
+const tidyHeads = new Set();
+let tidyBusy = false, tidyUndo = null, tidySeq = 0;
+const tidyBtn = $("tidy");
+const isHeading = (line) => { const t = line.trim(); return t.endsWith(":") && tidyHeads.has(t.slice(0, -1).trim()); };
+const hasTidyLayout = (text = ta.value) => tidyHeads.size > 0 && text.split("\n").some(isHeading);
+
+// sentences as [a, b) ranges, never cutting through an underline; bullets and our own headings are left out
+function segments(text) {
+  const marks = choices.filter(c => !c.extra && c.start >= 0);
+  const inMark = (p) => marks.some(c => p > c.start && p < c.end);
+  const segs = [];
+  let ls = 0;
+  for (const line of text.split("\n")) {
+    const le = ls + line.length;
+    if (line.trim() && !isHeading(line)) {
+      let a = ls + line.match(/^[ \t]*(?:[-*•][ \t]+)?/)[0].length;
+      const re = /[.!?…]+["'”’)\]]*([ \t]+)/g; re.lastIndex = a - ls;
+      for (let m; (m = re.exec(line));) {
+        const cut = ls + m.index + m[0].length - m[1].length;
+        if (inMark(cut)) continue;
+        if (cut > a) segs.push({ a, b: cut });
+        a = cut + m[1].length;
+      }
+      const b = ls + line.replace(/\s+$/, "").length;
+      if (b > a) segs.push({ a, b });
+    }
+    ls = le + 1;
+  }
+  return segs;
+}
+
+function tidyOrUndo() { tidyUndo && ta.value === tidyUndo.after ? undoTidy() : runTidy(); }
+tidyBtn.onclick = tidyOrUndo;
+function renderTidy() {
+  if (tidyUndo && ta.value !== tidyUndo.after) tidyUndo = null;
+  const n = tidyUndo ? 0 : segments(ta.value).length;
+  tidyBtn.hidden = !!ended || !lastAnalyzed || (!tidyUndo && n < 3);
+  tidyBtn.disabled = tidyBusy || ((busy || moreBusy) && !tidyUndo);
+  tidyBtn.classList.toggle("undo", !!tidyUndo);
+  tidyBtn.innerHTML = tidyBusy ? "Tidying…" : tidyUndo ? "↶ Undo<span class=\"long\"> tidy</span>" : hasTidyLayout() ? "Tidy again" : "Tidy<span class=\"long\"> up</span>";
+}
+
+async function runTidy() {
+  if (ended || tidyBusy || busy || moreBusy) return;
+  const text = ta.value, segs = segments(text);
+  if (segs.length < 2) return;
+  closePop();
+  const my = ++tidySeq, sentences = segs.map(s => text.slice(s.a, s.b));
+  tidyBusy = true; setStatus("busy", `${esc(modelName)} is tidying…`); render();
+  let r;
+  try { r = mode === "live" ? await post("/api/tidy", { sentences }) : await demoTidy(sentences); }
+  catch (e) {
+    if (my !== tidySeq) return;
+    tidyBusy = false; render();
+    if (!e.superseded) setStatus("err", `couldn't tidy: ${esc(e.message)} · <button id="retry">retry</button>`);
+    $("retry")?.addEventListener("click", runTidy);
+    return;
+  }
+  if (my !== tidySeq) return;
+  tidyBusy = false;
+  if (ta.value !== text) { render(); setStatus("err", `you edited while it was tidying · <button id="retry">tidy again</button>`); $("retry").onclick = runTidy; return; }
+  applyTidy(text, segs, r.blocks || []);
+  setStatus("", "");
+}
+
+function applyTidy(text, segs, raw) {
+  // every sentence exactly once, whatever came back
+  const used = new Set(), blocks = [];
+  for (const b of raw) {
+    const items = (b.items || []).filter(i => Number.isInteger(i) && i >= 0 && i < segs.length && !used.has(i) && used.add(i));
+    if (items.length) blocks.push({ heading: String(b.heading || "").trim().replace(/:$/, ""), items });
+  }
+  const missing = segs.map((_, i) => i).filter(i => !used.has(i));
+  if (missing.length) blocks.length ? blocks[0].items.push(...missing) : blocks.push({ heading: "", items: missing });
+
+  let out = "";
+  const at = new Map();
+  for (const b of blocks) {
+    if (out) out += "\n\n";
+    if (b.heading) { tidyHeads.add(b.heading); out += b.heading + ":"; }
+    b.items.forEach((si, k) => {
+      out += b.heading ? "\n- " : k ? " " : "";
+      at.set(si, out.length); out += text.slice(segs[si].a, segs[si].b);
+    });
+  }
+  tidyUndo = { before: text, after: out, pos: choices.map(c => [c, c.start, c.end, c.promo?.sep]) };
+  for (const c of choices) {
+    if (c.extra || c.start < 0) continue;
+    const si = segs.findIndex(s => c.start >= s.a && c.end <= s.b);
+    if (si < 0) continue;
+    const d = at.get(si) - segs[si].a; c.start += d; c.end += d;
+    if (c.promo) { // a bullet or line start has no separator; sentenceRange then takes the whole line
+      const p = c.start - c.promo.pre.length, lead = out.slice(out.lastIndexOf("\n", p - 1) + 1, p);
+      c.promo.sep = /^[ \t]*(?:[-*•][ \t]+)?$/.test(lead) ? "" : " ";
+    }
+  }
+  const focused = document.activeElement === ta;
+  setText(out); relocate(out);
+  if (focused) ta.setSelectionRange(out.length, out.length);
+  render();
+  $("card").classList.remove("tidied"); void $("card").offsetWidth; $("card").classList.add("tidied");
+}
+
+function undoTidy() {
+  const u = tidyUndo; if (!u || ta.value !== u.after || ended) return;
+  for (const [c, start, end, sep] of u.pos) { c.start = start; c.end = end; if (c.promo) c.promo.sep = sep; }
+  tidyUndo = null;
+  setText(u.before); relocate(u.before); render();
+}
+
 // Marks sit under the textarea, so clicks are hit-tested against their boxes.
 function markAt(x, y) {
   for (const m of backdrop.querySelectorAll("mark"))
@@ -1250,6 +1385,7 @@ ta.addEventListener("input", () => {
   if (ta.value !== skipNextAnalysisFor) schedule();
 });
 ta.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() === "z" && (e.metaKey || e.ctrlKey) && !e.shiftKey && tidyUndo && ta.value === tidyUndo.after) { e.preventDefault(); undoTidy(); return; }
   if (e.key === "Enter" && e.shiftKey && !e.isComposing) { e.preventDefault(); submit(); }
   else if (e.key === "ArrowDown" && e.altKey) {
     const p = ta.selectionStart, c = choices.find(c => !c.extra && p >= c.start && p <= c.end);
@@ -1306,7 +1442,7 @@ $("cancel").onclick = async () => {
 };
 // The help-me server exits once you send, so from here on everything the page shows comes from what it already has.
 function end(kind, title, sub, prompt, notes = []) {
-  ended = kind; clearTimeout(timer); seq++; busy = moreBusy = false;
+  ended = kind; clearTimeout(timer); seq++; tidySeq++; busy = moreBusy = tidyBusy = false;
   for (const c of choices) if (c.decide) { c.decide.busy = false; c.decide.seq++; }
   document.body.classList.add("ended");
   ta.readOnly = true; ta.blur();
@@ -1345,6 +1481,13 @@ async function demoAnalyze(text, more) {
   ];
   return { summary: "Let's pin down which coffee machine fits your kitchen and your lattes.", model: "demo",
     choices: all.filter(c => !c.span || text.includes(c.span)) };
+}
+async function demoTidy(sentences) {
+  await new Promise(r => setTimeout(r, 600));
+  const must = /budget|need|must|small|kitchen|\bmy\b.*\bis\b/i, about = /\b(I'm|I am|I drink|I mostly|I'll probably|beginner)\b/i;
+  const blocks = [{ heading: "", items: [0] }, { heading: "Must-haves", items: [] }, { heading: "Nice to have", items: [] }];
+  sentences.forEach((s, i) => { if (i) (about.test(s) ? blocks[0] : must.test(s) ? blocks[1] : blocks[2]).items.push(i); });
+  return { model: "demo", blocks };
 }
 async function demoExplain(ch, opts) {
   await new Promise(r => setTimeout(r, 500));

@@ -432,6 +432,54 @@ async function decide(text, question, options, answers = [], asked = []) {
   return data;
 }
 
+const TIDY_SYSTEM = `Someone wrote a long request for an AI assistant, one sentence after another, and it is hard to scan.
+Restructure it WITHOUT changing a single word: you only choose the order of their sentences and group them into blocks.
+You get the sentences numbered. Return blocks in reading order:
+- First a block with heading "" holding the main goal (what they want), then the context about them and their
+  situation (skill level, how often, where, who for).
+- Then a block "Must-haves": hard requirements and limits (budget caps, sizes, deadlines, things they clearly need,
+  deal-breakers).
+- Then a block "Nice to have": preferences that could give way if needed (looks, extras, softer wishes).
+- Add another block only when sentences clearly fit none of these (e.g. "Still open" for questions they asked).
+  Leave out empty blocks. At most 5 blocks.
+- Within a block, put related sentences next to each other (everything about milk together), most important first.
+- Headings are 1-3 words in the request's language, without a colon.
+- Use every sentence number exactly once. Sentences with a [placeholder] are blanks not filled yet: put them where
+  their answer would belong.`;
+
+const TIDY_SCHEMA = {
+  type: "object",
+  required: ["blocks"],
+  properties: {
+    blocks: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["heading", "items"],
+        properties: { heading: { type: "string" }, items: { type: "array", items: { type: "integer" } } },
+      },
+    },
+  },
+};
+
+// Returns 0-based sentence indexes; every sentence lands in exactly one block, so nothing the user wrote is lost.
+async function tidy(sentences) {
+  const input = "Sentences:\n" + sentences.map((s, i) => `${i + 1}. ${s}`).join("\n");
+  const data = await runModel("tidy", TIDY_SYSTEM, TIDY_SCHEMA, input);
+  const used = new Set(), blocks = [];
+  for (const b of data.blocks || []) {
+    const items = [];
+    for (const n of b.items || []) {
+      const i = Math.round(Number(n)) - 1;
+      if (i >= 0 && i < sentences.length && !used.has(i)) { used.add(i); items.push(i); }
+    }
+    if (items.length) blocks.push({ heading: String(b.heading || "").trim().replace(/[:：]\s*$/, ""), items });
+  }
+  const missing = sentences.map((_, i) => i).filter((i) => !used.has(i));
+  if (missing.length) blocks.length ? blocks[0].items.push(...missing) : blocks.push({ heading: "", items: missing });
+  return { blocks, model: data.model, ms: data.ms };
+}
+
 // Read once, so a running server never serves a page newer than its own code.
 const PAGE = readFileSync(join(HERE, "index.html"));
 
@@ -502,6 +550,17 @@ const server = http.createServer(async (req, res) => {
       try {
         const data = await decide(text, question, options, answers, asked);
         log(`helped decide "${question}" in ${data.ms} ms${data.recommendation ? `: ${data.recommendation.label}` : ""}`);
+        return send(res, 200, data);
+      } catch (e) {
+        if (!e.superseded) log(e.message);
+        return send(res, e.superseded ? 409 : 500, { error: e.message });
+      }
+    }
+    if (req.method === "POST" && url.pathname === "/api/tidy") {
+      const { sentences = [] } = await body(req);
+      try {
+        const data = await tidy(sentences.map(String));
+        log(`tidied ${sentences.length} sentences into ${data.blocks.length} blocks in ${data.ms} ms`);
         return send(res, 200, data);
       } catch (e) {
         if (!e.superseded) log(e.message);

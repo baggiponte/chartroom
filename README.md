@@ -50,6 +50,7 @@ server and opens a browser: approve it.
 | Help me decide | in the Explain me panel: a few questions about you (habits, budget, space) that narrow the options, then a suggested pick |
 | Answer a wavy question | a question you wrote ("What do I do with the water heater?") gets concrete answers; picking one rewrites it as a statement ("With the water heater, I'll replace it with a heat pump.") |
 | Fill a [blank] | answer what the request didn't say; unfilled sentences are left out when you send. **+ More questions** adds more |
+| Tidy up | once the request runs long, the model reorders your sentences into a short paragraph (goal and context), **Must-haves** and **Nice to have**, without changing a word. Underlines and blanks keep working, and that layout is what gets sent. **Undo tidy** (or Ctrl/Cmd+Z) puts it back until you edit again |
 | Type | edit freely. The model reads the text again and keeps what you set |
 | Shift+Enter / Enter / ✕ | send / new line / cancel and send nothing |
 
