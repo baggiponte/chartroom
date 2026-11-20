@@ -24,44 +24,19 @@ existing login, or an API key. See [Backends](#backends).
 
 ## Install
 
-You need Node 18+ and one [backend](#backends).
-
-**Any agent**, with the [skills CLI](https://github.com/vercel-labs/skills). It finds the agents you have and
-installs the skill for each:
+Needs Node 18+ and one [backend](#backends).
 
 ```bash
-npx skills add baggiponte/prompt-shaper            # this project only
-npx skills add baggiponte/prompt-shaper -g         # every project
-npx skills add baggiponte/prompt-shaper -g -a codex -a gemini-cli   # pick agents
+npx skills add baggiponte/prompt-shaper -g
 ```
 
-**Claude Code plugin**, which gives `/prompt-shaper:help-me`:
+The [skills CLI](https://github.com/vercel-labs/skills) installs it for every agent it finds (drop `-g` for
+this project only, add `-a codex` to pick agents). In Claude Code it's `/help-me ...`; in Codex, `$help-me ...`;
+elsewhere, ask the agent to "use help-me".
 
-```bash
-claude plugin marketplace add baggiponte/prompt-shaper
-claude plugin install prompt-shaper@prompt-shaper-local
-```
-
-**Without npm**, clone it and link the skill folder into your agent's skill folder (table below), so `git pull` updates it:
-
-```bash
-git clone https://github.com/baggiponte/prompt-shaper ~/src/prompt-shaper
-ln -s ~/src/prompt-shaper/skills/help-me ~/.claude/skills/help-me
-```
-
-| Agent | Skill folder | How to call it |
-|---|---|---|
-| Claude Code | `~/.claude/skills/` | `/help-me plan a weekend in Lisbon` |
-| Codex | `~/.codex/skills/` or `~/.agents/skills/` | `$help-me plan a weekend in Lisbon`, or ask for it by name |
-| Gemini CLI | `~/.gemini/skills/` | ask "use help-me to plan a weekend in Lisbon" |
-| OpenCode | `~/.config/opencode/skills/` | same |
-| Anything else | wherever it reads `SKILL.md` | point it at `skills/help-me/SKILL.md` |
-
-Codex and other sandboxed agents need to let the skill start a local server and open a browser, so approve
-that command when asked. If an agent's shell can't wait minutes for a command, the skill tells it to run the
-server in the background with `--out FILE` and poll that file instead.
-
-To try the UI on its own, open `skills/help-me/index.html` in a browser. It runs a demo with canned suggestions.
+To track `main` instead, clone the repo and symlink `skills/help-me` into your agent's skills folder
+(e.g. `~/.claude/skills/help-me`). Sandboxed agents such as Codex will ask before the skill starts its local
+server and opens a browser: approve it.
 
 ## Usage
 
@@ -129,21 +104,8 @@ the config file is dropped when the request picks another backend.
 | | `--agent` | `PROMPT_SHAPER_AGENT` | guessed | agent name on the page, e.g. "Send to Codex" |
 | | `--out FILE` | | | also write `{"status","prompt"}` to FILE when done |
 
-### In your agent's own config
-
-Agents don't have a place for a skill's settings, but most can set env vars for the commands they run, and
-that's enough. Use it only when one agent should differ from the rest; otherwise the config file is simpler.
-
-- **Claude Code**, `~/.claude/settings.json`: `{ "env": { "PROMPT_SHAPER_BACKEND": "claude" } }`
-- **Codex**, `~/.codex/config.toml`:
-  ```toml
-  [shell_environment_policy]
-  set = { PROMPT_SHAPER_BACKEND = "codex" }
-  ```
-- **Gemini CLI**, `~/.gemini/.env`: `PROMPT_SHAPER_BACKEND=gemini` (a `.env` in your project is read instead, if there is one)
-- **Others**: export the variable in your shell profile.
-
-You rarely need even that: with `backend` on `auto`, each agent already uses its own CLI.
+To give one agent different defaults, set a `PROMPT_SHAPER_*` env var in that agent's own config
+(e.g. `"env"` in `~/.claude/settings.json`).
 
 ## Backends
 
