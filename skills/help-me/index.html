@@ -168,6 +168,35 @@ body.scrubbing, body.scrubbing * { cursor: ew-resize !important; user-select: no
 .hint { text-align: center; color: var(--muted); font-size: 14px; margin-top: 22px; }
 .hint kbd { font: inherit; font-size: 12px; border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; background: var(--card); }
 
+/* open questions board: fills the space under the request with quick-answer cards */
+.board { width: min(1080px, calc(100vw - 32px)); position: relative; left: 50%; transform: translateX(-50%); margin-top: 34px; }
+.board:empty { display: none; }
+.board-head { display: flex; align-items: baseline; gap: 12px; margin: 0 6px 12px; color: var(--muted); font-size: 14px; }
+.board-head b { color: var(--text); font-weight: 600; }
+.board-head .spacer { flex: 1; }
+.board-head button { white-space: nowrap; font: inherit; font-size: 14px; background: none; border: 0; padding: 0; color: var(--muted); cursor: pointer; }
+.board-head button:hover { color: var(--text); }
+.board-head button:disabled { cursor: default; animation: shimmer 1.2s infinite ease-in-out; }
+.bgrid { columns: 3 300px; column-gap: 12px; } /* masonry: short cards don't leave holes under tall ones */
+.bgrid > * { break-inside: avoid; margin-bottom: 12px; }
+.bq { width: 100%; background: var(--card); border: 1.5px solid transparent; border-radius: 20px; box-shadow: var(--shadow); padding: 16px 18px 14px; display: grid; gap: 10px; transition: border-color .15s, opacity .15s; }
+.bq.answered { border-color: var(--accent-soft); }
+.bq.flash { animation: qflash 1.2s ease-out; }
+.bq-head { display: flex; align-items: baseline; gap: 10px; }
+.bq-q { flex: 1; margin: 0; font-size: 16px; font-weight: 600; line-height: 1.35; }
+.bq-q .tok { display: block; font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: .02em; text-transform: uppercase; margin-bottom: 2px; }
+.bq.answered .bq-q .tok::after { content: " · set"; color: var(--accent); }
+.bq-tools { display: flex; gap: 12px; font-size: 13px; white-space: nowrap; }
+.bq-tools button { font: inherit; background: none; border: 0; padding: 0; cursor: pointer; color: var(--muted); }
+.bq-tools button:hover { color: var(--text); }
+.bq-tools .explain-btn { color: var(--accent); }
+.bq .chips { gap: 6px; }
+.bq .chip { padding: 6px 13px 6px 11px; font-size: 14px; gap: 7px; }
+.bq .chip .emo { font-size: 15px; }
+.bq .slider-val { font-size: 17px; text-align: left; margin: 0; min-height: 0; }
+.bq .slider-val.unset { font-size: 14px; padding-top: 0; }
+.board-skel { height: 132px; border-radius: 20px; background: var(--card); box-shadow: var(--shadow); animation: shimmer 1.2s infinite ease-in-out; }
+
 /* popover */
 .pop { position: fixed; z-index: 10; width: min(420px, calc(100vw - 32px)); background: var(--card); border-radius: 22px; box-shadow: var(--pop-shadow); padding: 18px 18px 12px; border: 1px solid var(--line); max-height: calc(100vh - 24px); overflow: auto; }
 .pop[hidden] { display: none; }
@@ -250,6 +279,8 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
   .qmodal { padding-top: 3vh; }
   .qbox-head, .qbox-body, .qbox-foot { padding-left: 18px; padding-right: 18px; }
   .q-head { flex-wrap: wrap; }
+  .board { margin-top: 24px; }
+  .bgrid { columns: 1; }
 }
 </style>
 </head>
@@ -273,6 +304,7 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
     </div>
   </div>
   <div class="hint" id="hint">Click any underlined part to flip it, drag the blue values left or right. Open questions are what your request doesn't say yet. <kbd>Enter</kbd> sends it back to <span class="agentName">your agent</span>, <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new line.</div>
+  <section class="board" id="board" aria-label="Open questions"></section>
 </main>
 
 <div class="pop" id="pop" hidden role="dialog"></div>
@@ -431,6 +463,7 @@ function renderExtras() {
   const more = $("more"); if (more) more.onclick = () => { openQuestions(); analyze({ more: true }); };
   const qo = $("qOpen"); if (qo) qo.onclick = () => openQuestions();
   if (qOpen) syncQuestions();
+  renderBoard();
   if (focused) extrasEl.querySelector(`[data-id="${focused}"]`)?.focus();
   if (openId) positionPop();
 }
@@ -662,6 +695,7 @@ let qOpen = false, qLastFocus = null;
 function refreshChoice(ch) {
   if (openId === ch.id) openPop(ch.id);
   if (qOpen) renderQuestion(ch);
+  renderBoard();
 }
 function openQuestions(focusId) {
   if (openId) closePop();
@@ -794,6 +828,99 @@ function bindQuestion(ch) {
   };
   txt.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); txt.blur(); } };
   txt.onblur = () => { if (ch.kind === "single" && !ch.custom && !ch.selected.length) redo(); };
+}
+
+// ------------------------------------------------------------ open questions board
+// The space under the request shows every setting the request doesn't mention as a small card with its
+// options as chips, so most questions get answered without opening anything. Same choice objects as the
+// modal and the tokens; "Explain me" / "Something else" hand off to the modal for the long form.
+const board = $("board");
+let boardSlide = null; // id of a card whose range input is being dragged: don't rebuild it under the pointer
+function boardCardHTML(ch) {
+  const tools = (ch.explain ? `<button class="explain-btn" data-role="explain">Explain me</button>` : "") +
+    (ch.settled ? `<button data-role="clear" title="Leave this open">Clear</button>` : "");
+  const head = `<div class="bq-head"><h3 class="bq-q"><span class="tok">${esc(ch.token)}</span>${esc(ch.question)}</h3><span class="bq-tools">${tools}</span></div>`;
+  if (ch.kind === "slider") {
+    const s = ch.slider;
+    if (s.stops?.length) return head + `<div class="chips">` + s.stops.map((st, i) =>
+      `<button class="chip ${ch.touched && Math.round(ch.value) === i ? "on" : ""}" data-stop="${i}">${esc(st)}</button>`).join("") + `</div>`;
+    return head + `<div class="slider-val ${ch.touched ? "" : "unset"}" data-role="sval">${ch.touched ? esc(textFor(ch)) : "not set: drag to choose"}</div>
+      <input type="range" data-role="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${ch.value}" aria-label="${esc(ch.question)}">
+      <div class="slider-ends"><span>${esc(s.minLabel || fmtNum(s.min))}</span><span>${esc(s.maxLabel || fmtNum(s.max))}</span></div>`;
+  }
+  return head + `<div class="chips">` + ch.options.map((o, i) =>
+    `<button class="chip ${ch.selected.includes(o.label) ? "on" : ""}" data-i="${i}" title="${esc(o.hint || "")}">${o.emoji ? `<span class="emo">${esc(o.emoji)}</span>` : ""}${esc(o.label)}</button>`).join("") +
+    (ch.custom ? `<button class="chip on" data-role="custom" title="Edit"><span class="emo">✎</span>${esc(ch.custom)}</button>` : "") +
+    `<button class="chip other" data-role="other"><span class="emo">+</span>Something else</button></div>`;
+}
+function renderBoard() {
+  const extras = choices.filter(c => c.extra);
+  if (!extras.length) {
+    board.innerHTML = busy && ta.value.trim() ? `<div class="bgrid"><div class="board-skel"></div><div class="board-skel"></div><div class="board-skel"></div></div>` : "";
+    return;
+  }
+  const left = extras.filter(c => !c.settled).length;
+  const headHTML = `<span><b>${left ? `${left} open question${left === 1 ? "" : "s"}` : "All answered"}</b> · things your request doesn't say yet. Answer any, skip the rest.</span>` +
+    `<span class="spacer"></span><button data-role="more" ${moreBusy ? "disabled" : ""}>${moreBusy ? "Thinking of more…" : "+ More questions"}</button>`;
+  let head = board.querySelector(".board-head"), grid = board.querySelector(".bgrid");
+  if (!head || !board.contains(grid) || !grid.querySelector(".bq")) {
+    board.innerHTML = `<div class="board-head"></div><div class="bgrid"></div>`;
+    head = board.querySelector(".board-head"); grid = board.querySelector(".bgrid");
+  }
+  if (head.dataset.html !== headHTML) {
+    head.innerHTML = headHTML; head.dataset.html = headHTML;
+    head.querySelector('[data-role="more"]').onclick = () => analyze({ more: true });
+  }
+  // keyed patch: rebuild only cards whose markup changed, so focus and in-progress drags survive
+  const ids = extras.map(c => c.id);
+  [...grid.children].forEach(el => { if (!ids.includes(el.dataset.b)) el.remove(); });
+  extras.forEach((ch, i) => {
+    let el = grid.querySelector(`[data-b="${ch.id}"]`);
+    if (!el) { el = document.createElement("div"); el.dataset.b = ch.id; }
+    if (grid.children[i] !== el) grid.insertBefore(el, grid.children[i] || null);
+    el.className = "bq" + (ch.settled ? " answered" : "") + (el.classList.contains("flash") ? " flash" : "");
+    if (boardSlide === ch.id) return;
+    const html = boardCardHTML(ch);
+    if (el.dataset.html === html) return;
+    const ae = document.activeElement, keep = el.contains(ae) ? (ae.dataset.i ?? ae.dataset.stop ?? ae.dataset.role) : null;
+    el.innerHTML = html; el.dataset.html = html; bindBoardCard(ch, el);
+    if (keep != null) el.querySelector(`[data-i="${keep}"],[data-stop="${keep}"],[data-role="${keep}"]`)?.focus({ preventScroll: true });
+  });
+}
+function bindBoardCard(ch, el) {
+  const ex = el.querySelector('[data-role="explain"]');
+  if (ex) ex.onclick = () => { openQuestions(ch.id); if (!ch.explainOpen) toggleExplain(ch); };
+  const cl = el.querySelector('[data-role="clear"]');
+  if (cl) cl.onclick = () => {
+    ch.selected = []; ch.custom = ""; ch.customDraft = ""; ch.touched = false;
+    if (ch.kind === "slider") ch.value = clamp(ch.slider.value ?? ch.slider.min, ch.slider.min, ch.slider.max);
+    applyChoice(ch, "");
+  };
+  el.querySelectorAll("[data-role=other],[data-role=custom]").forEach(b => b.onclick = () => {
+    openQuestions(ch.id);
+    const t = qBody.querySelector(`[data-q="${ch.id}"] input[type=text]`); if (t) t.focus({ preventScroll: true });
+  });
+  el.querySelectorAll("[data-stop]").forEach(b => b.onclick = () => {
+    const i = +b.dataset.stop;
+    if (ch.touched && Math.round(ch.value) === i) { ch.touched = false; applyChoice(ch, ""); return; }
+    ch.value = i; ch.touched = true; applyChoice(ch);
+  });
+  el.querySelectorAll("[data-i]").forEach(b => b.onclick = () => {
+    const o = ch.options[+b.dataset.i];
+    if (ch.kind === "multi") ch.selected = ch.selected.includes(o.label) ? ch.selected.filter(l => l !== o.label) : [...ch.selected, o.label];
+    else if (ch.selected.includes(o.label) && !ch.custom) ch.selected = []; // tap again to leave it open
+    else { ch.selected = [o.label]; if (ch.custom) ch.customDraft = ch.custom; ch.custom = ""; }
+    applyChoice(ch);
+  });
+  const r = el.querySelector('[data-role="range"]');
+  if (r) {
+    const out = el.querySelector('[data-role="sval"]');
+    r.oninput = () => {
+      boardSlide = ch.id; ch.value = Number(r.value); ch.touched = true;
+      out.classList.remove("unset"); out.textContent = textFor(ch); applyChoice(ch);
+    };
+    r.onchange = () => { boardSlide = null; renderBoard(); };
+  }
 }
 
 // ------------------------------------------------------------ hit testing (marks sit under the textarea)
