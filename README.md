@@ -1,17 +1,14 @@
 # prompt-shaper
 
-`/help-me` for any coding agent: shape a vague request by clicking on it, then hand it back to the agent.
-It's an [Agent Skill](https://agentskills.io), so it works in Claude Code, Codex, Gemini CLI, OpenCode, Cursor
-and the other agents that read `SKILL.md`.
+`/help-me` for any coding agent: shape a vague request by clicking on it, then hand it back. It's an
+[Agent Skill](https://agentskills.io), so it works in Claude Code, Codex, Gemini CLI, OpenCode, Cursor and others.
 
 ![/help-me demo: flipping underlined phrases, Explain me, filling in a blank, dragging a number, then Enter](docs/demo.gif)
 
-`/help-me I want to choose a coffee machine` opens a page with your request on it. A small model underlines every
-part you could change. Click one to flip it, or drag a blue value left or right. "Explain me" shows
-the options in plain words. Things you haven't said yet, like budget, are written into the request as sentences with a blank
-("My budget is [budget].") that you fill in by clicking it, like any other underline. Blanks you leave are dropped when you send.
-Press **Enter** and the shaped request goes back to your agent, a bit like
-[plannotator](https://github.com/backnotprop/plannotator) does for plans:
+`/help-me I want to choose a coffee machine` opens your request in a page. A small model underlines what you
+could change: click to flip it, or drag a blue value. What you haven't said yet becomes a sentence with a blank
+("My budget is [budget].") that you click to fill; unfilled ones are dropped. Press **Enter** and the request
+goes back to your agent, like [plannotator](https://github.com/backnotprop/plannotator) does for plans:
 
 ```
 Help me choose a bean-to-cup machine for my small kitchen, something good for lattes.
@@ -20,8 +17,7 @@ Help me choose a bean-to-cup machine for my small kitchen, something good for la
 - Milk: a manual steam wand
 ```
 
-The underlines come from whichever model you already have: the `claude`, `codex` or `gemini` CLI with your
-existing login, or an API key. See [Backends](#backends).
+The model is whichever you already have: the `claude`, `codex` or `gemini` CLI, or an API key. See [Backends](#backends).
 
 ## Install
 
@@ -77,21 +73,17 @@ sequenceDiagram
 
 ## Configuration
 
-Set your defaults once, then override them in the request when you need to.
-
-**Defaults** go in `~/.config/prompt-shaper/config.json` (or `$XDG_CONFIG_HOME/prompt-shaper/config.json`;
-`PROMPT_SHAPER_CONFIG` points at another file). Every agent reads the same file:
+**Defaults** go in `~/.config/prompt-shaper/config.json` (or under `$XDG_CONFIG_HOME`; `PROMPT_SHAPER_CONFIG`
+points elsewhere):
 
 ```json
 { "backend": "gemini", "images": false }
 ```
 
-**Per request**, just say it. The skill tells the agent to turn phrases about the page into flags and drop
-them from the request, so `/help-me use codex, no pictures: plan a weekend in Lisbon` shapes "plan a weekend
-in Lisbon" with `--backend codex --no-images`.
+**Per request**, just say it: `/help-me use codex, no pictures: plan a weekend in Lisbon` shapes "plan a
+weekend in Lisbon" with `--backend codex --no-images`.
 
-A flag beats a `PROMPT_SHAPER_*` env var, which beats the config file, which beats the default. A `model` from
-the config file is dropped when the request picks another backend.
+Flag beats env var beats config file. A config `model` is dropped when the request picks another backend.
 
 | config key | flag | env | default | |
 |---|---|---|---|---|
@@ -106,8 +98,7 @@ the config file is dropped when the request picks another backend.
 | | `--agent` | `PROMPT_SHAPER_AGENT` | guessed | agent name on the page, e.g. "Send to Codex" |
 | | `--out FILE` | | | also write `{"status","prompt"}` to FILE when done |
 
-To give one agent different defaults, set a `PROMPT_SHAPER_*` env var in that agent's own config
-(e.g. `"env"` in `~/.claude/settings.json`).
+For per-agent defaults, set the env vars in that agent's config (e.g. `"env"` in `~/.claude/settings.json`).
 
 ## Backends
 
@@ -119,13 +110,12 @@ To give one agent different defaults, set a `PROMPT_SHAPER_*` env var in that ag
 | `anthropic` | `ANTHROPIC_API_KEY` (and optional `ANTHROPIC_BASE_URL`) | `claude-haiku-5-5` |
 | `openai` | `OPENAI_API_KEY` and/or `OPENAI_BASE_URL`, so OpenRouter, Ollama or LM Studio work too | `gpt-5-mini` |
 
-`auto` (the default) prefers the CLI of the agent that started it, then the first of `claude`, `codex`,
-`gemini` on your PATH, then `ANTHROPIC_API_KEY`, then `OPENAI_API_KEY`. Pick a small, fast model: every
-edit to the request triggers a new read.
+`auto` tries the calling agent's CLI, then `claude`, `codex`, `gemini` on your PATH, then `ANTHROPIC_API_KEY`,
+then `OPENAI_API_KEY`. Pick a small, fast model: every edit triggers a new read.
 
 ## Notes
 
-- With `claude`, the first read takes about 4 to 9 s and an explanation about 3 s, mostly CLI start-up. API keys are faster.
-- Pictures come from a plain Commons search, so they're sometimes off. Hover one for its source page.
-- Most agents wait up to 10 minutes for the command. If it times out, run `/help-me` again.
+- With `claude`, a read takes 4 to 9 s, mostly CLI start-up. API keys are faster.
+- Pictures come from a plain Commons search, so they're sometimes off.
+- Most agents wait up to 10 minutes. If it times out, run `/help-me` again.
 - This is a prototype.

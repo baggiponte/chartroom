@@ -1,19 +1,6 @@
 #!/usr/bin/env node
-// prompt-shaper: a local bridge between a browser prompt box and any coding agent.
-//
-//   node server.mjs [--draft "text" | --stdin] [--backend auto|claude|codex|gemini|anthropic|openai]
-//                   [--model M] [--effort E] [--port N] [--out FILE] [--no-open] [--images | --no-images]
-//
-// Every setting is read from, in this order: the flag, then a PROMPT_SHAPER_* env var, then
-// $XDG_CONFIG_HOME/prompt-shaper/config.json (default ~/.config/...; PROMPT_SHAPER_CONFIG points elsewhere),
-// then the built-in default. Agents can set the env vars in their own global config (see README).
-//
-// Serves index.html, runs the analysis through a pluggable backend (the claude, codex or gemini CLI with your
-// existing login, or an Anthropic / OpenAI-compatible API key), and blocks until you press Send in the browser.
-// The shaped prompt is printed to stdout, which is what the agent picks up and carries on with.
-// Exit codes: 0 = sent, 2 = cancelled in the browser, 3 = nobody answered in time.
-// --out FILE also writes {"status":"sent"|"cancelled"|"timeout","prompt":"..."} to FILE, for agents whose shell
-// tool can't wait minutes for a command: run it in the background and poll for the file.
+// prompt-shaper: serves index.html, blocks until Send, prints the shaped request on stdout.
+// Exit codes: 0 sent, 2 cancelled, 3 timeout. Flags and settings: see README.
 
 import http from "node:http";
 import { spawn } from "node:child_process";
@@ -33,8 +20,6 @@ const opt = (name, fallback) => {
 const log = (...m) => console.error("[prompt-shaper]", ...m);
 
 // ---------------------------------------------------------------- settings
-// Defaults live in a small JSON file, e.g. {"backend": "gemini", "images": false}. Keys: backend, model,
-// effort, images, open, port, browser, timeoutMin, agent.
 const CONFIG_FILE = process.env.PROMPT_SHAPER_CONFIG ||
   join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "prompt-shaper", "config.json");
 const CONFIG = (() => {
@@ -51,7 +36,7 @@ const setting = (key, flagName, fallback) => {
   const v = opt(flagName, process.env[ENV_NAME(key)] ?? CONFIG[key]);
   return v === undefined || v === "" ? fallback : v;
 };
-const onOff = (key, fallback) => { // --images / --no-images, PROMPT_SHAPER_IMAGES=0|1, "images": false
+const onOff = (key, fallback) => {
   if (flag(`--${key}`)) return true;
   if (flag(`--no-${key}`)) return false;
   const v = process.env[ENV_NAME(key)] ?? CONFIG[key];
@@ -60,9 +45,7 @@ const onOff = (key, fallback) => { // --images / --no-images, PROMPT_SHAPER_IMAG
 };
 
 const PORT = Number(setting("port", "--port", 0));
-// Explanation cards can show pictures, looked up by the browser on Wikimedia Commons (keyless).
 const IMAGES = onOff("images", true);
-// Shown on the page ("Send to Codex"). The skill passes --agent; otherwise guess from the environment.
 const AGENT = setting("agent", "--agent", process.env.CLAUDECODE ? "Claude Code"
   : process.env.GEMINI_CLI ? "Gemini CLI" : Object.keys(process.env).some((k) => k.startsWith("CODEX_")) ? "Codex" : "your agent");
 
@@ -227,7 +210,6 @@ const withSchema = (system, schema) =>
   `${system}\n\nReply with one JSON object only, no prose and no code fences, matching this JSON Schema:\n${JSON.stringify(schema)}`;
 
 const BACKENDS = {
-  // Claude Code CLI: uses your Claude login, no key.
   claude: {
     model: "haiku",
     run: (slot, system, schema, input) => runCli(slot, "claude", [
@@ -240,7 +222,7 @@ const BACKENDS = {
       return { data: res.structured_output ?? JSON.parse(res.result), model: Object.keys(res.modelUsage || {})[0], ms: res.duration_ms };
     }),
   },
-  // Codex CLI: uses your ChatGPT/Codex login. The schema file makes the last message valid JSON.
+  // The schema file makes the last message valid JSON.
   codex: {
     model: "",
     run: (slot, system, schema, input) => {
@@ -258,7 +240,7 @@ const BACKENDS = {
       }, { cwd: dir }).finally(() => rmSync(dir, { recursive: true, force: true }));
     },
   },
-  // Gemini CLI: uses your Google login. No schema flag, so the schema goes in the prompt.
+  // No schema flag, so the schema goes in the prompt.
   gemini: {
     model: "gemini-2.5-flash",
     run: (slot, system, schema, input) => {
@@ -270,7 +252,7 @@ const BACKENDS = {
       });
     },
   },
-  // Anthropic API key. A forced tool call returns input that matches the schema.
+  // A forced tool call returns input that matches the schema.
   anthropic: {
     model: "claude-haiku-5-5",
     run: (slot, system, schema, input) => {
@@ -289,7 +271,6 @@ const BACKENDS = {
       });
     },
   },
-  // OpenAI or any OpenAI-compatible endpoint (OpenRouter, Ollama, LM Studio...) via OPENAI_BASE_URL.
   openai: {
     model: "gpt-5-mini",
     run: (slot, system, schema, input) => {
@@ -314,7 +295,6 @@ function onPath(cmd) {
   return (process.env.PATH || "").split(delimiter).some((d) => d && exts.some((e) => existsSync(join(d, cmd + e))));
 }
 
-// Pick a backend: an explicit choice wins; then the agent we were started from; then whatever is installed.
 function pickBackend() {
   const asked = String(setting("backend", "--backend", "auto")).toLowerCase();
   if (asked !== "auto") {
@@ -333,8 +313,8 @@ function pickBackend() {
 }
 
 const BACKEND = pickBackend();
-// A model belongs to the backend it was set with: "model" in the config file is dropped when the backend
-// itself comes from an env var or a flag, so `--backend gemini` doesn't try to run gemini with "haiku".
+// A config-file model is dropped when the backend comes from a flag or env var, so `--backend gemini`
+// doesn't run gemini with "haiku".
 const rank = (key, flagName) => flag(flagName) ? 0 : process.env[ENV_NAME(key)] ? 1 : CONFIG[key] !== undefined ? 2 : 3;
 const MODEL = rank("model", "--model") <= rank("backend", "--backend") ? setting("model", "--model", BACKENDS[BACKEND].model)
   : BACKENDS[BACKEND].model;
@@ -443,11 +423,8 @@ async function decide(text, question, options, answers = [], asked = []) {
 }
 
 // ---------------------------------------------------------------- http
-// Read the page once at startup, so a running server never hands out a newer page than its own code. If
-// index.html changes on disk (a git pull, a reinstall) while it runs, a reload still gets the matching page;
-// the new one shows up the next time /help-me starts.
+// Read once, so a running server never serves a page newer than its own code.
 const PAGE = readFileSync(join(HERE, "index.html"));
-const html = () => PAGE;
 
 function body(req) {
   return new Promise((resolve, reject) => {
@@ -482,7 +459,7 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
-      return res.end(html());
+      return res.end(PAGE);
     }
     if (req.method === "GET" && url.pathname === "/api/init") return send(res, 200, { draft, model: MODEL || BACKEND, backend: BACKEND, agent: AGENT, images: IMAGES });
     if (req.method === "POST" && url.pathname === "/api/analyze") {
@@ -536,7 +513,6 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-// Don't wait forever, e.g. when the agent ran us in the background and moved on.
 const TIMEOUT_MIN = Number(setting("timeoutMin", "--timeout-min", 30));
 if (TIMEOUT_MIN > 0) setTimeout(() => { log(`no answer after ${TIMEOUT_MIN} min, giving up`); finish(3, ""); }, TIMEOUT_MIN * 60000).unref();
 

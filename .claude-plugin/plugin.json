@@ -1,6 +1,6 @@
 {
   "name": "prompt-shaper",
   "version": "0.4.0",
-  "description": "/help-me opens a browser page around your request: flip the underlined parts, answer open questions, and the sharpened request goes back to the agent.",
+  "description": "/help-me: shape a vague request in the browser before the agent works on it.",
   "author": { "name": "Luca" }
 }

@@ -64,11 +64,11 @@ mark.hover, mark.active { background: var(--chip-hover); }
 mark.flash { animation: flash .7s ease-out; }
 @keyframes flash { from { background: var(--accent-soft); } to { background: transparent; } }
 textarea.on-mark { cursor: pointer; }
-/* open questions are written into the request with a placeholder where the answer goes: "My budget is [budget]." */
+/* open-question placeholders: "My budget is [budget]." */
 mark.ph { color: var(--accent); background: var(--accent-soft); text-decoration: underline dotted var(--accent); text-decoration-thickness: 2px; }
 mark.ph.hover, mark.ph.active { background: color-mix(in srgb, var(--accent) 24%, transparent); }
 
-/* extras: things the request doesn't say yet, as underlined tokens */
+/* extras */
 .extras { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin-top: 14px; min-height: 0; }
 .extras:empty { display: none; }
 .token {
@@ -80,7 +80,7 @@ mark.ph.hover, mark.ph.active { background: color-mix(in srgb, var(--accent) 24%
 .token.unset .v { color: var(--faint); }
 .token.settled { text-decoration: underline solid var(--accent); text-decoration-thickness: 1.5px; }
 
-/* scrubbable numbers (Bret Victor style): drag left/right on the value itself */
+/* scrubbable numbers */
 mark.scrub { color: var(--accent); text-decoration: underline dashed var(--accent); text-decoration-thickness: 1.5px; text-underline-offset: 6px; }
 mark.scrub.settled { text-decoration-style: solid; }
 mark.scrubbing, .token.scrubbing { background: var(--accent-soft); }
@@ -136,7 +136,7 @@ body.scrubbing, body.scrubbing * { cursor: ew-resize !important; user-select: no
 .explain.loading { color: var(--muted); animation: shimmer 1.2s infinite ease-in-out; }
 .explain.err { color: var(--danger); background: none; padding: 0; }
 
-/* expanded explanation: the popover widens and each option becomes a card you can pick */
+/* expanded explanation */
 .pop.wide { width: min(780px, calc(100vw - 32px)); padding: 22px 22px 14px; }
 .pop.wide .pop-q { font-size: 18px; color: var(--text); }
 .pop.wide .explain { font-size: 15px; margin-bottom: 14px; }
@@ -166,7 +166,7 @@ body.scrubbing, body.scrubbing * { cursor: ew-resize !important; user-select: no
 .ocard.on .tick { background: var(--accent); border-color: var(--accent); color: #fff; }
 .ocard .credit { position: absolute; left: 8px; top: 8px; font-size: 11px; padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,.45); color: #fff; text-decoration: none; opacity: 0; transition: opacity .12s; }
 .ocard:hover .credit { opacity: 1; }
-/* help me decide: questions about you that narrow the options down, then a suggested pick */
+/* help me decide */
 .ocard.rec:not(.on) { border-color: var(--accent); border-style: dashed; }
 .ocard .badge { align-self: flex-start; font-size: 11px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 2px 7px; margin-bottom: 2px; }
 .decide-start { font: inherit; font-size: 14px; font-weight: 500; display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px 8px 13px; margin: 2px 0 12px; border-radius: 999px; border: 1px solid var(--accent); background: var(--accent-soft); color: var(--text); cursor: pointer; }
@@ -239,7 +239,7 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
       </button>
     </div>
   </div>
-  <div class="hint" id="hint">Click any underlined part to flip it, drag the blue values left or right. Fill in the <span class="ph-sample">[blanks]</span> the same way, or leave them: unfilled sentences are dropped when you send. <kbd>Enter</kbd> sends it back to <span class="agentName">your agent</span>, <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new line.</div>
+  <div class="hint" id="hint">Click an underline to flip it, or drag a blue value. Unfilled <span class="ph-sample">[blanks]</span> are dropped when you send. <kbd>Enter</kbd> sends to <span class="agentName">your agent</span>, <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a line.</div>
 </main>
 
 <div class="pop" id="pop" hidden role="dialog"></div>
@@ -247,7 +247,7 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
 <div class="done" id="done" hidden>
   <div class="done-box">
     <h2 id="doneTitle">Sent to <span class="agentName">your agent</span></h2>
-    <p id="doneSub">You can close this tab. <span class="agentName">Your agent</span> is picking it up from here:</p>
+    <p id="doneSub">You can close this tab.</p>
     <pre id="donePrompt"></pre>
   </div>
 </div>
@@ -361,9 +361,8 @@ function applyChoice(ch, override) {
   render(ch.id);
 }
 
-// Each question the request doesn't cover is written into it straight away as a sentence with a placeholder where
-// the answer goes ("My budget is [budget]."). The placeholder is an ordinary underline: click it and pick, and the
-// answer replaces it in place. Sentences still holding a placeholder are left out when you send.
+// Open questions are written into the request as sentences with a placeholder ("My budget is [budget].").
+// Sentences still holding a placeholder are left out when you send.
 function sentenceParts(ch) {
   let t = (ch.sentence || "").trim();
   if (!t.includes("{value}")) t = `${ch.token || "Also"}: {value}.`;
@@ -491,7 +490,6 @@ function explainHTML(c) {
   return `<div class="explain"><p>${esc(e.intro)}</p></div>`;
 }
 
-// One card per option: picture (if any), name, what it means, who it suits. Clicking a card picks it.
 function explainedOptions(ch) {
   const ex = ch.explanation?.options || [];
   const find = (label, i) => ex.find(x => x.label?.toLowerCase() === label.toLowerCase()) || ex[i] || {};
@@ -639,8 +637,6 @@ function bindControls(ch, rerender, onPicked) {
 }
 
 // ------------------------------------------------------------ help me decide
-// Asks a few questions about the person (habits, budget, space...) whose answers point at one option, then
-// suggests it on the cards. Answers stay in the panel; picking still happens on the cards or with "Pick it".
 function optionLabels(ch) {
   return ch.kind === "slider"
     ? (ch.slider.stops?.length ? ch.slider.stops : [ch.slider.minLabel || String(ch.slider.min), ch.slider.maxLabel || String(ch.slider.max)])
@@ -788,8 +784,7 @@ addEventListener("resize", () => openId && positionPop());
 addEventListener("scroll", (e) => { if (pop.contains(e.target)) return; hideHint(); if (openId) positionPop(); }, true);
 
 // ------------------------------------------------------------ scrubbable numbers
-// Slider choices are dragged in place, like Tangle.js: press on the value, drag left/right,
-// the sentence updates live. A press without movement opens the popover (fine control + Explain me).
+// A press without movement opens the popover instead.
 let drag = null, lastScrubEnd = 0;
 const hintEl = $("scrubHint");
 const byId = (id) => id ? choices.find(c => c.id === id) : null;
@@ -946,8 +941,7 @@ function merge(text, data, more) {
   }
   if (openId && !kept.some(k => k.id === openId)) closePop();
   choices = [...kept, ...fresh];
-  // write every new open question into the request as a sentence with a placeholder (ones the request already
-  // answers stay as tokens under it)
+  // already-answered extras stay as tokens under the request
   for (const ch of fresh) if (ch.extra && !ch.settled) promote(ch);
   if (fresh.some(c => c.promo)) lastAnalyzed = more ? lastAnalyzed : ta.value;
   render();
@@ -957,8 +951,7 @@ async function post(path, body) {
   const r = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const j = await r.json().catch(() => ({}));
   if (r.status === 409) throw Object.assign(new Error("superseded"), { superseded: true });
-  // A 404 on an API route means this page is newer than the server process answering it (the skill was
-  // updated while an older /help-me was still running). Say how to fix it instead of a bare "not found".
+  // 404: an older server process is answering a newer page.
   if (r.status === 404) throw new Error("the running server is older than this page. Run /help-me again to restart it");
   if (!r.ok) throw new Error(j.error || r.statusText);
   return j;
@@ -1001,7 +994,7 @@ async function submit() {
   } else {
     try { await navigator.clipboard.writeText(prompt); } catch {}
     $("doneTitle").textContent = "Copied to clipboard";
-    $("doneSub").textContent = "Demo mode (opened without the /help-me command). Paste this into your agent:";
+    $("doneSub").textContent = "Demo mode. Paste this into your agent:";
   }
   $("done").hidden = false;
 }
@@ -1086,7 +1079,7 @@ async function demoDecide(ch, { options, answers, asked }) {
     $("send").title = `Send to ${agentName} (Enter)`; ta.value = j.draft || ""; imagesOn = j.images !== false;
   } catch {
     mode = "demo"; modelName = "demo"; ta.value = EXAMPLE;
-    $("hint").innerHTML = "Demo mode: opened without the <code>/help-me</code> command, so the underlines are a canned example.";
+    $("hint").innerHTML = "Demo mode: canned underlines, since this page wasn't opened by <code>/help-me</code>.";
   }
   render(); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
   if (ta.value.trim()) analyze(); else { setStatus("", "waiting for a request"); render(); }
