@@ -53,6 +53,11 @@ server and opens a browser: approve it.
 | Type | edit freely. The model reads the text again and keeps what you set |
 | Enter / Shift+Enter / ✕ | send / new line / cancel and send nothing |
 
+A "Where you are" timeline on the right (a compact stepper above the request on narrow screens) shows the four
+steps: the model reads your request, you shape it, you read it over and send, your agent takes over. It says what to
+do now, lists any model call still running (a re-read, Explain me, Help me decide, more questions), and **next →**
+jumps to the next blank or question that still needs you.
+
 ## How it works
 
 ```mermaid

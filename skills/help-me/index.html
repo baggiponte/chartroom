@@ -273,22 +273,110 @@ body.ended .pop .chip:disabled:hover { background: var(--chip); }
 body.ended .pop .chip.on:disabled:hover { background: var(--ink); }
 .pop .ro-note { font-size: 13px; color: var(--muted); }
 
+/* ------------------------------------------------------------ journey: where you are on the way back to your agent */
+.layout { width: 100%; max-width: 760px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-content: start; }
+@media (min-width: 1140px) {
+  .layout { max-width: 1072px; grid-template-columns: minmax(0, 760px) 256px; gap: 56px; align-items: start; }
+}
+.journey { font-size: 14px; color: var(--muted); }
+.j-head { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 14px; }
+.j-steps { list-style: none; margin: 0; padding: 0; }
+.j-step { position: relative; display: grid; grid-template-columns: 22px 1fr; column-gap: 12px; padding-bottom: 20px; }
+.j-step:last-child { padding-bottom: 0; }
+.j-step::before { /* the line down to the next step */
+  content: ""; position: absolute; left: 10px; top: 24px; bottom: 2px; width: 2px; border-radius: 2px; background: var(--line);
+}
+.j-step:last-child::before { display: none; }
+.j-step.done::before { background: var(--accent); opacity: .45; }
+.j-dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--faint); background: var(--bg); display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--muted); margin-top: 1px; }
+.j-step.done .j-dot, .j-step.done.now .j-dot { background: var(--accent); border-color: var(--accent); color: #fff; }
+.j-step.now .j-dot { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.j-step.now.wait .j-dot::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1s infinite ease-in-out; }
+.j-step.now.wait .j-dot { font-size: 0; }
+.j-step.now.err .j-dot { border-color: var(--danger); color: var(--danger); box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 15%, transparent); }
+.j-step.off .j-dot { background: var(--bg); border-color: var(--faint); color: var(--muted); box-shadow: none; }
+.j-step.off::before { background: var(--line); opacity: 1; }
+.j-title { color: var(--text); font-weight: 600; font-size: 15px; line-height: 1.35; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.j-step.next .j-title, .j-step.later .j-title { color: var(--muted); font-weight: 500; }
+.j-tag { font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; border-radius: 6px; padding: 1px 6px; }
+.j-step.now .j-tag { color: var(--accent); background: var(--accent-soft); }
+.j-step.now.err .j-tag { color: var(--danger); background: none; padding: 0; }
+.j-step.next .j-tag { color: var(--muted); border: 1px solid var(--line); }
+.j-text { grid-column: 2; margin-top: 3px; line-height: 1.45; }
+.j-step.now .j-text { color: var(--text); }
+.j-text b { font-weight: 600; color: var(--text); }
+.j-text button { font: inherit; color: var(--accent); background: none; border: 0; padding: 0; cursor: pointer; }
+.j-text button:hover { text-decoration: underline; }
+.j-waits { grid-column: 2; list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.j-waits li { display: flex; gap: 8px; align-items: baseline; font-size: 13px; color: var(--muted); }
+.j-waits li::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1s infinite ease-in-out; transform: translateY(-1px); }
+.j-waits .j-also { color: var(--faint); font-size: 12px; }
+.j-waits .j-also::before { display: none; }
+.j-now { display: none; }
+@media (min-width: 1140px) {
+  .journey { position: sticky; top: 24px; padding-top: 4px; }
+}
+/* narrower: a compact stepper above the request; the current step's "what to do" sits under it */
+@media (max-width: 1139.98px) {
+  .journey { order: -1; margin: 0 8px; }
+  .j-head { display: none; }
+  .j-steps { display: flex; align-items: center; gap: 0; }
+  .j-step { display: flex; align-items: center; gap: 8px; padding: 0; flex: 0 1 auto; min-width: 0; }
+  .j-step::before { display: none; }
+  .j-step + .j-step { margin-left: 8px; }
+  .j-step + .j-step > .j-dot { margin-left: 0; }
+  .j-step:not(:last-child)::after { content: ""; height: 2px; width: 18px; flex: none; background: var(--line); border-radius: 2px; margin-left: 0; }
+  .j-step.done:not(:last-child)::after { background: var(--accent); opacity: .45; }
+  .j-dot { margin: 0; flex: none; }
+  .j-title { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+  .j-step:not(.now) .j-title { font-weight: 500; }
+  .j-tag, .j-text, .j-waits { display: none; }
+  .j-now { display: block; margin-top: 10px; font-size: 14px; color: var(--text); line-height: 1.45; }
+  .j-now .j-text, .j-now .j-waits { display: block; margin: 0; }
+  .j-now .j-waits { display: grid; margin-top: 6px; }
+  .j-now .j-then { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  body { padding-top: 8vh; }
+}
+@media (max-width: 760px) {
+  .j-step:not(.now) .j-title { display: none; } /* phone: dots for the other steps, the name only for where you are */
+  .j-step:not(:last-child)::after { width: 14px; }
+}
+
+/* the request card: what is happening, and what to do */
+.card-progress { position: absolute; top: 0; left: 26px; right: 26px; height: 3px; border-radius: 3px; overflow: hidden; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.card-progress::after { content: ""; position: absolute; top: 0; bottom: 0; width: 34%; border-radius: 3px; background: var(--accent); animation: slide 1.3s infinite ease-in-out; }
+.card.working .card-progress { opacity: 1; }
+@keyframes slide { from { left: -34%; } to { left: 100%; } }
+.card.reading .backdrop { animation: shimmer 1.4s infinite ease-in-out; }
+.status .next-btn { color: var(--accent); text-decoration: none; font-weight: 500; }
+.status .next-btn:hover { text-decoration: underline; }
+.send.ready { box-shadow: 0 0 0 0 var(--accent-soft); animation: ready 1.8s 3 ease-out; }
+@keyframes ready { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); } 100% { box-shadow: 0 0 0 14px transparent; } }
+.send.ready:not(:disabled) { outline: 2px solid var(--accent); outline-offset: 3px; }
+mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
+@keyframes nudge { 50% { background: var(--accent-soft); } }
+
 @media (max-width: 560px) {
   body { padding-top: 6vh; }
   .card { padding: 20px 18px 12px; border-radius: 22px; }
   .field-text, textarea { font-size: 19px; }
   .summary { font-size: 17px; }
   .cards { grid-template-columns: 1fr; }
+  .status { white-space: nowrap; }
+  .add-more .long { display: none; }
+  .toolbar { gap: 10px; }
 }
 </style>
 </head>
 <body>
+<div class="layout">
 <main>
   <div class="summary" id="summary"><span class="icon">✳️</span><span class="text" id="summaryText">Reading your request…</span></div>
 
   <div class="ended-bar" id="endedBar" hidden><span class="pill"><span class="ok">✓</span><span id="endedTitle">Sent</span></span><span id="endedSub">read-only</span><button id="endedShow">see what was sent</button></div>
   <div class="ended-sent" id="endedSent" hidden><pre class="ended-prompt" id="endedPrompt"></pre><ul class="sent-notes" id="sentNotes"></ul></div>
-  <div class="card">
+  <div class="card" id="card">
+    <div class="card-progress" aria-hidden="true"></div>
     <div class="field">
       <div class="backdrop field-text" id="backdrop" aria-hidden="true"></div>
       <textarea id="ta" rows="1" spellcheck="false" placeholder="What do you need help with?" aria-label="Your request"></textarea>
@@ -306,6 +394,12 @@ body.ended .pop .chip.on:disabled:hover { background: var(--ink); }
   </div>
   <div class="hint" id="hint">Click an underline to flip it, or drag a blue value. Unfilled <span class="ph-sample">[blanks]</span> are dropped when you send. <kbd>Enter</kbd> sends to <span class="agentName">your agent</span>, <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a line.</div>
 </main>
+<aside class="journey" id="journey" aria-label="Where you are" aria-live="polite">
+  <div class="j-head">Where you are</div>
+  <ol class="j-steps" id="jSteps"></ol>
+  <div class="j-now" id="jNow"></div>
+</aside>
+</div>
 
 <div class="pop" id="pop" hidden role="dialog"></div>
 <div class="scrub-hint" id="scrubHint" hidden></div>
@@ -498,7 +592,7 @@ function render(flashId) {
   for (const c of marks) {
     if (c.start < pos) continue;
     html += esc(text.slice(pos, c.start));
-    const cls = [c.kind === "slider" ? "scrub" : "", drag?.id === c.id ? "scrubbing" : "", c.settled ? "settled" : "", c.promo && !c.settled ? "ph" : "", c.statement ? "ask" : "", c.id === openId ? "active" : "", c.id === hoverId ? "hover" : "", c.id === flashId ? "flash" : ""].join(" ");
+    const cls = [c.kind === "slider" ? "scrub" : "", drag?.id === c.id ? "scrubbing" : "", c.settled ? "settled" : "", c.promo && !c.settled ? "ph" : "", c.statement ? "ask" : "", c.id === openId ? "active" : "", c.id === hoverId ? "hover" : "", c.id === flashId ? "flash" : "", c.id === nudgeId ? "nudge" : ""].join(" ");
     html += `<mark data-id="${c.id}" class="${cls}">${esc(text.slice(c.start, c.end))}</mark>`;
     pos = c.end;
   }
@@ -507,6 +601,7 @@ function render(flashId) {
   $("summaryText").textContent = summary || (busy ? "Reading your request…" : text.trim() ? "" : "What do you need help with?");
   $("send").disabled = !text.trim() || !!ended;
   renderExtras();
+  journey();
 }
 
 function renderExtras() {
@@ -530,9 +625,101 @@ function renderExtras() {
 }
 
 function setStatus(kind, msg) {
+  statusKind = kind;
   $("status").className = "status " + kind;
   $("statusText").innerHTML = msg;
   $("summary").classList.toggle("loading", kind === "busy" && !summary);
+  journey();
+}
+
+// ------------------------------------------------------------ journey: where you are on the way back to your agent
+// Four steps: the model reads -> you shape it -> you read it over and send -> your agent takes over.
+// The side timeline (a compact stepper on narrow screens), the toolbar status and the Send button all say
+// what is happening now and what you're expected to do.
+let statusKind = "", readInfo = "", nudgeId = null;
+const cap = (s) => String(s).replace(/^./, (c) => c.toUpperCase());
+// what still needs you: blanks to fill and questions you asked that have no answer yet
+function openItems() {
+  return choices.filter(c => !c.extra && c.start >= 0 && ((c.promo && !c.settled) || (c.statement && !isSet(c)))).sort((a, b) => a.start - b.start);
+}
+// model calls in flight after the first read; you can keep going while they run
+function waits() {
+  const w = [];
+  if (busy && lastAnalyzed) w.push(`${esc(cap(modelName))} is re-reading your edit`);
+  if (moreBusy) w.push(`${esc(cap(modelName))} is looking for more questions`);
+  for (const c of choices) {
+    if (c.explainBusy) w.push(`Explaining “${esc(c.question)}”`);
+    if (c.decide?.busy) w.push(c.decide.qs.length ? `Weighing your answers on “${esc(c.question)}”` : `Thinking of questions about you for “${esc(c.question)}”`);
+  }
+  return w;
+}
+function showNext() {
+  const open = openItems(); if (!open.length) return;
+  const i = open.findIndex(c => c.id === openId);
+  const ch = open[(i + 1) % open.length];
+  anchorFor(ch.id)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  openPop(ch.id);
+}
+function journey() {
+  if (!$("jSteps")) return;
+  const open = openItems(), n = open.length, w = waits();
+  const M = esc(cap(modelName)), A = esc(cap(agentName)), agent = esc(agentName);
+  const empty = !ta.value.trim();
+  const at = ended ? 3 : !lastAnalyzed ? 0 : n ? 1 : 2;
+  const readErr = at === 0 && statusKind === "err";
+  const blanks = open.filter(c => c.promo).length, asks = n - blanks;
+  const left = [blanks && `${blanks} blank${blanks === 1 ? "" : "s"}`, asks && `${asks} question${asks === 1 ? "" : "s"}`].filter(Boolean).join(" and ");
+  const nextBtn = n ? ` <button data-j="next">Show me ${n > 1 || !open.some(c => c.id === openId) ? "the next one" : "it"}</button>` : "";
+  const steps = [
+    { title: empty && !busy ? "Write your request" : `${M} reads your request`,
+      now: readErr ? "Couldn't read it. Use retry under the request, or edit it and it will try again."
+        : empty ? "Type what you need help with. Reading starts when you pause."
+        : `Looking for the parts you could flip and what's missing. This takes a few seconds; you can keep typing.`,
+      done: readInfo ? `Read by ${esc(readInfo)}.` : "Read.", wait: !readErr && !empty },
+    { title: "You shape it",
+      now: `<b>${left} left to answer.</b> Click an underline to flip it or fill a <span class="ph-sample">[blank]</span>. Each one has Explain me and Help me decide.${nextBtn}`,
+      next: "Underlines appear on your request: click them to flip choices and fill the blanks.",
+      done: ended ? "Shaped." : "Nothing left open. You can still flip any underline." },
+    { title: "Read it over and send",
+      now: `Everything's answered. Give it a last read, then press <b>Enter</b> or ↑ to send it to ${agent}.`,
+      next: `Press <b>Enter</b> whenever it reads right. You can send early: unfilled blanks are left out.`,
+      done: ended === "cancelled" ? "Cancelled before sending." : "Sent." },
+    { title: `Back to ${agent}`,
+      now: ended === "sent" ? `${A} has your request and takes it from here. Head back to it; this page stays to look back at.` : `Nothing was sent, so ${agent} stops here.`,
+      next: `${A} picks up the sharpened request and starts the work. This page turns read-only.` },
+  ];
+  const html = steps.map((s, i) => {
+    const state = i < at || (i === 3 && ended === "sent") ? "done" : i === at ? "now" : i === at + 1 ? "next" : "later";
+    const cls = [state, i === at ? "now" : "", i === at && s.wait && !readErr && !empty ? "wait" : "", i === at && readErr ? "err" : "",
+      (i === 2 || i === 3) && ended === "cancelled" ? "off" : ""].join(" ");
+    const tag = i === at ? (readErr ? "Stuck" : ended === "sent" ? "Done" : ended ? "Cancelled" : "Now") : state === "next" ? "Next" : "";
+    const text = state === "done" && i !== at ? s.done : i === at ? s.now : state === "next" ? s.next : "";
+    const wl = i === at && w.length ? `<ul class="j-waits">${w.map(x => `<li>${x}…</li>`).join("")}<li class="j-also">You can keep going meanwhile.</li></ul>` : "";
+    return `<li class="j-step ${cls}" ${i === at ? 'aria-current="step"' : ""}><span class="j-dot">${ended === "cancelled" && i >= 2 ? "✕" : state === "done" ? "✓" : i + 1}</span>` +
+      `<span class="j-title">${s.title}${tag ? `<span class="j-tag">${tag}</span>` : ""}</span>` +
+      (text ? `<div class="j-text">${text}</div>` : "") + wl + `</li>`;
+  }).join("");
+  $("jSteps").innerHTML = html;
+  const cur = steps[at], then = steps[at + 1];
+  $("jNow").innerHTML = `<div class="j-text"><b>${cur.title}.</b> ${cur.now}</div>` +
+    (w.length ? `<ul class="j-waits">${w.map(x => `<li>${x}…</li>`).join("")}</ul>` : "") +
+    (then && !ended ? `<div class="j-then">Then: ${then.title.replace(/^./, c => c.toLowerCase())}.</div>` : "");
+  document.querySelectorAll('#journey [data-j="next"]').forEach(b => b.onclick = showNext);
+
+  // the request card itself
+  const card = $("card");
+  card.classList.toggle("working", !ended && (busy || moreBusy || w.length > 0));
+  card.classList.toggle("reading", !ended && busy && !lastAnalyzed);
+  $("send").classList.toggle("ready", !ended && at === 2 && !busy && !empty);
+  if (!ended && lastAnalyzed && statusKind === "") {
+    const st = $("status");
+    st.className = "status" + (w.length ? " busy" : "");
+    st.title = readInfo ? `read by ${readInfo}` : "";
+    $("statusText").innerHTML = w.length ? `${w[0]}…`
+      : n ? `${n} to answer · <button class="next-btn" data-j="next">next →</button>`
+      : empty ? "waiting for a request" : `ready · press Enter`;
+    st.querySelector('[data-j="next"]')?.addEventListener("click", showNext);
+  }
 }
 
 // ------------------------------------------------------------ popover (shared by underlines and tokens)
@@ -867,14 +1054,14 @@ function closePop() {
   openId = null; openedFor = null; pop.hidden = true; render(); }
 
 function refreshChoice(ch) {
-  if (openId === ch.id) openPop(ch.id);
+  if (openId === ch.id) openPop(ch.id); else journey();
 }
 const moreBtn = $("more");
 moreBtn.onclick = () => analyze({ more: true });
 function renderMore() {
   moreBtn.hidden = !lastAnalyzed || !!ended;
   moreBtn.disabled = moreBusy;
-  moreBtn.textContent = moreBusy ? "Thinking of more…" : "+ More questions";
+  moreBtn.innerHTML = moreBusy ? "Thinking<span class=\"long\"> of more</span>…" : "+ More<span class=\"long\"> questions</span>";
 }
 
 // ------------------------------------------------------------ hit testing (marks sit under the textarea)
@@ -1044,10 +1231,15 @@ async function analyze({ more = false } = {}) {
   }
   if (more) moreBusy = false; else busy = false;
   if (my !== seq || ta.value !== text) { render(); return; }
+  const first = !lastAnalyzed && !more;
   if (!more) lastAnalyzed = text;
+  if (!more) readInfo = mode === "demo" ? "the demo" : `${data.model || modelName}${data.ms ? ` in ${(data.ms / 1000).toFixed(1)}s` : ""}`;
   merge(text, data, more);
-  const n = choices.filter(c => !c.settled).length;
-  setStatus("", `${n} thing${n === 1 ? "" : "s"} to flip · ${esc(data.model || modelName)}${data.ms ? ` ${(data.ms / 1000).toFixed(1)}s` : ""}${mode === "demo" ? " (demo)" : ""}`);
+  if (first) { // point at the first thing that needs you
+    nudgeId = openItems()[0]?.id || null;
+    if (nudgeId) { render(); setTimeout(() => { nudgeId = null; }, 3300); }
+  }
+  setStatus("", "");
 }
 
 function merge(text, data, more) {
