@@ -375,12 +375,12 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
       <span class="status" id="status"><span class="dot"></span><span id="statusText">idle</span></span>
       <span class="spacer"></span>
       <button class="add-more" id="more" hidden>+ More questions</button>
-      <button class="send" id="send" title="Send to your agent (Enter)" aria-label="Send">
+      <button class="send" id="send" title="Send to your agent (Shift+Enter)" aria-label="Send">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
       </button>
     </div>
   </div>
-  <div class="hint" id="hint">Click an underline to flip it, or drag a blue value. Unfilled <span class="ph-sample">[blanks]</span> are dropped when you send. <kbd>Enter</kbd> sends to <span class="agentName">your agent</span>, <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a line.</div>
+  <div class="hint" id="hint">Click an underline to flip it, or drag a blue value. Unfilled <span class="ph-sample">[blanks]</span> are dropped when you send. <kbd>Shift</kbd>+<kbd>Enter</kbd> sends to <span class="agentName">your agent</span>, <kbd>Enter</kbd> adds a line.</div>
 </main>
 <aside class="journey" id="journey" aria-label="Where you are" aria-live="polite">
   <div class="j-head">Where you are</div>
@@ -661,8 +661,8 @@ function journey() {
       next: "Underlines appear on your request: click them to flip choices and fill the blanks.",
       done: ended ? "Shaped." : "Nothing left open. You can still flip any underline." },
     { title: "Read it over and send",
-      now: `Everything's answered. Give it a last read, then press <b>Enter</b> or ↑ to send it to ${agent}.`,
-      next: `Press <b>Enter</b> whenever it reads right. You can send early: unfilled blanks are left out.`,
+      now: `Everything's answered. Give it a last read, then press <b>Shift+Enter</b> or ↑ to send it to ${agent}.`,
+      next: `Press <b>Shift+Enter</b> whenever it reads right. You can send early: unfilled blanks are left out.`,
       done: ended === "cancelled" ? "Cancelled before sending." : "Sent." },
     { title: `Back to ${agent}`,
       now: ended === "sent" ? `${A} has your request and takes it from here. Head back to it; this page stays to look back at.` : `Nothing was sent, so ${agent} stops here.`,
@@ -696,7 +696,7 @@ function journey() {
     st.title = readInfo ? `read by ${readInfo}` : "";
     $("statusText").innerHTML = w.length ? `${w[0]}…`
       : n ? `${n} to answer · <button class="next-btn" data-j="next">next →</button>`
-      : empty ? "waiting for a request" : `ready · press Enter`;
+      : empty ? "waiting for a request" : `ready · press Shift+Enter`;
     st.querySelector('[data-j="next"]')?.addEventListener("click", showNext);
   }
 }
@@ -1250,7 +1250,7 @@ ta.addEventListener("input", () => {
   if (ta.value !== skipNextAnalysisFor) schedule();
 });
 ta.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); submit(); }
+  if (e.key === "Enter" && e.shiftKey && !e.isComposing) { e.preventDefault(); submit(); }
   else if (e.key === "ArrowDown" && e.altKey) {
     const p = ta.selectionStart, c = choices.find(c => !c.extra && p >= c.start && p <= c.end);
     if (c) { e.preventDefault(); openPop(c.id); }
@@ -1258,7 +1258,7 @@ ta.addEventListener("keydown", (e) => {
 });
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && openId) { closePop(); ta.focus(); return; }
-  if (e.key === "Enter" && !e.shiftKey && e.target === document.body) { e.preventDefault(); submit(); }
+  if (e.key === "Enter" && e.shiftKey && e.target === document.body) { e.preventDefault(); submit(); }
   if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && e.target !== ta) { e.preventDefault(); submit(); }
 });
 
@@ -1393,7 +1393,7 @@ async function demoDecide(ch, { options, answers, asked }) {
     const r = await fetch("/api/init"); if (!r.ok) throw 0;
     const j = await r.json(); modelName = j.model || "the model"; agentName = j.agent || "your agent";
     document.querySelectorAll(".agentName").forEach((el, i) => el.textContent = i === 2 ? agentName.replace(/^./, (c) => c.toUpperCase()) : agentName);
-    $("send").title = `Send to ${agentName} (Enter)`; ta.value = j.draft || ""; imagesOn = j.images !== false;
+    $("send").title = `Send to ${agentName} (Shift+Enter)`; ta.value = j.draft || ""; imagesOn = j.images !== false;
   } catch {
     mode = "demo"; modelName = "demo"; ta.value = EXAMPLE;
     $("hint").innerHTML = "Demo mode: canned underlines, since this page wasn't opened by <code>/help-me</code>.";

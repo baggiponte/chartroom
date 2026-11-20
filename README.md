@@ -8,7 +8,7 @@
 `/help-me I want to choose a coffee machine` opens your request in a page. A small model underlines what you
 could change: click to flip it, or drag a blue value. Questions you asked in the request get a wavy underline
 and a few answers to pick from. What you haven't said yet becomes a sentence with a blank
-("My budget is [budget].") that you click to fill; unfilled ones are dropped. Press **Enter** and the request
+("My budget is [budget].") that you click to fill; unfilled ones are dropped. Press **Shift+Enter** and the request
 goes back to your agent, like [plannotator](https://github.com/backnotprop/plannotator) does for plans:
 
 ```
@@ -51,7 +51,7 @@ server and opens a browser: approve it.
 | Answer a wavy question | a question you wrote ("What do I do with the water heater?") gets concrete answers; picking one rewrites it as a statement ("With the water heater, I'll replace it with a heat pump.") |
 | Fill a [blank] | answer what the request didn't say; unfilled sentences are left out when you send. **+ More questions** adds more |
 | Type | edit freely. The model reads the text again and keeps what you set |
-| Enter / Shift+Enter / ✕ | send / new line / cancel and send nothing |
+| Shift+Enter / Enter / ✕ | send / new line / cancel and send nothing |
 
 A "Where you are" timeline on the right (a compact stepper above the request on narrow screens) shows the four
 steps: the model reads your request, you shape it, you read it over and send, your agent takes over. It says what to
