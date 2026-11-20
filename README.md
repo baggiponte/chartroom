@@ -42,22 +42,47 @@ server and opens a browser: approve it.
 /help-me plan a relaxed weekend in Lisbon for me and my partner in March, not too expensive
 ```
 
-| | |
-|---|---|
-| Click an underline | pick an option, or "Something else" (Alt+↓ opens the one at the caret) |
-| Drag a blue value | change a number or amount (arrow keys work too) |
-| Explain me | show what each option means and who it suits, with pictures when they help |
-| Help me decide | in the Explain me panel: a few questions about you (habits, budget, space) that narrow the options, then a suggested pick |
-| Answer a wavy question | a question you wrote ("What do I do with the water heater?") gets concrete answers; picking one rewrites it as a statement ("With the water heater, I'll replace it with a heat pump.") |
-| Fill a [blank] | answer what the request didn't say; unfilled sentences are left out when you send. **+ More questions** adds more |
-| Tidy up | once the request runs long, the model reorders your sentences into a short paragraph (goal and context), **Must-haves** and **Nice to have**, without changing a word. Underlines and blanks keep working, and that layout is what gets sent. Drag the ⋮⋮ grip beside an item (or focus it and press ↑/↓, or Alt+Shift+↑/↓ from the caret) to rank it or move it to the other list; that order is what gets sent. Ctrl/Cmd+Z undoes moves one at a time, and **Undo tidy** puts the original back until you edit again |
-| Type | edit freely. The model reads the text again and keeps what you set |
-| Shift+Enter / Enter / ✕ | send / new line / cancel and send nothing |
+<img src="docs/img/overview.png" alt="The request with each kind of mark labelled: a solid underline to flip, a blue value to drag, a [blank] to fill, a wavy question you asked, the send button and the Where you are timeline" width="860">
 
-A "Where you are" timeline on the right (a compact stepper above the request on narrow screens) shows the four
-steps: the model reads your request, you shape it, you read it over and send, your agent takes over. It says what to
-do now, lists any model call still running (a re-read, Explain me, Help me decide, more questions), and **next →**
-jumps to the next blank or question that still needs you.
+Click an underline to pick another option or write your own (Alt+↓ opens the one at the caret). Drag a blue value
+left or right to change a number, or use the arrow keys. A `[blank]` is something your request didn't say: fill
+it, or leave it and it's dropped when you send; **+ More questions** adds more. Type anywhere and the model reads
+the text again, keeping what you set. The timeline says what to do now and **next →** jumps to the next thing
+that needs you. **Shift+Enter** sends, Enter adds a line, ✕ cancels.
+
+<img src="docs/img/underlines.gif" alt="Clicking 'coffee machine' and picking Espresso, then dragging the budget to €800" width="640">
+
+### Questions you asked
+
+A question in your request ("Which heating system should it have?") gets a wavy underline and concrete answers.
+Picking one rewrites it as a statement.
+
+<img src="docs/img/question.png" alt="The popover for a question you wrote: answer chips, Something else, Help me decide and Explain me" width="420"> <img src="docs/img/question-answered.png" alt="The question rewritten as 'For heating, I'd like a dual boiler.'" width="420">
+
+### Explain me and Help me decide
+
+**Explain me** opens every option as a card: what it means, who it suits, and a picture when one helps.
+**Help me decide** asks a few questions about you and suggests a pick, marked among the options.
+
+<img src="docs/img/explain.png" alt="Explain me: one card per milk-frothing option with what it is and who it's good for" width="420"> <img src="docs/img/decide.png" alt="Help me decide: questions about you on the left, a suggested pick and the marked option on the right" width="420">
+
+### Tidy up and rank
+
+Once the request runs long, **Tidy up** reorders your sentences into a short paragraph, **Must-haves** and
+**Nice to have**, without changing a word; that layout is what gets sent. Drag the ⋮⋮ grip beside an item to rank
+it or move it to the other list (or focus it and press ↑/↓, or Alt+Shift+↑/↓ from the caret). Ctrl/Cmd+Z undoes
+moves one at a time, and **Undo tidy** puts the original back until you edit again.
+
+<img src="docs/img/tidy.gif" alt="Tidy up splits the request into Must-haves and Nice to have, then an item is dragged to the top" width="640">
+
+### See what was sent
+
+After you send, the page stays open read-only: **see what was sent** shows exactly what your agent got, and what
+was left out.
+
+<img src="docs/img/sent.png" alt="The sent text in a box, with notes on unanswered questions that were left out" width="640">
+
+The images are recorded from demo mode by [`docs/shots.js`](docs/shots.js).
 
 ## How it works
 
