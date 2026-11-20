@@ -89,9 +89,9 @@ job is to find those parts. Return JSON matching the schema.
    For a slider on an inline span, every stop must read naturally in place of the span.
    Option text replaces the span so the sentence still reads naturally (e.g. "espresso machine").
 2. extras (no span, a token instead): ALWAYS return 2-4 of these: the most important things the request does not say yet (budget, size, aspect ratio,
-   length, deadline...). They appear as small "Token: ?" chips under the request. Give each a token: a 1-2 word
-   name like "Budget" or "Milk". Once answered, the answer is written into the request as a new sentence, so give
-   each extra a sentence: a short first-person sentence with {value} where the answer goes, written in the
+   length, deadline...). Each is written into the request straight away as a new sentence with a "[token]"
+   placeholder where the answer goes, which the user clicks to answer. Give each a token: a 1-2 word
+   name like "Budget" or "Milk", and a sentence: a short first-person sentence with {value} where the answer goes, written in the
    request's language, that does not start with {value} (e.g. "I mostly make {value}.", "My budget is {value}.",
    "I'd like it to froth milk with {value}."). Option text (and slider template/stops) must read naturally in
    place of {value}; for multi, several option texts get joined with "and" (e.g. "lattes and flat whites").

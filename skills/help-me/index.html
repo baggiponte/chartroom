@@ -64,6 +64,9 @@ mark.hover, mark.active { background: var(--chip-hover); }
 mark.flash { animation: flash .7s ease-out; }
 @keyframes flash { from { background: var(--accent-soft); } to { background: transparent; } }
 textarea.on-mark { cursor: pointer; }
+/* open questions are written into the request with a placeholder where the answer goes: "My budget is [budget]." */
+mark.ph { color: var(--accent); background: var(--accent-soft); text-decoration: underline dotted var(--accent); text-decoration-thickness: 2px; }
+mark.ph.hover, mark.ph.active { background: color-mix(in srgb, var(--accent) 24%, transparent); }
 
 /* extras: things the request doesn't say yet, as underlined tokens */
 .extras { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin-top: 14px; min-height: 0; }
@@ -91,9 +94,11 @@ body.scrubbing, body.scrubbing * { cursor: ew-resize !important; user-select: no
 .scrub-hint { position: fixed; z-index: 11; pointer-events: none; transform: translate(-50%, calc(-100% - 8px)); font-size: 12px; line-height: 1.3; color: var(--muted); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 4px 9px; box-shadow: var(--shadow); white-space: nowrap; }
 .scrub-hint[hidden] { display: none; }
 .scrub-hint b { color: var(--text); font-weight: 600; }
-.add-more { font: inherit; font-size: 14px; color: var(--muted); background: none; border: 0; cursor: pointer; padding: 2px 0; }
+.add-more { white-space: nowrap; font: inherit; font-size: 14px; color: var(--muted); background: none; border: 0; cursor: pointer; padding: 2px 0; }
 .add-more:hover { color: var(--text); }
-.add-more:disabled { opacity: .6; cursor: default; }
+.add-more:disabled { opacity: .6; cursor: default; animation: shimmer 1.2s infinite ease-in-out; }
+.add-more[hidden] { display: none; }
+.ph-sample { color: var(--accent); background: var(--accent-soft); border-radius: 4px; }
 
 .toolbar { display: flex; align-items: center; gap: 14px; margin-top: 16px; min-height: 48px; }
 .status { font-size: 13px; color: var(--muted); display: inline-flex; align-items: center; gap: 8px; }
@@ -112,35 +117,6 @@ body.scrubbing, body.scrubbing * { cursor: ew-resize !important; user-select: no
 .send svg { width: 22px; height: 22px; }
 .hint { text-align: center; color: var(--muted); font-size: 14px; margin-top: 22px; }
 .hint kbd { font: inherit; font-size: 12px; border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; background: var(--card); }
-
-/* open questions board: fills the space under the request with quick-answer cards */
-.board { width: min(1080px, calc(100vw - 32px)); position: relative; left: 50%; transform: translateX(-50%); margin-top: 34px; }
-.board:empty { display: none; }
-.board-head { display: flex; align-items: baseline; gap: 12px; margin: 0 6px 12px; color: var(--muted); font-size: 14px; }
-.board-head b { color: var(--text); font-weight: 600; }
-.board-head .spacer { flex: 1; }
-.board-head button { white-space: nowrap; font: inherit; font-size: 14px; background: none; border: 0; padding: 0; color: var(--muted); cursor: pointer; }
-.board-head button:hover { color: var(--text); }
-.board-head button:disabled { cursor: default; animation: shimmer 1.2s infinite ease-in-out; }
-.bgrid { columns: 3 300px; column-gap: 12px; } /* masonry: short cards don't leave holes under tall ones */
-.bgrid > * { break-inside: avoid; margin-bottom: 12px; }
-.bq { width: 100%; background: var(--card); border: 1.5px solid transparent; border-radius: 20px; box-shadow: var(--shadow); padding: 16px 18px 14px; display: grid; gap: 10px; transition: border-color .15s, opacity .15s; }
-.bq.answered { border-color: var(--accent-soft); }
-.bq.flash { animation: flash 1.2s ease-out; }
-.bq-head { display: flex; align-items: baseline; gap: 10px; }
-.bq-q { flex: 1; margin: 0; font-size: 16px; font-weight: 600; line-height: 1.35; }
-.bq-q .tok { display: block; font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: .02em; text-transform: uppercase; margin-bottom: 2px; }
-.bq.answered .bq-q .tok::after { content: " · set"; color: var(--accent); }
-.bq-tools { display: flex; gap: 12px; font-size: 13px; white-space: nowrap; }
-.bq-tools button { font: inherit; background: none; border: 0; padding: 0; cursor: pointer; color: var(--muted); }
-.bq-tools button:hover { color: var(--text); }
-.bq-tools .explain-btn { color: var(--accent); }
-.bq .chips { gap: 6px; }
-.bq .chip { padding: 6px 13px 6px 11px; font-size: 14px; gap: 7px; }
-.bq .chip .emo { font-size: 15px; }
-.bq .slider-val { font-size: 17px; text-align: left; margin: 0; min-height: 0; }
-.bq .slider-val.unset { font-size: 14px; padding-top: 0; }
-.board-skel { height: 132px; border-radius: 20px; background: var(--card); box-shadow: var(--shadow); animation: shimmer 1.2s infinite ease-in-out; }
 
 /* popover */
 .pop { position: fixed; z-index: 10; width: min(420px, calc(100vw - 32px)); background: var(--card); border-radius: 22px; box-shadow: var(--pop-shadow); padding: 18px 18px 12px; border: 1px solid var(--line); max-height: calc(100vh - 24px); overflow: auto; }
@@ -240,8 +216,6 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
   .field-text, textarea { font-size: 19px; }
   .summary { font-size: 17px; }
   .cards { grid-template-columns: 1fr; }
-  .board { margin-top: 24px; }
-  .bgrid { columns: 1; }
 }
 </style>
 </head>
@@ -259,13 +233,13 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
       <button class="icon-btn" id="cancel" title="Cancel and send nothing back" aria-label="Cancel">✕</button>
       <span class="status" id="status"><span class="dot"></span><span id="statusText">idle</span></span>
       <span class="spacer"></span>
+      <button class="add-more" id="more" hidden>+ More questions</button>
       <button class="send" id="send" title="Send to your agent (Enter)" aria-label="Send">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
       </button>
     </div>
   </div>
-  <div class="hint" id="hint">Click any underlined part to flip it, drag the blue values left or right. Answer a question below and it is written into your request as a sentence you can flip too. <kbd>Enter</kbd> sends it back to <span class="agentName">your agent</span>, <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new line.</div>
-  <section class="board" id="board" aria-label="Open questions"></section>
+  <div class="hint" id="hint">Click any underlined part to flip it, drag the blue values left or right. Fill in the <span class="ph-sample">[blanks]</span> the same way, or leave them: unfilled sentences are dropped when you send. <kbd>Enter</kbd> sends it back to <span class="agentName">your agent</span>, <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a new line.</div>
 </main>
 
 <div class="pop" id="pop" hidden role="dialog"></div>
@@ -289,6 +263,7 @@ let choices = [];            // inline (span in the text) and extras (span "", s
 let summary = "";
 let seq = 0, timer = null, lastAnalyzed = null, busy = false, moreBusy = false;
 let openId = null, hoverId = null, uid = 0;
+const dismissed = new Set(); // questions whose sentence you removed: don't ask them again
 
 // ------------------------------------------------------------ choice model
 function makeChoice(c) {
@@ -353,7 +328,7 @@ function relocate(text) {
       if (d < bestD && !overlaps(taken, i, i + ch.cur.length)) { best = i; bestD = d; }
       i = text.indexOf(ch.cur, i + 1);
     }
-    if (best < 0) { if (!ch.promo) return false; unpromote(ch); return true; }
+    if (best < 0) { if (ch.promo) dismiss(ch); return false; }
     ch.start = best; ch.end = best + ch.cur.length; taken.push([ch.start, ch.end]);
     return true;
   });
@@ -363,25 +338,32 @@ let skipNextAnalysisFor = null;
 function shiftAfter(ch, at, delta) {
   for (const o of choices) if (o !== ch && !o.extra && o.start >= at) { o.start += delta; o.end += delta; }
 }
+const isSet = (ch) => ch.kind === "slider" ? ch.touched : (ch.selected.length > 0 || !!ch.custom);
+const placeholderFor = (ch) => `[${(ch.token || "answer").toLowerCase()}]`;
 function applyChoice(ch, override) {
   if (ch.extra) {
-    const set = override === "" ? false : ch.kind === "slider" ? ch.touched : (ch.selected.length > 0 || !!ch.custom);
+    const set = override === "" ? false : isSet(ch);
     if (set) { promote(ch); return; }
     ch.settled = false; renderExtras(); return;
   }
-  const next = override ?? textFor(ch);
-  if (ch.promo && !next) { demote(ch); return; }
+  let next = override ?? textFor(ch);
+  if (ch.promo) { // an open question: clearing the answer puts the placeholder back
+    const set = override !== "" && isSet(ch);
+    next = set ? next : placeholderFor(ch);
+    override = undefined; ch.settled = set;
+  }
   let text = ta.value;
   const delta = next.length - (ch.end - ch.start);
   text = text.slice(0, ch.start) + next + text.slice(ch.end);
   shiftAfter(ch, ch.end, delta);
-  ch.cur = next; ch.end = ch.start + next.length; ch.settled = override === undefined || !!ch.promo;
-  ta.value = text; skipNextAnalysisFor = text;
+  ch.cur = next; ch.end = ch.start + next.length; if (!ch.promo) ch.settled = override === undefined;
+  setText(text);
   render(ch.id);
 }
 
-// Answering a question the request doesn't cover writes it into the request as a sentence ("I mostly make lattes.").
-// The answer inside it becomes an ordinary underline, so it flips in place like everything else.
+// Each question the request doesn't cover is written into it straight away as a sentence with a placeholder where
+// the answer goes ("My budget is [budget]."). The placeholder is an ordinary underline: click it and pick, and the
+// answer replaces it in place. Sentences still holding a placeholder are left out when you send.
 function sentenceParts(ch) {
   let t = (ch.sentence || "").trim();
   if (!t.includes("{value}")) t = `${ch.token || "Also"}: {value}.`;
@@ -389,38 +371,51 @@ function sentenceParts(ch) {
   const i = t.indexOf("{value}");
   return { pre: t.slice(0, i), post: t.slice(i + 7).replaceAll("{value}", "") };
 }
+function setText(text) { // keep the caret where it was: sentences are added after it
+  const a = ta.selectionStart, b = ta.selectionEnd, focused = document.activeElement === ta;
+  ta.value = text; skipNextAnalysisFor = text;
+  if (focused) ta.setSelectionRange(Math.min(a, text.length), Math.min(b, text.length));
+}
 function promote(ch) {
-  const value = textFor(ch); if (!value) return;
+  const set = isSet(ch), value = set ? textFor(ch) : placeholderFor(ch);
+  if (!value) return;
   const { pre, post } = sentenceParts(ch);
   let text = ta.value.replace(/\s+$/, "");
   const sep = !text ? "" : /[.!?:;…)]$/.test(text) ? " " : ". ";
   ch.promo = { sep, pre, post };
-  ch.extra = false; ch.settled = true;
+  ch.extra = false; ch.settled = set;
   ch.start = text.length + sep.length + pre.length; ch.end = ch.start + value.length;
   ch.orig = ch.cur = ch.span = value;
   text += sep + pre + value + post;
-  ta.value = text; skipNextAnalysisFor = text;
-  render(ch.id);
+  setText(text);
 }
-function unpromote(ch) {
-  ch.promo = null; ch.extra = true; ch.settled = false; ch.start = ch.end = -1;
-  ch.span = ch.orig = ch.cur = ""; ch.selected = []; ch.custom = ""; ch.touched = false;
-  if (ch.kind === "slider") ch.value = clamp(ch.slider.value ?? ch.slider.min, ch.slider.min, ch.slider.max);
-}
-function demote(ch) {
-  // take the whole sentence back out, as long as you haven't rewritten the words around the answer
+// whole sentence range [a, b) around a written-in question, or just the value if you rewrote the words around it
+function sentenceRange(ch, text) {
   const { sep, pre, post } = ch.promo;
-  let text = ta.value, a = ch.start, b = ch.end;
+  let a = ch.start, b = ch.end;
   if (text.slice(a - pre.length, a) === pre && text.slice(b, b + post.length) === post) {
     a -= pre.length; b += post.length;
     if (text.slice(a - sep.length, a) === sep) a -= sep.length;
   }
+  return [a, b];
+}
+function dismiss(ch) {
+  dismissed.add(ch.question.toLowerCase()); if (ch.token) dismissed.add(ch.token.toLowerCase());
+}
+function demote(ch) { // "remove sentence": take it out and don't ask again
+  let text = ta.value; const [a, b] = sentenceRange(ch, text);
   text = text.slice(0, a) + text.slice(b);
   shiftAfter(ch, b, a - b);
-  unpromote(ch);
-  ta.value = text; skipNextAnalysisFor = text;
+  dismiss(ch); choices = choices.filter(c => c !== ch);
+  setText(text);
   if (openId === ch.id) { openId = null; openedFor = null; pop.hidden = true; }
   render();
+}
+// the request without the sentences you haven't filled in: what gets sent, and what the model re-reads
+function withoutOpen(text = ta.value) {
+  const open = choices.filter(c => c.promo && !c.settled && c.start >= 0).sort((x, y) => y.start - x.start);
+  for (const ch of open) { const [a, b] = sentenceRange(ch, text); text = text.slice(0, a) + text.slice(b); }
+  return text.replace(/[ \t]+$/gm, "").trim();
 }
 
 // ------------------------------------------------------------ rendering
@@ -433,7 +428,7 @@ function render(flashId) {
   for (const c of marks) {
     if (c.start < pos) continue;
     html += esc(text.slice(pos, c.start));
-    const cls = [c.kind === "slider" ? "scrub" : "", drag?.id === c.id ? "scrubbing" : "", c.settled ? "settled" : "", c.id === openId ? "active" : "", c.id === hoverId ? "hover" : "", c.id === flashId ? "flash" : ""].join(" ");
+    const cls = [c.kind === "slider" ? "scrub" : "", drag?.id === c.id ? "scrubbing" : "", c.settled ? "settled" : "", c.promo && !c.settled ? "ph" : "", c.id === openId ? "active" : "", c.id === hoverId ? "hover" : "", c.id === flashId ? "flash" : ""].join(" ");
     html += `<mark data-id="${c.id}" class="${cls}">${esc(text.slice(c.start, c.end))}</mark>`;
     pos = c.end;
   }
@@ -459,7 +454,7 @@ function renderExtras() {
       `<span class="k">${esc(c.token)}:</span> <span class="v">${v ? esc(v) : "?"}</span></button>`;
   }).join("") +
   "";
-  renderBoard();
+  renderMore();
   if (focused) extrasEl.querySelector(`[data-id="${focused}"]`)?.focus();
   if (openId) positionPop();
 }
@@ -476,7 +471,7 @@ const KIND = { single: "pick one", multi: "pick any", slider: "slide, or drag th
 function controlsHTML(ch) {
   if (ch.kind === "slider") {
     const s = ch.slider;
-    return `<div class="slider-val ${ch.extra && !ch.touched ? "unset" : ""}" data-role="sval"></div>
+    return `<div class="slider-val ${(ch.extra || ch.promo) && !ch.touched ? "unset" : ""}" data-role="sval"></div>
       <input type="range" data-role="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${ch.value}" aria-label="${esc(ch.question)}">
       <div class="slider-ends"><span>${esc(s.minLabel || fmtNum(s.min))}</span><span>${esc(s.maxLabel || fmtNum(s.max))}</span></div>`;
   }
@@ -506,7 +501,7 @@ function explainedOptions(ch) {
   return ex.map(x => ({ ...x, i: -1 })); // numeric slider: the ends are explained, the slider below sets the value
 }
 function isPicked(ch, o) {
-  if (ch.kind === "slider") return o.i >= 0 && (!ch.extra || ch.touched) && Math.round(ch.value) === o.i;
+  if (ch.kind === "slider") return o.i >= 0 && (!(ch.extra || ch.promo) || ch.touched) && Math.round(ch.value) === o.i;
   return ch.selected.includes(o.label);
 }
 function cardsHTML(ch) {
@@ -562,7 +557,7 @@ let openedFor = null;
 function openPop(id) {
   const ch = choices.find(c => c.id === id); if (!ch) return;
   openId = id; hideHint();
-  const footLeft = ch.extra ? "not in your request yet" : ch.promo ? "you added this" : `was “${esc(ch.orig)}”`;
+  const footLeft = ch.extra ? "not in your request yet" : ch.promo ? (ch.settled ? "you added this" : "left out if you don't pick") : `was “${esc(ch.orig)}”`;
   const wide = ch.explainOpen && !ch.explainErr;
   const numeric = ch.kind === "slider" && !ch.slider.stops?.length;
   pop.classList.toggle("wide", wide);
@@ -572,7 +567,7 @@ function openPop(id) {
     ${wide ? decideHTML(ch) + cardsHTML(ch) : ""}
     <div>${wide && !numeric ? otherHTML(ch) : controlsHTML(ch)}</div>
     <div class="pop-foot"><span>${ch.explain ? `<button class="explain-btn" data-role="explain">${ch.explainOpen ? "Hide explanation" : "Explain me"}</button>` : footLeft}</span>
-    <button data-role="reset">${ch.extra ? "leave open" : ch.promo ? "remove sentence" : "reset"}</button></div>`;
+    <span>${ch.promo ? `<button data-role="remove">remove sentence</button>` : ""}${ch.promo && !ch.settled ? "" : `${ch.promo ? " · " : ""}<button data-role="reset">${ch.extra ? "leave open" : ch.promo ? "clear" : "reset"}</button>`}</span></div>`;
   pop.hidden = false;
   positionPop(); pop.scrollTop = keepScroll;
   const multi = ch.kind === "multi";
@@ -581,11 +576,13 @@ function openPop(id) {
   pop.querySelectorAll("[data-card]").forEach(b => b.onclick = () => pickCard(ch, +b.dataset.card));
   bindDecide(ch);
   const ex = pop.querySelector('[data-role="explain"]'); if (ex) ex.onclick = () => toggleExplain(ch);
-  pop.querySelector('[data-role="reset"]').onclick = () => {
+  const rs = pop.querySelector('[data-role="reset"]');
+  if (rs) rs.onclick = () => {
     ch.selected = []; ch.custom = ""; ch.touched = false;
     if (ch.kind === "slider") ch.value = clamp(ch.slider.value ?? ch.slider.min, ch.slider.min, ch.slider.max);
     applyChoice(ch, ch.extra || ch.promo ? "" : ch.orig); closePop();
   };
+  const rm = pop.querySelector('[data-role="remove"]'); if (rm) rm.onclick = () => demote(ch);
   render();
 }
 
@@ -608,7 +605,7 @@ function bindControls(ch, rerender, onPicked) {
     const r = pop.querySelector('[data-role="range"]'), out = pop.querySelector('[data-role="sval"]');
     if (!r) return;
     const show = () => {
-      const unset = ch.extra && !ch.touched;
+      const unset = (ch.extra || ch.promo) && !ch.touched;
       out.classList.toggle("unset", unset);
       out.textContent = unset ? "not set: drag to choose" : textFor(ch);
     };
@@ -722,7 +719,7 @@ async function toggleExplain(ch) {
 }
 
 function anchorFor(id) {
-  return backdrop.querySelector(`mark[data-id="${id}"]`) || extrasEl.querySelector(`[data-id="${id}"]`) || board.querySelector(`[data-b="${id}"]`);
+  return backdrop.querySelector(`mark[data-id="${id}"]`) || extrasEl.querySelector(`[data-id="${id}"]`);
 }
 function positionPop() {
   const a = anchorFor(openId); if (!a) return;
@@ -747,99 +744,13 @@ function closePop() { if (!openId) return; openId = null; openedFor = null; pop.
 
 function refreshChoice(ch) {
   if (openId === ch.id) openPop(ch.id);
-  renderBoard();
 }
-
-// ------------------------------------------------------------ open questions board
-// The space under the request shows every setting the request doesn't mention as a small card with its
-// options as chips, so most questions get answered without opening anything. Same choice objects as the
-// modal and the tokens; "Explain me" / "Something else" hand off to the modal for the long form.
-const board = $("board");
-let boardSlide = null; // id of a card whose range input is being dragged: don't rebuild it under the pointer
-function boardCardHTML(ch) {
-  const tools = (ch.explain ? `<button class="explain-btn" data-role="explain">Explain me</button>` : "") +
-    (ch.settled ? `<button data-role="clear" title="Leave this open">Clear</button>` : "");
-  const head = `<div class="bq-head"><h3 class="bq-q"><span class="tok">${esc(ch.token)}</span>${esc(ch.question)}</h3><span class="bq-tools">${tools}</span></div>`;
-  if (ch.kind === "slider") {
-    const s = ch.slider;
-    if (s.stops?.length) return head + `<div class="chips">` + s.stops.map((st, i) =>
-      `<button class="chip ${ch.touched && Math.round(ch.value) === i ? "on" : ""}" data-stop="${i}">${esc(st)}</button>`).join("") + `</div>`;
-    return head + `<div class="slider-val ${ch.touched ? "" : "unset"}" data-role="sval">${ch.touched ? esc(textFor(ch)) : "not set: drag to choose"}</div>
-      <input type="range" data-role="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${ch.value}" aria-label="${esc(ch.question)}">
-      <div class="slider-ends"><span>${esc(s.minLabel || fmtNum(s.min))}</span><span>${esc(s.maxLabel || fmtNum(s.max))}</span></div>`;
-  }
-  return head + `<div class="chips">` + ch.options.map((o, i) =>
-    `<button class="chip ${ch.selected.includes(o.label) ? "on" : ""}" data-i="${i}">${o.emoji ? `<span class="emo">${esc(o.emoji)}</span>` : ""}${esc(o.label)}</button>`).join("") +
-    (ch.custom ? `<button class="chip on" data-role="custom" title="Edit"><span class="emo">✎</span>${esc(ch.custom)}</button>` : "") +
-    `<button class="chip other" data-role="other"><span class="emo">+</span>Something else</button></div>`;
-}
-function renderBoard() {
-  const extras = choices.filter(c => c.extra || c.promo);
-  if (!extras.length) {
-    board.innerHTML = busy && ta.value.trim() ? `<div class="bgrid"><div class="board-skel"></div><div class="board-skel"></div><div class="board-skel"></div></div>` : "";
-    return;
-  }
-  const left = extras.filter(c => c.extra && !c.settled).length;
-  const headHTML = `<span><b>${left ? `${left} open question${left === 1 ? "" : "s"}` : "All answered"}</b> · things your request doesn't say yet. Answer any, skip the rest.</span>` +
-    `<span class="spacer"></span><button data-role="more" ${moreBusy ? "disabled" : ""}>${moreBusy ? "Thinking of more…" : "+ More questions"}</button>`;
-  let head = board.querySelector(".board-head"), grid = board.querySelector(".bgrid");
-  if (!head || !board.contains(grid) || !grid.querySelector(".bq")) {
-    board.innerHTML = `<div class="board-head"></div><div class="bgrid"></div>`;
-    head = board.querySelector(".board-head"); grid = board.querySelector(".bgrid");
-  }
-  if (head.dataset.html !== headHTML) {
-    head.innerHTML = headHTML; head.dataset.html = headHTML;
-    head.querySelector('[data-role="more"]').onclick = () => analyze({ more: true });
-  }
-  // keyed patch: rebuild only cards whose markup changed, so focus and in-progress drags survive
-  const ids = extras.map(c => c.id);
-  [...grid.children].forEach(el => { if (!ids.includes(el.dataset.b)) el.remove(); });
-  extras.forEach((ch, i) => {
-    let el = grid.querySelector(`[data-b="${ch.id}"]`);
-    if (!el) { el = document.createElement("div"); el.dataset.b = ch.id; }
-    if (grid.children[i] !== el) grid.insertBefore(el, grid.children[i] || null);
-    el.className = "bq" + (ch.settled || ch.promo ? " answered" : "") + (el.classList.contains("flash") ? " flash" : "");
-    if (boardSlide === ch.id) return;
-    const html = boardCardHTML(ch);
-    if (el.dataset.html === html) return;
-    const ae = document.activeElement, keep = el.contains(ae) ? (ae.dataset.i ?? ae.dataset.stop ?? ae.dataset.role) : null;
-    el.innerHTML = html; el.dataset.html = html; bindBoardCard(ch, el);
-    if (keep != null) el.querySelector(`[data-i="${keep}"],[data-stop="${keep}"],[data-role="${keep}"]`)?.focus({ preventScroll: true });
-  });
-}
-function bindBoardCard(ch, el) {
-  const ex = el.querySelector('[data-role="explain"]');
-  if (ex) ex.onclick = () => { openPop(ch.id); if (!ch.explainOpen) toggleExplain(ch); };
-  const cl = el.querySelector('[data-role="clear"]');
-  if (cl) cl.onclick = () => {
-    ch.selected = []; ch.custom = ""; ch.touched = false;
-    if (ch.kind === "slider") ch.value = clamp(ch.slider.value ?? ch.slider.min, ch.slider.min, ch.slider.max);
-    applyChoice(ch, "");
-  };
-  el.querySelectorAll("[data-role=other],[data-role=custom]").forEach(b => b.onclick = () => {
-    openPop(ch.id); pop.querySelector('[data-role="other"]')?.click();
-  });
-  el.querySelectorAll("[data-stop]").forEach(b => b.onclick = () => {
-    const i = +b.dataset.stop;
-    if (ch.touched && Math.round(ch.value) === i) { ch.touched = false; applyChoice(ch, ""); return; }
-    ch.value = i; ch.touched = true; applyChoice(ch);
-  });
-  el.querySelectorAll("[data-i]").forEach(b => b.onclick = () => {
-    const o = ch.options[+b.dataset.i];
-    if (ch.kind === "multi") ch.selected = ch.selected.includes(o.label) ? ch.selected.filter(l => l !== o.label) : [...ch.selected, o.label];
-    else if (ch.selected.includes(o.label) && !ch.custom) ch.selected = []; // tap again to leave it open
-    else { ch.selected = [o.label]; ch.custom = ""; }
-    applyChoice(ch);
-  });
-  const r = el.querySelector('[data-role="range"]');
-  if (r) {
-    const out = el.querySelector('[data-role="sval"]');
-    r.oninput = () => {
-      boardSlide = ch.id; ch.value = Number(r.value); ch.touched = true;
-      out.classList.remove("unset"); out.textContent = textFor(ch); applyChoice(ch);
-    };
-    r.onchange = () => { boardSlide = null; renderBoard(); };
-  }
+const moreBtn = $("more");
+moreBtn.onclick = () => analyze({ more: true });
+function renderMore() {
+  moreBtn.hidden = !lastAnalyzed;
+  moreBtn.disabled = moreBusy;
+  moreBtn.textContent = moreBusy ? "Thinking of more…" : "+ More questions";
 }
 
 // ------------------------------------------------------------ hit testing (marks sit under the textarea)
@@ -988,10 +899,10 @@ async function analyze({ more = false } = {}) {
   setStatus("busy", more ? `${esc(modelName)} is looking for more…` : `${esc(modelName)} is reading…`);
   const extras = choices.filter(c => c.extra);
   const payload = {
-    text, more,
+    text: withoutOpen(text), more,
     settled: choices.filter(c => !c.extra && c.settled).map(c => c.cur),
     answers: extras.filter(c => c.settled).map(c => `${c.token}: ${textFor(c)}`),
-    asked: [...extras, ...choices.filter(c => c.promo)].map(c => c.question),
+    asked: [...extras, ...choices.filter(c => c.promo)].map(c => c.question).concat([...dismissed]),
   };
   let data;
   try {
@@ -1015,9 +926,9 @@ async function analyze({ more = false } = {}) {
 function merge(text, data, more) {
   if (!more && data.summary) summary = data.summary;
   // a fresh read keeps what you've set and replaces the rest; "+ more" only adds extras
-  const kept = more ? choices : choices.filter(c => c.settled);
-  const seen = new Set(kept.filter(c => c.extra || c.promo).flatMap(c => [c.question.toLowerCase(), c.token.toLowerCase()]));
-  const taken = kept.filter(c => !c.extra).map(c => [c.start, c.end]);
+  const kept = more ? choices : choices.filter(c => c.settled || c.promo);
+  const seen = new Set([...dismissed, ...kept.filter(c => c.extra || c.promo).flatMap(c => [c.question.toLowerCase(), c.token.toLowerCase()])]);
+  const taken = kept.filter(c => !c.extra).map(c => c.promo ? sentenceRange(c, text) : [c.start, c.end]);
   const fresh = [];
   for (const raw of data.choices || []) {
     const ch = makeChoice(raw); if (!ch) continue;
@@ -1035,6 +946,10 @@ function merge(text, data, more) {
   }
   if (openId && !kept.some(k => k.id === openId)) closePop();
   choices = [...kept, ...fresh];
+  // write every new open question into the request as a sentence with a placeholder (ones the request already
+  // answers stay as tokens under it)
+  for (const ch of fresh) if (ch.extra && !ch.settled) promote(ch);
+  if (fresh.some(c => c.promo)) lastAnalyzed = more ? lastAnalyzed : ta.value;
   render();
 }
 
@@ -1066,14 +981,14 @@ document.addEventListener("keydown", (e) => {
 
 // ------------------------------------------------------------ send / cancel
 function compose() {
-  let out = ta.value.trim();
+  let out = withoutOpen();
   const set = choices.filter(c => c.extra && c.settled);
   if (set.length) out += "\n\n" + set.map(c => `- ${c.token}: ${textFor(c)}`).join("\n");
   return out;
 }
 $("send").onclick = submit;
 async function submit() {
-  if (!ta.value.trim()) return;
+  if (!withoutOpen()) return;
   closePop();
   const prompt = compose();
   $("donePrompt").textContent = prompt;
