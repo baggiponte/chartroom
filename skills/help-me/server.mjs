@@ -443,7 +443,11 @@ async function decide(text, question, options, answers = [], asked = []) {
 }
 
 // ---------------------------------------------------------------- http
-const html = () => readFileSync(join(HERE, "index.html"));
+// Read the page once at startup, so a running server never hands out a newer page than its own code. If
+// index.html changes on disk (a git pull, a reinstall) while it runs, a reload still gets the matching page;
+// the new one shows up the next time /help-me starts.
+const PAGE = readFileSync(join(HERE, "index.html"));
+const html = () => PAGE;
 
 function body(req) {
   return new Promise((resolve, reject) => {
