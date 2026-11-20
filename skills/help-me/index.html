@@ -274,17 +274,17 @@ body.ended .pop .chip.on:disabled:hover { background: var(--ink); }
 .j-step { position: relative; display: grid; grid-template-columns: 22px 1fr; column-gap: 12px; padding-bottom: 20px; }
 .j-step:last-child { padding-bottom: 0; }
 .j-step::before {
-  content: ""; position: absolute; left: 10px; top: 24px; bottom: 2px; width: 2px; border-radius: 2px; background: var(--line);
+  content: ""; position: absolute; left: 10px; top: 22px; bottom: 2px; width: 2px; border-radius: 2px; background: var(--line);
 }
 .j-step:last-child::before { display: none; }
 .j-step.done::before { background: var(--accent); opacity: .45; }
-.j-dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--faint); background: var(--bg); display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--muted); margin-top: 1px; }
-.j-step.done .j-dot, .j-step.done.now .j-dot { background: var(--accent); border-color: var(--accent); color: #fff; }
-.j-step.now .j-dot { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
-.j-step.now.wait .j-dot::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1s infinite ease-in-out; }
-.j-step.now.wait .j-dot { font-size: 0; }
-.j-step.now.err .j-dot { border-color: var(--danger); color: var(--danger); box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 15%, transparent); }
-.j-step.off .j-dot { background: var(--bg); border-color: var(--faint); color: var(--muted); box-shadow: none; }
+.j-dot { width: 14px; height: 14px; box-sizing: border-box; border-radius: 50%; border: 2px solid var(--faint); background: var(--bg); justify-self: center; margin-top: 3px; }
+.j-step.now .j-dot { border-color: var(--accent); animation: ring 1.6s infinite ease-out; }
+.j-step.done .j-dot, .j-step.done.now .j-dot { background: var(--accent); border-color: var(--accent); animation: none; }
+.j-step.now.err .j-dot { border-color: var(--danger); animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 15%, transparent); }
+.j-step.off .j-dot { background: var(--bg); border-color: var(--faint); animation: none; box-shadow: none; }
+@keyframes ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); } 100% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--accent) 0%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .j-step.now .j-dot { animation: none; box-shadow: 0 0 0 4px var(--accent-soft); } }
 .j-step.off::before { background: var(--line); opacity: 1; }
 .j-title { color: var(--text); font-weight: 600; font-size: 15px; line-height: 1.35; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .j-step.next .j-title, .j-step.later .j-title { color: var(--muted); font-weight: 500; }
@@ -675,7 +675,7 @@ function journey() {
     const tag = i === at ? (readErr ? "Stuck" : ended === "sent" ? "Done" : ended ? "Cancelled" : "Now") : state === "next" ? "Next" : "";
     const text = state === "done" && i !== at ? s.done : i === at ? s.now : state === "next" ? s.next : "";
     const wl = i === at && w.length ? `<ul class="j-waits">${w.map(x => `<li>${x}…</li>`).join("")}<li class="j-also">You can keep going meanwhile.</li></ul>` : "";
-    return `<li class="j-step ${cls}" ${i === at ? 'aria-current="step"' : ""}><span class="j-dot">${ended === "cancelled" && i >= 2 ? "✕" : state === "done" ? "✓" : i + 1}</span>` +
+    return `<li class="j-step ${cls}" ${i === at ? 'aria-current="step"' : ""}><span class="j-dot" aria-hidden="true"></span>` +
       `<span class="j-title">${s.title}${tag ? `<span class="j-tag">${tag}</span>` : ""}</span>` +
       (text ? `<div class="j-text">${text}</div>` : "") + wl + `</li>`;
   }).join("");
