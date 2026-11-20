@@ -127,6 +127,9 @@ body.scrubbing, body.scrubbing * { cursor: ew-resize !important; user-select: no
 .pop-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 12px; padding: 0 4px; font-size: 13px; color: var(--muted); }
 .pop-foot button { font: inherit; font-size: 13px; background: none; border: 0; color: var(--muted); cursor: pointer; padding: 4px 0; }
 .pop-foot button:hover { color: var(--text); }
+.pop-tools { display: inline-flex; flex-wrap: wrap; gap: 4px 14px; }
+.pop .pop-tools .explain-btn { color: var(--accent); }
+.pop-note { margin-top: 10px; padding: 0 4px; font-size: 13px; color: var(--muted); }
 .explain-btn { font: inherit; font-size: 13px; background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; }
 .explain-btn:hover { text-decoration: underline; }
 .explain { background: var(--accent-soft); border-radius: 14px; padding: 12px 14px; margin: -2px 0 12px; font-size: 14px; line-height: 1.5; }
@@ -564,7 +567,9 @@ function openPop(id) {
     ${explainHTML(ch)}
     ${wide ? decideHTML(ch) + cardsHTML(ch) : ""}
     <div>${wide && !numeric ? otherHTML(ch) : controlsHTML(ch)}</div>
-    <div class="pop-foot"><span>${ch.explain ? `<button class="explain-btn" data-role="explain">${ch.explainOpen ? "Hide explanation" : "Explain me"}</button>` : footLeft}</span>
+    <div class="pop-note">${footLeft}</div>
+    <div class="pop-foot"><span class="pop-tools">${wide ? `<button class="explain-btn" data-role="explain">Hide explanation</button>`
+      : `${canDecide(ch) ? `<button class="explain-btn" data-role="decide-open">🧭 Help me decide</button>` : ""}<button class="explain-btn" data-role="explain">Explain me</button>`}</span>
     <span>${ch.promo ? `<button data-role="remove">remove sentence</button>` : ""}${ch.promo && !ch.settled ? "" : `${ch.promo ? " · " : ""}<button data-role="reset">${ch.extra ? "leave open" : ch.promo ? "clear" : "reset"}</button>`}</span></div>`;
   pop.hidden = false;
   positionPop(); pop.scrollTop = keepScroll;
@@ -574,6 +579,11 @@ function openPop(id) {
   pop.querySelectorAll("[data-card]").forEach(b => b.onclick = () => pickCard(ch, +b.dataset.card));
   bindDecide(ch);
   const ex = pop.querySelector('[data-role="explain"]'); if (ex) ex.onclick = () => toggleExplain(ch);
+  const dOpen = pop.querySelector('[data-role="decide-open"]');
+  if (dOpen) dOpen.onclick = () => { // opens the explained panel too: the suggestion is shown on its cards
+    if (!ch.decide) { ch.decide = { qs: [], rec: null, busy: false, err: "", seq: 0 }; runDecide(ch); }
+    if (!ch.explainOpen) toggleExplain(ch);
+  };
   const rs = pop.querySelector('[data-role="reset"]');
   if (rs) rs.onclick = () => {
     ch.selected = []; ch.custom = ""; ch.touched = false;
