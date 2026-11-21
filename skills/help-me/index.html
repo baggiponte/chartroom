@@ -276,7 +276,6 @@ input[type=range] { width: 100%; accent-color: var(--ink); }
 body.ended textarea { caret-color: transparent; }
 body.ended .card { box-shadow: none; border: 1px solid var(--line); }
 body.ended #cancel, body.ended #more, body.ended #tidy { display: none; }
-body.ended .pop [data-ro], body.ended .pop .pop-kind { display: none; }
 body.ended .pop button:disabled, body.ended .pop input:disabled { cursor: default; }
 body.ended .pop .chip:disabled:hover { background: var(--chip); }
 body.ended .pop .chip.on:disabled:hover { background: var(--ink); }
@@ -751,15 +750,14 @@ function controlsHTML(ch) {
   if (ch.kind === "slider") {
     const s = ch.slider;
     return `<div class="slider-val ${(ch.extra || ch.promo) && !ch.touched ? "unset" : ""}" data-role="sval"></div>
-      <input type="range" data-role="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${ch.value}" aria-label="${esc(ch.question)}">
+      <input type="range" data-role="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${ch.value}" aria-label="${esc(ch.question)}" ${ended ? "disabled" : ""}>
       <div class="slider-ends"><span>${esc(s.minLabel || fmtNum(s.min))}</span><span>${esc(s.maxLabel || fmtNum(s.max))}</span></div>`;
   }
   const hint = (l) => ch.explanation?.options?.find(x => x.label.toLowerCase() === l.toLowerCase())?.what || "";
   return `<div class="chips">` + ch.options.map((o, i) =>
-    `<button class="chip ${ch.selected.includes(o.label) ? "on" : ""}" data-i="${i}" title="${esc(hint(o.label))}">${o.emoji ? `<span class="emo">${esc(o.emoji)}</span>` : ""}${esc(o.label)}</button>`
+    `<button class="chip ${ch.selected.includes(o.label) ? "on" : ""}" data-i="${i}" title="${esc(hint(o.label))}" ${ended ? "disabled" : ""}>${o.emoji ? `<span class="emo">${esc(o.emoji)}</span>` : ""}${esc(o.label)}</button>`
   ).join("") +
-  (ch.custom ? `<button class="chip on" data-custom="1"><span class="emo">✎</span>${esc(ch.custom)}</button>` : "") +
-  `<button class="chip other" data-role="other"><span class="emo">+</span>Something else</button></div>`;
+  customHTML(ch) + (ended ? "" : `<button class="chip other" data-role="other"><span class="emo">+</span>Something else</button>`) + `</div>`;
 }
 
 function explainHTML(c) {
@@ -793,7 +791,7 @@ function cardsHTML(ch) {
         (img.page ? `<a class="credit" href="${esc(img.page)}" target="_blank" rel="noopener" title="${esc(img.title || "")}">Wikimedia</a>` : "") : "";
     const clickable = o.i >= 0;
     const rec = isRecommended(ch, o);
-    return `<button class="ocard ${ch.kind === "multi" ? "multi" : ""} ${isPicked(ch, o) ? "on" : ""} ${rec ? "rec" : ""} ${clickable ? "" : "static"}" ${clickable ? `data-card="${o.i}"` : "disabled"}>` +
+    return `<button class="ocard ${ch.kind === "multi" ? "multi" : ""} ${isPicked(ch, o) ? "on" : ""} ${rec ? "rec" : ""} ${clickable ? "" : "static"}" ${clickable ? `data-card="${o.i}"` : ""} ${clickable && !ended ? "" : "disabled"}>` +
       pic + (clickable ? `<span class="tick">✓</span>` : "") +
       `<span class="body">${rec ? `<span class="badge">Suggested for you</span>` : ""}<span class="name">${o.emoji ? `<span class="emo">${esc(o.emoji)}</span>` : ""}${esc(o.label)}</span>` +
       (o.what ? `<span class="what">${esc(o.what)}</span>` : "") +
@@ -846,16 +844,15 @@ function openPop(id) {
   const scroller = () => sheet ? pop.querySelector(".sheet-body") : pop;
   const keepScroll = openedFor === id ? (scroller()?.scrollTop || 0) : 0; openedFor = id;
   if (sheet) { openSheet(ch, keepScroll); return; }
-  pop.innerHTML = `<div class="pop-head"><span class="pop-q">${esc(ch.question)}</span><span class="pop-kind">${KIND[ch.kind]}</span></div>
+  pop.innerHTML = `<div class="pop-head"><span class="pop-q">${esc(ch.question)}</span>${ended ? "" : `<span class="pop-kind">${KIND[ch.kind]}</span>`}</div>
     ${explainHTML(ch)}
     ${wide ? decideHTML(ch) + cardsHTML(ch) : ""}
     <div>${wide && !numeric ? otherHTML(ch) : controlsHTML(ch)}</div>
     <div class="pop-note">${footLeft}</div>
     <div class="pop-foot"><span class="pop-tools">${wide ? `<button class="explain-btn" data-role="explain">Hide explanation</button>`
-      : `${canDecide(ch) ? `<button class="explain-btn" data-role="decide-open">🧭 Help me decide</button>` : ""}<button class="explain-btn" data-role="explain">Explain me</button>`}</span>
-    <span>${ch.promo ? `<button data-role="remove">remove sentence</button>` : ""}${ch.promo && !ch.settled ? "" : `${ch.promo ? " · " : ""}<button data-role="reset">${ch.extra ? "leave open" : ch.promo ? "clear" : isAsk(ch) ? "back to question" : "reset"}</button>`}</span></div>`;
+      : `${canDecide(ch) && !ended ? `<button class="explain-btn" data-role="decide-open">🧭 Help me decide</button>` : ""}<button class="explain-btn" data-role="explain">Explain me</button>`}</span>
+    <span>${ended ? `<span class="ro-note">${ended} · read-only</span>` : `${ch.promo ? `<button data-role="remove">remove sentence</button>` : ""}${ch.promo && !ch.settled ? "" : `${ch.promo ? " · " : ""}<button data-role="reset">${ch.extra ? "leave open" : ch.promo ? "clear" : isAsk(ch) ? "back to question" : "reset"}</button>`}`}</span></div>`;
   pop.hidden = false;
-  lockPop(ch);
   positionPop(); pop.scrollTop = keepScroll;
   const multi = ch.kind === "multi";
   // In the expanded view a pick keeps the panel open so you can compare; Esc or a click outside closes it.
@@ -878,19 +875,12 @@ function openPop(id) {
   render();
 }
 
-function lockPop(ch) {
-  if (!ended) return;
-  pop.querySelectorAll('.chip[data-i], [data-custom], [data-card], [data-dq], [data-role="decide-pick"], input[type=range]').forEach(el => el.disabled = true);
-  pop.querySelectorAll('[data-role="other"], [data-role="reset"], [data-role="remove"], [data-role="decide-restart"], [data-role="decide"], [data-role="decide-open"]').forEach(el => el.dataset.ro = "");
-  const foot = pop.querySelector(".pop-foot > span:last-child");
-  if (foot) foot.innerHTML = `<span class="ro-note">${ended === "sent" ? "sent" : "cancelled"} · read-only</span>`;
-  const dq = pop.querySelector(".decide-head:not(:has(b))"); if (dq && ch.decide && !ch.decide.rec) dq.textContent = "You didn't answer these before sending.";
+function customHTML(ch) {
+  return ch.custom ? `<button class="chip on" data-custom="1" ${ended ? "disabled" : ""}><span class="emo">✎</span>${esc(ch.custom)}</button>` : "";
 }
-
 function otherHTML(ch) {
-  return `<div class="chips">` +
-    (ch.custom ? `<button class="chip on" data-custom="1"><span class="emo">✎</span>${esc(ch.custom)}</button>` : "") +
-    (ch.kind === "slider" ? "" : `<button class="chip other" data-role="other"><span class="emo">+</span>Something else</button>`) + `</div>`;
+  return `<div class="chips">` + customHTML(ch) +
+    (ch.kind === "slider" || ended ? "" : `<button class="chip other" data-role="other"><span class="emo">+</span>Something else</button>`) + `</div>`;
 }
 function pickCard(ch, i) {
   if (ch.kind === "slider") { ch.value = i; ch.touched = true; applyChoice(ch); openPop(ch.id); return; }
@@ -943,14 +933,13 @@ function openSheet(ch, keepScroll) {
   const picked = [...explainedOptions(ch).filter(o => isPicked(ch, o)).map(o => o.label), ...(ch.custom ? [ch.custom] : [])];
   pop.style.left = pop.style.top = pop.style.maxHeight = "";
   pop.innerHTML = `<div class="sheet-head"><div class="sheet-title"><div class="sheet-kicker">🧭 Help me decide</div><div class="sheet-q">${esc(ch.question)}</div></div>` +
-    `<button class="link" data-role="decide-restart">Start over</button>` +
+    (ended ? "" : `<button class="link" data-role="decide-restart">Start over</button>`) +
     `<button class="sheet-x" data-role="sheet-close" aria-label="Back to request" title="Back to request (Esc)">✕</button></div>` +
     `<div class="sheet-body"><section class="sheet-you"><div class="sheet-label">About you</div>${decideBody(ch)}</section>` +
     `<section class="sheet-opts"><div class="sheet-label">Your options</div>${explainHTML(ch)}${cardsHTML(ch)}${otherHTML(ch)}</section></div>` +
     `<div class="sheet-foot"><span>${picked.length ? `${ended ? "You sent" : "Your request will say"} <b>${esc(picked.join(", "))}</b>` : "Nothing picked yet"}</span>` +
     `<button class="sheet-done" data-role="sheet-close">Back to request</button></div>`;
   pop.hidden = false;
-  lockPop(ch);
   pop.querySelector(".sheet-body").scrollTop = keepScroll;
   bindControls(ch, () => openPop(ch.id), () => {});
   pop.querySelectorAll("[data-card]").forEach(b => b.onclick = () => pickCard(ch, +b.dataset.card));
@@ -969,21 +958,21 @@ function canDecide(ch) { return (ch.kind !== "slider" || ch.slider.stops?.length
 function isRecommended(ch, o) { return !!ch.decide?.rec && o.i >= 0 && ch.decide.rec.label.toLowerCase() === String(o.label).toLowerCase(); }
 function decideHTML(ch) {
   if (!canDecide(ch) || ch.explainBusy) return "";
-  if (!ch.decide) return `<button class="decide-start" data-role="decide"><span class="emo">🧭</span>Help me decide</button>`;
+  if (!ch.decide) return ended ? "" : `<button class="decide-start" data-role="decide"><span class="emo">🧭</span>Help me decide</button>`;
   return `<div class="decide"><div class="decide-head"><b>Help me decide</b><button data-role="decide-close">close</button></div>${decideBody(ch)}</div>`;
 }
 function decideBody(ch) {
   const d = ch.decide;
   const rec = d.rec && explainedOptions(ch).find(o => isRecommended(ch, o));
   const recHTML = rec ? `<div class="decide-rec"><span><b>Suggested: ${esc(rec.label)}.</b> ${esc(d.rec.why || "")}</span>` +
-    `<button data-role="decide-pick" ${isPicked(ch, rec) ? "disabled" : ""}>${isPicked(ch, rec) ? "Picked" : `Pick ${esc(rec.label)}`}</button></div>` : "";
+    `<button data-role="decide-pick" ${isPicked(ch, rec) || ended ? "disabled" : ""}>${isPicked(ch, rec) ? "Picked" : `Pick ${esc(rec.label)}`}</button></div>` : "";
   const qs = d.qs.map((q, qi) => `<div class="dq"><div class="dq-q">${esc(q.question)}</div><div class="chips">` +
-    q.options.map((o, oi) => `<button class="chip ${q.answer === o.label ? "on" : ""}" data-dq="${qi}" data-da="${oi}">` +
+    q.options.map((o, oi) => `<button class="chip ${q.answer === o.label ? "on" : ""}" data-dq="${qi}" data-da="${oi}" ${ended ? "disabled" : ""}>` +
       (o.emoji ? `<span class="emo">${esc(o.emoji)}</span>` : "") + `${esc(o.label)}</button>`).join("") + `</div></div>`).join("");
   const answered = d.qs.filter(q => q.answer).length;
   const status = d.busy ? `<div class="decide-busy">${d.qs.length ? "Weighing your answers…" : "Thinking of questions about you…"}</div>`
     : d.err ? `<div class="decide-err">Couldn't help decide: ${esc(d.err)}</div>`
-    : d.qs.length && !answered ? `<div class="decide-head">Answer any of these and I'll suggest one.</div>` : "";
+    : d.qs.length && !answered ? `<div class="decide-head">${ended ? "You didn't answer these before sending." : "Answer any of these and I'll suggest one."}</div>` : "";
   return recHTML + qs + status;
 }
 function bindDecide(ch) {
