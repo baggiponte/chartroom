@@ -788,8 +788,8 @@ function cardsHTML(ch) {
   const items = explainedOptions(ch); if (!items.length) return "";
   return `<div class="cards">` + items.map(o => {
     const img = o.image && imagesOn ? imgState(o.image) : null;
-    const pic = !img ? "" : img.loading ? `<span class="pic loading"></span>`
-      : img.src && !dupImage(ch, o) ? `<span class="pic"><img src="${esc(img.src)}" alt="${esc(o.label)}" loading="lazy" onerror="this.parentNode.remove()"></span>` +
+    const pic = !img ? "" : img.status === "loading" ? `<span class="pic loading"></span>`
+      : img.status === "ok" && !dupImage(ch, o) ? `<span class="pic"><img src="${esc(img.src)}" alt="${esc(o.label)}" loading="lazy" onerror="this.parentNode.remove()"></span>` +
         (img.page ? `<a class="credit" href="${esc(img.page)}" target="_blank" rel="noopener" title="${esc(img.title || "")}">Wikimedia</a>` : "") : "";
     const clickable = o.i >= 0;
     const rec = isRecommended(ch, o);
@@ -804,7 +804,7 @@ function cardsHTML(ch) {
 
 // Pictures come from Wikimedia Commons (no key needed) and are quietly left out when a lookup fails.
 const images = new Map();
-function imgState(q) { return images.get(q) || { loading: true }; }
+function imgState(q) { return images.get(q) || { status: "loading" }; }
 function dupImage(ch, o) { // two options landing on the same picture would mislead; keep only the first
   const src = images.get(o.image)?.src;
   return explainedOptions(ch).some(x => x.i < o.i && x.image && images.get(x.image)?.src === src);
@@ -813,8 +813,8 @@ function loadImages(ch) {
   if (!imagesOn) return;
   for (const o of ch.explanation?.options || []) {
     const q = (o.image || "").trim(); if (!q || images.has(q)) continue;
-    images.set(q, { loading: true });
-    commonsImage(q).then(r => images.set(q, r || {}), () => images.set(q, {})).finally(() => refreshChoice(ch));
+    images.set(q, { status: "loading" });
+    commonsImage(q).then(r => images.set(q, r ? { status: "ok", ...r } : { status: "none" }), () => images.set(q, { status: "none" })).finally(() => refreshChoice(ch));
   }
 }
 async function commonsImage(q) {
