@@ -292,7 +292,9 @@ const BACKENDS = {
       }, (res) => {
         const call = (res.content || []).find((c) => c.type === "tool_use");
         if (!call) throw new Error("no structured answer in reply");
-        return { data: call.input, model: res.model, ms: Date.now() - t0 };
+        const data = dropNulls(call.input);
+        check(data, schema);
+        return { data, model: res.model, ms: Date.now() - t0 };
       });
     },
   },
