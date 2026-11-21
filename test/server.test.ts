@@ -287,26 +287,26 @@ describe("choosing a backend", () => {
 // Bugs found while writing these tests. Each asserts the behaviour we want; `todo` keeps the suite green until the
 // fix lands, and the runner still reports whether they pass.
 describe("known bugs", () => {
-  test("a second Send is ignored instead of printing the prompt twice", { todo: "issue #BUG1" }, async () => {
+  test("a second Send is ignored instead of printing the prompt twice", { todo: "issue #9" }, async () => {
     const helpMe = await startHelpMe();
     await Promise.all([helpMe.post("/api/submit", { prompt: "once" }), helpMe.post("/api/submit", { prompt: "once" })]);
     assert.equal((await helpMe.exited).stdout, "once\n");
   });
 
-  test("with no backend, --out still says what happened", { todo: "issue #BUG2" }, async () => {
+  test("with no backend, --out still says what happened", { todo: "issue #10" }, async () => {
     const out = join(scratch, "no-backend.json");
     await runHelpMe(["--out", out]);
     assert.deepEqual(outFile(out), { status: "error", prompt: "" });
   });
 
-  test("a --timeout-min that is not a number is refused at start", { todo: "issue #BUG3" }, async () => {
+  test("a --timeout-min that is not a number is refused at start", { todo: "issue #11" }, async () => {
     const { code } = await runHelpMe(["--backend", "anthropic", "--timeout-min", "abc"], { ANTHROPIC_API_KEY: "x" });
     assert.equal(code, 1);
   });
 
   test(
     "an empty PROMPT_SHAPER_MODEL counts as unset, so the config file's model applies",
-    { todo: "issue #BUG4" },
+    { todo: "issue #12" },
     async t => {
       const helpMe = await startHelpMe({
         backendFlag: false,
@@ -320,13 +320,13 @@ describe("known bugs", () => {
     },
   );
 
-  test("a flag with no value does not swallow the next flag", { todo: "issue #BUG5" }, async () => {
+  test("a flag with no value does not swallow the next flag", { todo: "issue #13" }, async () => {
     const { code, stderr } = await runHelpMe(["--backend", "--no-open"]);
     assert.equal(code, 1);
     assert.match(stderr, /--backend needs a value/);
   });
 
-  test("a body with the wrong shape is a 400, not a 500", { todo: "issue #BUG6" }, async t => {
+  test("a body with the wrong shape is a 400, not a 500", { todo: "issue #14" }, async t => {
     const helpMe = await startHelpMe();
     t.after(helpMe.stop);
     const res = await helpMe.post("/api/analyze", { text: "a coffee machine", settled: null });
