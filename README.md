@@ -142,30 +142,30 @@ weekend in Lisbon" with `--backend codex --no-images`.
 
 Flag beats env var beats config file. A config `model` is dropped when the request picks another backend.
 
-| config key | flag | env | default | |
-|---|---|---|---|---|
-| `backend` | `--backend` | `PROMPT_SHAPER_BACKEND` | `auto` | see [Backends](#backends) |
-| `model` | `--model` | `PROMPT_SHAPER_MODEL` | per backend | model for the analysis |
-| `effort` | `--effort` | `PROMPT_SHAPER_EFFORT` | `low` | effort level (claude, codex) |
-| `images` | `--images` / `--no-images` | `PROMPT_SHAPER_IMAGES=0` | `true` | Wikimedia Commons pictures in "Explain me" |
-| `open` | `--no-open` | `PROMPT_SHAPER_OPEN=0` | `true` | open a browser at all |
-| `browser` | `--browser` | `PROMPT_SHAPER_BROWSER` | system opener | which browser command to use |
-| `port` | `--port` | `PROMPT_SHAPER_PORT` | random | fixed port, e.g. for SSH forwarding |
-| `timeoutMin` | `--timeout-min` | `PROMPT_SHAPER_TIMEOUT_MIN` | `30` | give up (exit 3) if nobody answers |
-| | `--agent` | `PROMPT_SHAPER_AGENT` | guessed | agent name on the page, e.g. "Send to Codex" |
-| | `--out FILE` | | | also write `{"status","prompt"}` to FILE when done |
+| config key   | flag                       | env                         | default       |                                                    |
+| ------------ | -------------------------- | --------------------------- | ------------- | -------------------------------------------------- |
+| `backend`    | `--backend`                | `PROMPT_SHAPER_BACKEND`     | `auto`        | see [Backends](#backends)                          |
+| `model`      | `--model`                  | `PROMPT_SHAPER_MODEL`       | per backend   | model for the analysis                             |
+| `effort`     | `--effort`                 | `PROMPT_SHAPER_EFFORT`      | `low`         | effort level (claude, codex)                       |
+| `images`     | `--images` / `--no-images` | `PROMPT_SHAPER_IMAGES=0`    | `true`        | Wikimedia Commons pictures in "Explain me"         |
+| `open`       | `--no-open`                | `PROMPT_SHAPER_OPEN=0`      | `true`        | open a browser at all                              |
+| `browser`    | `--browser`                | `PROMPT_SHAPER_BROWSER`     | system opener | which browser command to use                       |
+| `port`       | `--port`                   | `PROMPT_SHAPER_PORT`        | random        | fixed port, e.g. for SSH forwarding                |
+| `timeoutMin` | `--timeout-min`            | `PROMPT_SHAPER_TIMEOUT_MIN` | `30`          | give up (exit 3) if nobody answers                 |
+|              | `--agent`                  | `PROMPT_SHAPER_AGENT`       | guessed       | agent name on the page, e.g. "Send to Codex"       |
+|              | `--out FILE`               |                             |               | also write `{"status","prompt"}` to FILE when done |
 
 For per-agent defaults, set the env vars in that agent's config (e.g. `"env"` in `~/.claude/settings.json`).
 
 ## Backends
 
-| `--backend` | Uses | Default model |
-|---|---|---|
-| `claude` | `claude -p` with your Claude Code login | `haiku` |
-| `codex` | `codex exec` with your Codex login, JSON enforced by `--output-schema` | your Codex default |
-| `gemini` | `gemini -p` with your Google login | `gemini-2.5-flash` |
-| `anthropic` | `ANTHROPIC_API_KEY` (and optional `ANTHROPIC_BASE_URL`) | `claude-haiku-5-5` |
-| `openai` | `OPENAI_API_KEY` and/or `OPENAI_BASE_URL`, so OpenRouter, Ollama or LM Studio work too | `gpt-5-mini` |
+| `--backend` | Uses                                                                                   | Default model      |
+| ----------- | -------------------------------------------------------------------------------------- | ------------------ |
+| `claude`    | `claude -p` with your Claude Code login                                                | `haiku`            |
+| `codex`     | `codex exec` with your Codex login, JSON enforced by `--output-schema`                 | your Codex default |
+| `gemini`    | `gemini -p` with your Google login                                                     | `gemini-2.5-flash` |
+| `anthropic` | `ANTHROPIC_API_KEY` (and optional `ANTHROPIC_BASE_URL`)                                | `claude-haiku-5-5` |
+| `openai`    | `OPENAI_API_KEY` and/or `OPENAI_BASE_URL`, so OpenRouter, Ollama or LM Studio work too | `gpt-5-mini`       |
 
 `auto` tries the calling agent's CLI, then `claude`, `codex`, `gemini` on your PATH, then `ANTHROPIC_API_KEY`,
 then `OPENAI_API_KEY`. Pick a small, fast model: every edit triggers a new read.
