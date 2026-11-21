@@ -152,3 +152,7 @@ then `OPENAI_API_KEY`. Pick a small, fast model: every edit triggers a new read.
 - Pictures come from a plain Commons search, so they're sometimes off.
 - Most agents wait up to 10 minutes. If it times out, run `/help-me` again.
 - This is a prototype.
+
+## Credits
+
+Inspired by [research](https://x.com/liu_xingyu/status/2121015724374397183) from [Xingyu Liu](https://x.com/liu_xingyu).
