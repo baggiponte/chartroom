@@ -433,11 +433,12 @@ const dismissed = new Set();
 const removedQs = [];
 
 function makeChoice(c) {
+  if (!["ask", "underline", "extra"].includes(c.type)) return null;
   const ch = {
-    id: "c" + (++uid), span: c.span || "", question: c.question || "Choose", kind: c.kind || "multi",
-    token: c.token || "", sentence: c.sentence || "", promo: null, statement: c.span ? c.statement || "" : "", options: (c.options || []).filter(o => o && o.label && o.text),
+    id: "c" + (++uid), type: c.type, span: c.span || "", question: c.question || "Choose", kind: c.kind || "multi",
+    token: c.token || "", sentence: c.sentence || "", promo: null, statement: c.type === "ask" ? c.statement || "{value}" : "", options: (c.options || []).filter(o => o && o.label && o.text),
     selected: [], custom: "", slider: c.slider || null, value: null, touched: false,
-    orig: c.span || "", cur: c.span || "", start: -1, end: -1, settled: false, extra: !c.span,
+    orig: c.span || "", cur: c.span || "", start: -1, end: -1, settled: false, extra: c.type === "extra",
     explain: !!c.explain, explanation: null, explainOpen: false, explainBusy: false, explainErr: "",
   };
   if (ch.extra && !ch.token) ch.token = ch.question.replace(/^(what('s| is)|how|which|do you|any)\s+/i, "").replace(/\?$/, "");
@@ -464,7 +465,7 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const fmtNum = (v) => (Number.isInteger(v) ? v : Math.round(v * 100) / 100).toLocaleString();
 
 function textFor(ch) {
-  if (!ch.statement) return valueFor(ch);
+  if (!isAsk(ch)) return valueFor(ch);
   if (!isSet(ch)) return ch.orig;
   let t = ch.statement.trim();
   if (!t.includes("{value}")) t = t.replace(/[.!?]?$/, ": {value}.");
@@ -612,7 +613,7 @@ function render(flashId) {
   for (const c of marks) {
     if (c.start < pos) continue;
     html += plain(text.slice(pos, c.start));
-    const cls = [c.kind === "slider" ? "scrub" : "", drag?.id === c.id ? "scrubbing" : "", c.settled ? "settled" : "", c.promo && !c.settled ? "ph" : "", c.statement ? "ask" : "", c.id === openId ? "active" : "", c.id === hoverId ? "hover" : "", c.id === flashId ? "flash" : "", c.id === nudgeId ? "nudge" : ""].join(" ");
+    const cls = [c.kind === "slider" ? "scrub" : "", drag?.id === c.id ? "scrubbing" : "", c.settled ? "settled" : "", c.promo && !c.settled ? "ph" : "", isAsk(c) ? "ask" : "", c.id === openId ? "active" : "", c.id === hoverId ? "hover" : "", c.id === flashId ? "flash" : "", c.id === nudgeId ? "nudge" : ""].join(" ");
     html += `<mark data-id="${c.id}" class="${cls}">${esc(text.slice(c.start, c.end))}</mark>`;
     pos = c.end;
   }
@@ -659,7 +660,7 @@ function setStatus(kind, msg) {
 let statusKind = "", readInfo = "", nudgeId = null;
 const cap = (s) => String(s).replace(/^./, (c) => c.toUpperCase());
 function openItems() {
-  return choices.filter(c => !c.extra && c.start >= 0 && ((c.promo && !c.settled) || (c.statement && !isSet(c)))).sort((a, b) => a.start - b.start);
+  return choices.filter(c => !c.extra && c.start >= 0 && ((c.promo && !c.settled) || (isAsk(c) && !isSet(c)))).sort((a, b) => a.start - b.start);
 }
 function waits() {
   const w = [];
@@ -744,7 +745,7 @@ function journey() {
   }
 }
 
-const isAsk = (ch) => !!ch.statement;
+const isAsk = (ch) => ch.type === "ask";
 const KIND = { single: "pick one", multi: "pick any", slider: "slide, or drag the value in place" };
 
 function controlsHTML(ch) {
@@ -1562,7 +1563,7 @@ function merge(text, data, more) {
   const fresh = [];
   for (const raw of data.choices || []) {
     const ch = makeChoice(raw); if (!ch) continue;
-    if (ch.extra) {
+    if (ch.type === "extra") {
       if (seen.has(ch.question.toLowerCase()) || seen.has(ch.token.toLowerCase())) continue;
       seen.add(ch.question.toLowerCase()); seen.add(ch.token.toLowerCase()); fresh.push(ch); continue;
     }
@@ -1623,9 +1624,9 @@ function sentNotes() {
   const unset = choices.filter(c => c.extra && !c.settled);
   if (unset.length) n.push(`Not sent: ${unset.map(c => q(c.token || c.question)).join(", ")}.`);
   if (removedQs.length) n.push(`Removed by you: ${removedQs.map(q).join(", ")}.`);
-  const asks = choices.filter(c => c.statement && !c.extra && c.start >= 0 && !isSet(c));
+  const asks = choices.filter(c => isAsk(c) && c.start >= 0 && !isSet(c));
   if (asks.length) n.push(`Sent as the question you wrote: ${asks.map(c => q(c.orig)).join(", ")}.`);
-  const kept = choices.filter(c => !c.extra && !c.promo && !c.statement && c.start >= 0 && text.slice(c.start, c.end) === c.orig);
+  const kept = choices.filter(c => c.type === "underline" && c.start >= 0 && text.slice(c.start, c.end) === c.orig);
   if (kept.length) n.push(`Kept as you wrote it: ${kept.map(c => q(c.orig)).join(", ")}.`);
   n.push("Explain me and Help me decide stay on this page. Only the text above goes back.");
   return n;
@@ -1680,31 +1681,31 @@ function end(kind, title, sub, prompt, notes = []) {
 async function demoAnalyze(text, more) {
   await new Promise(r => setTimeout(r, 600));
   if (more) return { model: "demo", choices: [
-    { span: "", token: "Looks", sentence: "I like a {value} look.", question: "What look do you want?", kind: "multi", options: [
+    { type: "extra", token: "Looks", sentence: "I like a {value} look.", question: "What look do you want?", kind: "multi", options: [
       { label: "Classic steel", emoji: "🪞", text: "classic brushed steel" }, { label: "Retro", emoji: "📻", text: "retro" }, { label: "Matte black", emoji: "🖤", text: "matte black" } ] } ] };
   const all = [
-    { span: "Should I get a grinder too?", statement: "I'd also like {value}.", question: "Get a grinder too?", kind: "single", explain: true, options: [
+    { type: "ask", span: "Should I get a grinder too?", statement: "I'd also like {value}.", question: "Get a grinder too?", kind: "single", explain: true, options: [
       { label: "Built-in grinder", emoji: "⚙️", text: "a machine with a built-in grinder" }, { label: "Separate grinder", emoji: "🫘", text: "a separate burr grinder" },
       { label: "No grinder", emoji: "🚫", text: "to keep using pre-ground coffee" } ] },
-    { span: "Which heating system should it have?", statement: "For heating, I'd like {value}.", question: "Which heating system?", kind: "single", explain: true, options: [
+    { type: "ask", span: "Which heating system should it have?", statement: "For heating, I'd like {value}.", question: "Which heating system?", kind: "single", explain: true, options: [
       { label: "Thermoblock", emoji: "⚡", text: "a thermoblock" }, { label: "Single boiler", emoji: "🫖", text: "a single boiler" },
       { label: "Heat exchanger", emoji: "🔁", text: "a heat exchanger" }, { label: "Dual boiler", emoji: "♨️", text: "a dual boiler" } ] },
-    { span: "coffee machine", question: "What kind of machine?", kind: "single", explain: true, options: [
+    { type: "underline", span: "coffee machine", question: "What kind of machine?", kind: "single", explain: true, options: [
       { label: "Espresso", emoji: "☕", text: "espresso machine" }, { label: "Bean-to-cup", emoji: "🫘", text: "bean-to-cup machine" },
       { label: "Pod", emoji: "💊", text: "pod machine" }, { label: "Filter", emoji: "🫗", text: "filter coffee machine" } ] },
-    { span: "small", question: "How small is the space?", kind: "slider", explain: true, slider: { stops: ["tiny", "small", "average-sized"], value: 1, minLabel: "tiny", maxLabel: "roomy" } },
-    { span: "lattes", question: "Which drinks?", kind: "multi", options: [
+    { type: "underline", span: "small", question: "How small is the space?", kind: "slider", explain: true, slider: { stops: ["tiny", "small", "average-sized"], value: 1, minLabel: "tiny", maxLabel: "roomy" } },
+    { type: "underline", span: "lattes", question: "Which drinks?", kind: "multi", options: [
       { label: "Lattes", emoji: "🥛", text: "lattes" }, { label: "Cappuccinos", emoji: "☁️", text: "cappuccinos" },
       { label: "Espresso", emoji: "☕", text: "espresso" }, { label: "Flat whites", emoji: "🤍", text: "flat whites" } ], current: ["Lattes"] },
-    { span: "", token: "Budget", sentence: "My budget is {value}.", question: "What's your budget?", kind: "slider", slider: { min: 50, max: 1500, step: 50, value: 400, template: "up to €{value}", minLabel: "€50", maxLabel: "€1,500" } },
-    { span: "", token: "Milk", sentence: "For milk I'd like {value}.", question: "How should it froth milk?", kind: "single", explain: true, options: [
+    { type: "extra", token: "Budget", sentence: "My budget is {value}.", question: "What's your budget?", kind: "slider", slider: { min: 50, max: 1500, step: 50, value: 400, template: "up to €{value}", minLabel: "€50", maxLabel: "€1,500" } },
+    { type: "extra", token: "Milk", sentence: "For milk I'd like {value}.", question: "How should it froth milk?", kind: "single", explain: true, options: [
       { label: "Automatic", emoji: "🤖", text: "automatic frothing" }, { label: "Steam wand", emoji: "♨️", text: "a manual steam wand" }, { label: "Separate frother", emoji: "🥄", text: "a separate frother" } ] },
-    { span: "", token: "Counter space", sentence: "I have {value} of counter space.", question: "How much counter space?", kind: "single", options: [
+    { type: "extra", token: "Counter space", sentence: "I have {value} of counter space.", question: "How much counter space?", kind: "single", options: [
       { label: "About 25 cm", emoji: "📏", text: "about 25 cm" }, { label: "About 40 cm", emoji: "📐", text: "about 40 cm" }, { label: "Plenty", emoji: "🧱", text: "plenty" } ] },
-    { span: "", token: "Cups", sentence: "I drink about {value}.", question: "How many cups a day?", kind: "slider", slider: { min: 1, max: 8, step: 1, value: 2, template: "{value} cups a day" } },
+    { type: "extra", token: "Cups", sentence: "I drink about {value}.", question: "How many cups a day?", kind: "slider", slider: { min: 1, max: 8, step: 1, value: 2, template: "{value} cups a day" } },
   ];
   return { summary: "Let's pin down which coffee machine fits your kitchen and your lattes.", model: "demo",
-    choices: all.filter(c => !c.span || text.includes(c.span)) };
+    choices: all.filter(c => c.type === "extra" || text.includes(c.span)) };
 }
 async function demoTidy(sentences) {
   await new Promise(r => setTimeout(r, 600));
