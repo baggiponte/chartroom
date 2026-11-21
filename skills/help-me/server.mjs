@@ -4,6 +4,7 @@
 
 import http from "node:http";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync, renameSync, existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir, platform, homedir } from "node:os";
 import { dirname, join, delimiter } from "node:path";
@@ -480,8 +481,11 @@ async function tidy(sentences) {
   return { blocks, model: data.model, ms: data.ms };
 }
 
-// Read once, so a running server never serves a page newer than its own code.
-const PAGE = readFileSync(join(HERE, "index.html"));
+// Read once, so a running server never serves a page newer than its own code. The page carries a hash of the
+// file it was cut from and /api/init returns this process's, so a page that outlived its server can tell.
+const PAGE_SRC = readFileSync(join(HERE, "index.html"), "utf8");
+const BUILD = createHash("sha256").update(PAGE_SRC).digest("hex").slice(0, 12);
+const PAGE = PAGE_SRC.replace('"%BUILD%"', JSON.stringify(BUILD));
 
 function body(req) {
   return new Promise((resolve, reject) => {
@@ -519,7 +523,7 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
       return res.end(PAGE);
     }
-    if (req.method === "GET" && url.pathname === "/api/init") return send(res, 200, { draft, model: MODEL || BACKEND, backend: BACKEND, agent: AGENT, images: IMAGES });
+    if (req.method === "GET" && url.pathname === "/api/init") return send(res, 200, { draft, model: MODEL || BACKEND, backend: BACKEND, agent: AGENT, images: IMAGES, build: BUILD });
     if (req.method === "POST" && url.pathname === "/api/analyze") {
       const { text = "", settled = [], answers = [], asked = [], more = false } = await body(req);
       if (text.trim().split(/\s+/).length < 2) return send(res, 200, { summary: "", choices: [] });

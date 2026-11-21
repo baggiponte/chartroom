@@ -424,6 +424,9 @@ const EXAMPLE = "Help me choose a home coffee machine for my small kitchen, some
 
 let mode = "live", modelName = "the model", agentName = "your agent", imagesOn = true;
 const chat = window.__HELP_ME_MCP__ ? chatHost() : null; // set by mcp/server.mjs when the page is shown inside the chat
+const BUILD = "%BUILD%"; // the serving process swaps in a hash of this file; a file:// page keeps the placeholder
+const STALE = "this page doesn't match the running help-me server. Run /help-me again to restart it";
+const staleFor = (j) => BUILD[0] !== "%" && j.build !== BUILD;
 let choices = [];
 let summary = "";
 let seq = 0, timer = null, lastAnalyzed = null, busy = false, moreBusy = false;
@@ -1584,7 +1587,7 @@ async function post(path, body) {
   const r = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const j = await r.json().catch(() => ({}));
   if (r.status === 409) throw Object.assign(new Error("superseded"), { superseded: true });
-  if (r.status === 404) throw new Error("the running server is older than this page. Run /help-me again to restart it");
+  if (r.status === 404 && await fetch("/api/init").then((r) => r.json()).then(staleFor, () => false)) throw new Error(STALE);
   if (!r.ok) throw new Error(j.error || r.statusText);
   return j;
 }
@@ -1780,6 +1783,7 @@ async function demoDecide(ch, { options, answers, asked }) {
     modelName = j.model || "the model"; agentName = j.agent || "your agent";
     document.querySelectorAll(".agentName").forEach((el, i) => el.textContent = i === 2 ? agentName.replace(/^./, (c) => c.toUpperCase()) : agentName);
     $("send").title = `Send to ${agentName} (Shift+Enter)`; ta.value = j.draft || ""; imagesOn = j.images !== false;
+    if (staleFor(j)) $("hint").textContent = STALE.replace(/^./, (c) => c.toUpperCase()) + ".";
   } catch {
     mode = "demo"; modelName = "demo"; ta.value = EXAMPLE;
     $("hint").innerHTML = "Demo mode: canned underlines, since this page wasn't opened by <code>/help-me</code>.";
