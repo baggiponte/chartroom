@@ -1399,15 +1399,9 @@ ta.addEventListener("mousemove", (e) => {
   }
 });
 ta.addEventListener("mouseleave", () => { hoverId = null; ta.classList.remove("on-mark", "on-scrub"); hideHint(); backdrop.querySelectorAll("mark.hover").forEach(m => m.classList.remove("hover")); });
-ta.addEventListener("mouseup", (e) => {
-  if (performance.now() - lastScrubEnd < 400) return;
-  if (ta.selectionStart !== ta.selectionEnd) return;
-  const id = markAt(e.clientX, e.clientY);
-  if (id) { id === openId ? closePop() : openPop(id); } else closePop();
-});
+// Pointer presses open on pointerup (see endPress), so this only answers Enter and Space, whose clicks have detail 0.
 extrasEl.addEventListener("click", (e) => {
-  const b = e.target.closest(".token"); if (!b) return;
-  if (performance.now() - lastScrubEnd < 400) return;
+  const b = e.target.closest(".token"); if (!b || e.detail) return;
   b.dataset.id === openId ? closePop() : openPop(b.dataset.id);
 });
 document.addEventListener("mousedown", (e) => {
@@ -1416,7 +1410,7 @@ document.addEventListener("mousedown", (e) => {
 addEventListener("resize", () => { renderGrips(); if (openId) positionPop(); });
 addEventListener("scroll", (e) => { if (pop.contains(e.target)) return; hideHint(); if (openId) positionPop(); }, true);
 
-let drag = null, lastScrubEnd = 0;
+let drag = null;
 const hintEl = $("scrubHint");
 const byId = (id) => id ? choices.find(c => c.id === id) : null;
 const isScrub = (ch) => !!ch && ch.kind === "slider";
@@ -1441,39 +1435,42 @@ function showHint(ch, html) {
   hintEl.style.top = r.top + "px";
 }
 function hideHint() { hintEl.hidden = true; }
-function startScrub(ch, e) {
-  if (ended) { openPop(ch.id); lastScrubEnd = performance.now(); return; }
-  if (openId) closePop();
-  drag = { id: ch.id, x0: e.clientX, v0: ch.value, moved: false };
-  hideHint();
+// Every press on the textarea or a token ends in endPress: a drag scrubs, anything else toggles the popover.
+function startPress(id, e, el) {
+  const ch = byId(id), scrub = isScrub(ch) && !ended;
+  drag = { id: ch ? id : null, pointer: e.pointerId, x0: e.clientX, v0: ch?.value, scrub, moved: false, inTa: el === ta };
+  if (scrub) { el.setPointerCapture(e.pointerId); hideHint(); }
 }
 document.addEventListener("pointermove", (e) => {
-  if (!drag) return;
+  if (!drag?.scrub || e.pointerId !== drag.pointer) return;
   const ch = byId(drag.id); if (!ch) { drag = null; return; }
   const dx = e.clientX - drag.x0;
   if (!drag.moved) {
     if (Math.abs(dx) < 4) return;
     drag.moved = true; document.body.classList.add("scrubbing");
+    if (openId) closePop();
   }
   scrubTo(ch, drag.v0 + Math.round(dx / pxPerStep(ch)) * ch.slider.step);
 });
-function endScrub(cancelled) {
-  if (!drag) return;
-  const d = drag, ch = byId(d.id); drag = null;
+function endPress(e, cancelled) {
+  if (!drag || e.pointerId !== drag.pointer) return;
+  const d = drag; drag = null;
   document.body.classList.remove("scrubbing");
-  lastScrubEnd = performance.now();
-  if (!ch) return;
-  if (!d.moved && !cancelled) openPop(ch.id);
-  else render();
+  if (d.moved || (cancelled && d.scrub)) return render();
+  if (cancelled) return;
+  // a mouse drag that selected text isn't a click; a touch moves the caret only after pointerup, so skip the check there
+  if (d.inTa && !d.scrub && e.pointerType !== "touch" && ta.selectionStart !== ta.selectionEnd) return;
+  if (!d.id) return closePop();
+  d.id === openId ? closePop() : openPop(d.id);
 }
-document.addEventListener("pointerup", () => endScrub(false));
-document.addEventListener("pointercancel", () => endScrub(true));
+document.addEventListener("pointerup", (e) => endPress(e, false));
+document.addEventListener("pointercancel", (e) => endPress(e, true));
 
 ta.addEventListener("pointerdown", (e) => {
   if (e.button !== 0) return;
-  const ch = byId(markAt(e.clientX, e.clientY));
-  if (!isScrub(ch)) return;
-  e.preventDefault(); startScrub(ch, e);
+  const id = markAt(e.clientX, e.clientY);
+  if (isScrub(byId(id))) e.preventDefault();
+  startPress(id, e, ta);
 });
 ta.addEventListener("mousedown", (e) => { if (isScrub(byId(markAt(e.clientX, e.clientY)))) e.preventDefault(); });
 ta.addEventListener("touchstart", (e) => { // stop the page from scrolling while a finger scrubs
@@ -1481,8 +1478,9 @@ ta.addEventListener("touchstart", (e) => { // stop the page from scrolling while
 }, { passive: false });
 
 extrasEl.addEventListener("pointerdown", (e) => {
-  const b = e.target.closest(".token.scrub"); if (!b || e.button !== 0) return;
-  e.preventDefault(); b.focus(); startScrub(byId(b.dataset.id), e);
+  const b = e.target.closest(".token"); if (!b || e.button !== 0) return;
+  if (b.classList.contains("scrub")) { e.preventDefault(); b.focus(); }
+  startPress(b.dataset.id, e, b);
 });
 extrasEl.addEventListener("pointerover", (e) => {
   const b = e.target.closest(".token.scrub"); if (b && !drag) showHint(byId(b.dataset.id));
