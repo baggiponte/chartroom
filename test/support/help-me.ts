@@ -93,7 +93,13 @@ export interface StartOptions {
 }
 
 /** Starts server.mjs on a free port; with no `api` it gets one that fails the test if the model is ever called. */
-export async function startHelpMe({ args = [], env = {}, api, backendFlag = true, stdin }: StartOptions = {}): Promise<HelpMe> {
+export async function startHelpMe({
+  args = [],
+  env = {},
+  api,
+  backendFlag = true,
+  stdin,
+}: StartOptions = {}): Promise<HelpMe> {
   const home = mkdtempSync(join(tmpdir(), "help-me-test-"));
   const child: ChildProcess = spawn(
     process.execPath,

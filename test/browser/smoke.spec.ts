@@ -78,6 +78,8 @@ test("after Send the page shows what was sent and the popovers are read-only", a
 test("nothing overflows sideways on a phone", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 740 });
   await openDemo(page);
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
   expect(overflow).toBeLessThanOrEqual(0);
 });

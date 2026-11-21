@@ -9,7 +9,10 @@ const choice = {
   properties: {
     span: { type: "string" },
     kind: { type: "string", enum: ["single", "multi"] },
-    options: { type: "array", items: { type: "object", required: ["label"], properties: { label: { type: "string" } } } },
+    options: {
+      type: "array",
+      items: { type: "object", required: ["label"], properties: { label: { type: "string" } } },
+    },
   },
 };
 

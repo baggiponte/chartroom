@@ -1,12 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": [
-    "typescript",
-    "unicorn",
-    "oxc",
-    "import",
-    "node"
-  ],
+  "plugins": ["typescript", "unicorn", "oxc", "import", "node"],
   "categories": {
     "correctness": "error",
     "suspicious": "error",
@@ -28,12 +22,7 @@
           {
             "from": "package",
             "package": "node:test",
-            "name": [
-              "test",
-              "describe",
-              "it",
-              "suite"
-            ]
+            "name": ["test", "describe", "it", "suite"]
           }
         ]
       }
@@ -53,10 +42,7 @@
   },
   "overrides": [
     {
-      "files": [
-        "**/*.mjs",
-        "**/*.js"
-      ],
+      "files": ["**/*.mjs", "**/*.js"],
       "rules": {
         "curly": "off",
         "eqeqeq": "off",
@@ -79,8 +65,5 @@
       }
     }
   ],
-  "ignorePatterns": [
-    "node_modules",
-    "docs/vid"
-  ]
+  "ignorePatterns": ["node_modules", "docs/vid"]
 }

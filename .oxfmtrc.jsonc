@@ -5,5 +5,5 @@
   "proseWrap": "preserve",
   // The page is one hand-written file whose inline script is split into modules in phase 3 of the cleanup plan;
   // reformatting 1,800 lines of HTML, CSS and JS before then would bury every other change in its diff.
-  "ignorePatterns": ["skills/help-me/index.html", "pnpm-lock.yaml"]
+  "ignorePatterns": ["skills/help-me/index.html", "pnpm-lock.yaml"],
 }
