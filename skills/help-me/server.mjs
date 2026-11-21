@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
-const flag = (name) => args.includes(name);
+const flag = name => args.includes(name);
 const opt = (name, fallback) => {
   const i = args.indexOf(name);
   return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : fallback;
@@ -20,7 +20,8 @@ const opt = (name, fallback) => {
 
 const log = (...m) => console.error("[prompt-shaper]", ...m);
 
-const CONFIG_FILE = process.env.PROMPT_SHAPER_CONFIG ||
+const CONFIG_FILE =
+  process.env.PROMPT_SHAPER_CONFIG ||
   join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "prompt-shaper", "config.json");
 const CONFIG = (() => {
   if (!existsSync(CONFIG_FILE)) return {};
@@ -28,9 +29,12 @@ const CONFIG = (() => {
     const c = JSON.parse(readFileSync(CONFIG_FILE, "utf8"));
     if (!c || typeof c !== "object" || Array.isArray(c)) throw new Error("not a JSON object");
     return c;
-  } catch (e) { log(`ignoring ${CONFIG_FILE}: ${e.message}`); return {}; }
+  } catch (e) {
+    log(`ignoring ${CONFIG_FILE}: ${e.message}`);
+    return {};
+  }
 })();
-const ENV_NAME = (key) => "PROMPT_SHAPER_" + key.replace(/[A-Z]/g, (c) => "_" + c).toUpperCase();
+const ENV_NAME = key => "PROMPT_SHAPER_" + key.replace(/[A-Z]/g, c => "_" + c).toUpperCase();
 const setting = (key, flagName, fallback) => {
   const v = opt(flagName, process.env[ENV_NAME(key)] ?? CONFIG[key]);
   return v === undefined || v === "" ? fallback : v;
@@ -45,8 +49,17 @@ const onOff = (key, fallback) => {
 
 const PORT = Number(setting("port", "--port", 0));
 const IMAGES = onOff("images", true);
-const AGENT = setting("agent", "--agent", process.env.CLAUDECODE ? "Claude Code"
-  : process.env.GEMINI_CLI ? "Gemini CLI" : Object.keys(process.env).some((k) => k.startsWith("CODEX_")) ? "Codex" : "your agent");
+const AGENT = setting(
+  "agent",
+  "--agent",
+  process.env.CLAUDECODE
+    ? "Claude Code"
+    : process.env.GEMINI_CLI
+      ? "Gemini CLI"
+      : Object.keys(process.env).some(k => k.startsWith("CODEX_"))
+        ? "Codex"
+        : "your agent",
+);
 
 async function readStdin() {
   const chunks = [];
@@ -107,13 +120,17 @@ Also return summary: one short sentence about what you'll figure out together, e
 "Let's pin down which coffee machine fits how you drink coffee."
 Keep option texts under 10 words. If the request is too short to understand, return no choices and say what's missing.`;
 
-const CHOICE = (what) => ({
+const CHOICE = what => ({
   type: "object",
-  required: { extra: ["token", "sentence", "question", "kind"], ask: ["span", "sentence", "question", "kind"] }[what]
-    || ["span", "question", "kind"],
+  required: { extra: ["token", "sentence", "question", "kind"], ask: ["span", "sentence", "question", "kind"] }[
+    what
+  ] || ["span", "question", "kind"],
   properties: {
-    ...(what === "extra" ? { token: { type: "string" }, sentence: { type: "string" } }
-      : what === "ask" ? { span: { type: "string" }, sentence: { type: "string" } } : { span: { type: "string" } }),
+    ...(what === "extra"
+      ? { token: { type: "string" }, sentence: { type: "string" } }
+      : what === "ask"
+        ? { span: { type: "string" }, sentence: { type: "string" } }
+        : { span: { type: "string" } }),
     question: { type: "string" },
     kind: { type: "string", enum: ["single", "multi", "slider"] },
     explain: { type: "boolean" },
@@ -129,9 +146,15 @@ const CHOICE = (what) => ({
     slider: {
       type: "object",
       properties: {
-        min: { type: "number" }, max: { type: "number" }, step: { type: "number" }, value: { type: "number" },
-        unit: { type: "string" }, minLabel: { type: "string" }, maxLabel: { type: "string" },
-        template: { type: "string" }, stops: { type: "array", items: { type: "string" } },
+        min: { type: "number" },
+        max: { type: "number" },
+        step: { type: "number" },
+        value: { type: "number" },
+        unit: { type: "string" },
+        minLabel: { type: "string" },
+        maxLabel: { type: "string" },
+        template: { type: "string" },
+        stops: { type: "array", items: { type: "string" } },
       },
     },
   },
@@ -156,19 +179,29 @@ function runCli(slot, cmd, argv, stdin, parse, opts = {}) {
   running[slot]?.abort();
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, argv, {
-      cwd: opts.cwd || tmpdir(), env: { ...process.env, PROMPT_SHAPER_CHILD: "1" }, stdio: ["pipe", "pipe", "pipe"],
+      cwd: opts.cwd || tmpdir(),
+      env: { ...process.env, PROMPT_SHAPER_CHILD: "1" },
+      stdio: ["pipe", "pipe", "pipe"],
     });
     const job = { abort: () => child.kill("SIGTERM") };
     running[slot] = job;
-    let out = "", err = "";
-    child.stdout.on("data", (d) => (out += d));
-    child.stderr.on("data", (d) => (err += d));
-    child.on("error", (e) => reject(new Error(`could not start ${cmd}: ${e.message}`)));
+    let out = "",
+      err = "";
+    child.stdout.on("data", d => (out += d));
+    child.stderr.on("data", d => (err += d));
+    child.on("error", e => reject(new Error(`could not start ${cmd}: ${e.message}`)));
     child.on("close", (code, signal) => {
       if (running[slot] === job) delete running[slot];
       if (signal) return reject(superseded());
-      try { resolve(parse(out, code)); }
-      catch (e) { reject(new Error(`${cmd} exited ${code}: ${(e.message && !e.message.startsWith("Unexpected") ? e.message + " " : "") + (err || out).slice(0, 400)}`)); }
+      try {
+        resolve(parse(out, code));
+      } catch (e) {
+        reject(
+          new Error(
+            `${cmd} exited ${code}: ${(e.message && !e.message.startsWith("Unexpected") ? e.message + " " : "") + (err || out).slice(0, 400)}`,
+          ),
+        );
+      }
     });
     child.stdin.end(stdin);
   });
@@ -180,8 +213,12 @@ async function runHttp(slot, url, headers, payload, parse) {
   const job = { abort: () => ctl.abort() };
   running[slot] = job;
   try {
-    const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json", ...headers },
-      body: JSON.stringify(payload), signal: ctl.signal });
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify(payload),
+      signal: ctl.signal,
+    });
     const text = await r.text();
     if (!r.ok) throw new Error(`${new URL(url).host} answered ${r.status}: ${text.slice(0, 400)}`);
     return parse(JSON.parse(text));
@@ -206,18 +243,33 @@ function strict(schema) {
   }
   return { type: "object", properties, required: Object.keys(properties), additionalProperties: false };
 }
-const dropNulls = (v) => Array.isArray(v) ? v.map(dropNulls)
-  : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).filter(([, x]) => x !== null).map(([k, x]) => [k, dropNulls(x)]))
-  : v;
+const dropNulls = v =>
+  Array.isArray(v)
+    ? v.map(dropNulls)
+    : v && typeof v === "object"
+      ? Object.fromEntries(
+          Object.entries(v)
+            .filter(([, x]) => x !== null)
+            .map(([k, x]) => [k, dropNulls(x)]),
+        )
+      : v;
 
 // Covers only the keywords the schemas in this file use (type, enum, required, properties, items).
 function check(v, schema, at = "reply") {
   const t = schema.type;
-  const ok = t === "object" ? v !== null && typeof v === "object" && !Array.isArray(v)
-    : t === "array" ? Array.isArray(v) : t === "integer" ? Number.isInteger(v)
-    : t === "number" ? Number.isFinite(v) : typeof v === t;
+  const ok =
+    t === "object"
+      ? v !== null && typeof v === "object" && !Array.isArray(v)
+      : t === "array"
+        ? Array.isArray(v)
+        : t === "integer"
+          ? Number.isInteger(v)
+          : t === "number"
+            ? Number.isFinite(v)
+            : typeof v === t;
   if (!ok) throw new Error(`${at} should be ${t}, got ${v === null ? "null" : Array.isArray(v) ? "array" : typeof v}`);
-  if (schema.enum && !schema.enum.includes(v)) throw new Error(`${at} should be one of ${schema.enum.join(", ")}, got ${JSON.stringify(v)}`);
+  if (schema.enum && !schema.enum.includes(v))
+    throw new Error(`${at} should be one of ${schema.enum.join(", ")}, got ${JSON.stringify(v)}`);
   if (t === "array") v.forEach((x, i) => check(x, schema.items, `${at}[${i}]`));
   if (t === "object") {
     for (const k of schema.required || []) if (!(k in v)) throw new Error(`${at}.${k} is missing`);
@@ -228,7 +280,11 @@ function check(v, schema, at = "reply") {
 function checkedReply(text, schema) {
   const fenced = text.match(/```(?:json)?\s*\n([\s\S]*?)```/i);
   let data;
-  try { data = JSON.parse(fenced ? fenced[1] : text); } catch { throw new Error("reply is not JSON"); }
+  try {
+    data = JSON.parse(fenced ? fenced[1] : text);
+  } catch {
+    throw new Error("reply is not JSON");
+  }
   data = dropNulls(data);
   check(data, schema);
   return data;
@@ -239,31 +295,74 @@ const withSchema = (system, schema) =>
 const BACKENDS = {
   claude: {
     model: "haiku",
-    run: (slot, system, schema, input) => runCli(slot, "claude", [
-      "-p", "--model", MODEL, "--output-format", "json", "--tools", "",
-      "--no-session-persistence", "--setting-sources", "", "--effort", EFFORT,
-      "--system-prompt", system, "--json-schema", JSON.stringify(schema),
-    ], input, (out) => {
-      const res = JSON.parse(out);
-      if (res.is_error) throw new Error(res.result || "claude returned an error");
-      return { data: res.structured_output ?? JSON.parse(res.result), model: Object.keys(res.modelUsage || {})[0], ms: res.duration_ms };
-    }),
+    run: (slot, system, schema, input) =>
+      runCli(
+        slot,
+        "claude",
+        [
+          "-p",
+          "--model",
+          MODEL,
+          "--output-format",
+          "json",
+          "--tools",
+          "",
+          "--no-session-persistence",
+          "--setting-sources",
+          "",
+          "--effort",
+          EFFORT,
+          "--system-prompt",
+          system,
+          "--json-schema",
+          JSON.stringify(schema),
+        ],
+        input,
+        out => {
+          const res = JSON.parse(out);
+          if (res.is_error) throw new Error(res.result || "claude returned an error");
+          return {
+            data: res.structured_output ?? JSON.parse(res.result),
+            model: Object.keys(res.modelUsage || {})[0],
+            ms: res.duration_ms,
+          };
+        },
+      ),
   },
   codex: {
     model: "",
     run: (slot, system, schema, input) => {
       const dir = mkdtempSync(join(tmpdir(), "prompt-shaper-"));
-      const schemaFile = join(dir, "schema.json"), outFile = join(dir, "out.json");
+      const schemaFile = join(dir, "schema.json"),
+        outFile = join(dir, "out.json");
       writeFileSync(schemaFile, JSON.stringify(strict(schema)));
       const t0 = Date.now();
-      return runCli(slot, "codex", [
-        "exec", "--skip-git-repo-check", "--sandbox", "read-only", "--color", "never",
-        ...(MODEL ? ["-m", MODEL] : []), "-c", `model_reasoning_effort="${EFFORT}"`,
-        "--output-schema", schemaFile, "--output-last-message", outFile, "-",
-      ], `${system}\n\n${input}`, () => {
-        const data = dropNulls(JSON.parse(readFileSync(outFile, "utf8")));
-        return { data, ms: Date.now() - t0 };
-      }, { cwd: dir }).finally(() => rmSync(dir, { recursive: true, force: true }));
+      return runCli(
+        slot,
+        "codex",
+        [
+          "exec",
+          "--skip-git-repo-check",
+          "--sandbox",
+          "read-only",
+          "--color",
+          "never",
+          ...(MODEL ? ["-m", MODEL] : []),
+          "-c",
+          `model_reasoning_effort="${EFFORT}"`,
+          "--output-schema",
+          schemaFile,
+          "--output-last-message",
+          outFile,
+          "-",
+        ],
+        `${system}\n\n${input}`,
+        () => {
+          const data = dropNulls(JSON.parse(readFileSync(outFile, "utf8")));
+          return { data, ms: Date.now() - t0 };
+        },
+        { cwd: dir },
+      ).finally(() => rmSync(dir, { recursive: true, force: true }));
     },
   },
   // No schema flag, so the schema goes in the prompt.
@@ -271,11 +370,17 @@ const BACKENDS = {
     model: "gemini-2.5-flash",
     run: (slot, system, schema, input) => {
       const t0 = Date.now();
-      return runCli(slot, "gemini", ["-m", MODEL, "--output-format", "json", "-p", withSchema(system, schema)], input, (out) => {
-        const res = JSON.parse(out);
-        if (res.error) throw new Error(res.error.message || JSON.stringify(res.error));
-        return { data: checkedReply(res.response ?? "", schema), ms: Date.now() - t0 };
-      });
+      return runCli(
+        slot,
+        "gemini",
+        ["-m", MODEL, "--output-format", "json", "-p", withSchema(system, schema)],
+        input,
+        out => {
+          const res = JSON.parse(out);
+          if (res.error) throw new Error(res.error.message || JSON.stringify(res.error));
+          return { data: checkedReply(res.response ?? "", schema), ms: Date.now() - t0 };
+        },
+      );
     },
   },
   // A forced tool call returns input that matches the schema.
@@ -283,55 +388,84 @@ const BACKENDS = {
     model: "claude-haiku-5-5",
     run: (slot, system, schema, input) => {
       const t0 = Date.now();
-      return runHttp(slot, `${(process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com").replace(/\/$/, "")}/v1/messages`, {
-        "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01",
-      }, {
-        model: MODEL, max_tokens: 4096, system,
-        messages: [{ role: "user", content: input }],
-        tools: [{ name: "answer", description: "Return the answer.", input_schema: schema }],
-        tool_choice: { type: "tool", name: "answer" },
-      }, (res) => {
-        const call = (res.content || []).find((c) => c.type === "tool_use");
-        if (!call) throw new Error("no structured answer in reply");
-        const data = dropNulls(call.input);
-        check(data, schema);
-        return { data, model: res.model, ms: Date.now() - t0 };
-      });
+      return runHttp(
+        slot,
+        `${(process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com").replace(/\/$/, "")}/v1/messages`,
+        {
+          "x-api-key": process.env.ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+        },
+        {
+          model: MODEL,
+          max_tokens: 4096,
+          system,
+          messages: [{ role: "user", content: input }],
+          tools: [{ name: "answer", description: "Return the answer.", input_schema: schema }],
+          tool_choice: { type: "tool", name: "answer" },
+        },
+        res => {
+          const call = (res.content || []).find(c => c.type === "tool_use");
+          if (!call) throw new Error("no structured answer in reply");
+          const data = dropNulls(call.input);
+          check(data, schema);
+          return { data, model: res.model, ms: Date.now() - t0 };
+        },
+      );
     },
   },
   openai: {
     model: "gpt-5-mini",
     run: (slot, system, schema, input) => {
       const t0 = Date.now();
-      return runHttp(slot, `${(process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "")}/chat/completions`, {
-        authorization: `Bearer ${process.env.OPENAI_API_KEY || ""}`,
-      }, {
-        model: MODEL,
-        messages: [{ role: "system", content: system }, { role: "user", content: input }],
-        response_format: { type: "json_schema", json_schema: { name: "answer", strict: true, schema: strict(schema) } },
-      }, (res) => {
-        const text = res.choices?.[0]?.message?.content;
-        if (!text) throw new Error("empty reply");
-        return { data: dropNulls(JSON.parse(text)), model: res.model, ms: Date.now() - t0 };
-      });
+      return runHttp(
+        slot,
+        `${(process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "")}/chat/completions`,
+        {
+          authorization: `Bearer ${process.env.OPENAI_API_KEY || ""}`,
+        },
+        {
+          model: MODEL,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: input },
+          ],
+          response_format: {
+            type: "json_schema",
+            json_schema: { name: "answer", strict: true, schema: strict(schema) },
+          },
+        },
+        res => {
+          const text = res.choices?.[0]?.message?.content;
+          if (!text) throw new Error("empty reply");
+          return { data: dropNulls(JSON.parse(text)), model: res.model, ms: Date.now() - t0 };
+        },
+      );
     },
   },
 };
 
 function onPath(cmd) {
   const exts = platform() === "win32" ? ["", ".cmd", ".exe"] : [""];
-  return (process.env.PATH || "").split(delimiter).some((d) => d && exts.some((e) => existsSync(join(d, cmd + e))));
+  return (process.env.PATH || "").split(delimiter).some(d => d && exts.some(e => existsSync(join(d, cmd + e))));
 }
 
 function pickBackend() {
   const asked = String(setting("backend", "--backend", "auto")).toLowerCase();
   if (asked !== "auto") {
-    if (!BACKENDS[asked]) { log(`unknown backend "${asked}", use one of: auto, ${Object.keys(BACKENDS).join(", ")}`); process.exit(1); }
+    if (!BACKENDS[asked]) {
+      log(`unknown backend "${asked}", use one of: auto, ${Object.keys(BACKENDS).join(", ")}`);
+      process.exit(1);
+    }
     return asked;
   }
   const env = process.env;
-  const host = env.CLAUDECODE ? "claude" : env.GEMINI_CLI ? "gemini"
-    : Object.keys(env).some((k) => k.startsWith("CODEX_")) ? "codex" : null;
+  const host = env.CLAUDECODE
+    ? "claude"
+    : env.GEMINI_CLI
+      ? "gemini"
+      : Object.keys(env).some(k => k.startsWith("CODEX_"))
+        ? "codex"
+        : null;
   if (host && onPath(host)) return host;
   for (const cli of ["claude", "codex", "gemini"]) if (onPath(cli)) return cli;
   if (env.ANTHROPIC_API_KEY) return "anthropic";
@@ -343,9 +477,12 @@ function pickBackend() {
 const BACKEND = pickBackend();
 // A config-file model is dropped when the backend comes from a flag or env var, so `--backend gemini`
 // doesn't run gemini with "haiku".
-const rank = (key, flagName) => flag(flagName) ? 0 : process.env[ENV_NAME(key)] ? 1 : CONFIG[key] !== undefined ? 2 : 3;
-const MODEL = rank("model", "--model") <= rank("backend", "--backend") ? setting("model", "--model", BACKENDS[BACKEND].model)
-  : BACKENDS[BACKEND].model;
+const rank = (key, flagName) =>
+  flag(flagName) ? 0 : process.env[ENV_NAME(key)] ? 1 : CONFIG[key] !== undefined ? 2 : 3;
+const MODEL =
+  rank("model", "--model") <= rank("backend", "--backend")
+    ? setting("model", "--model", BACKENDS[BACKEND].model)
+    : BACKENDS[BACKEND].model;
 const EFFORT = setting("effort", "--effort", "low");
 
 async function runModel(slot, system, schema, input) {
@@ -356,23 +493,40 @@ async function runModel(slot, system, schema, input) {
 async function analyze(text, settled = [], answers = [], asked = [], more = false) {
   let input = `Request:\n<<<\n${text}\n>>>`;
   if (settled.length) {
-    input += `\n\nThe user already decided these phrases; do not return underlines for them:\n` +
-      settled.map((s) => `- "${s}"`).join("\n");
+    input +=
+      `\n\nThe user already decided these phrases; do not return underlines for them:\n` +
+      settled.map(s => `- "${s}"`).join("\n");
   }
-  if (answers.length) input += `\n\nThe user's answers so far:\n` + answers.map((a) => `- ${a}`).join("\n");
-  if (asked.length) input += `\n\nExtras already shown (do not repeat them):\n` + asked.map((q) => `- ${q}`).join("\n");
-  if (more) input += `\n\nReturn no underlines and only 2-3 NEW extras that build on the answers so far ` +
-    `and would most sharpen the result. No inline choices.`;
+  if (answers.length) input += `\n\nThe user's answers so far:\n` + answers.map(a => `- ${a}`).join("\n");
+  if (asked.length) input += `\n\nExtras already shown (do not repeat them):\n` + asked.map(q => `- ${q}`).join("\n");
+  if (more)
+    input +=
+      `\n\nReturn no underlines and only 2-3 NEW extras that build on the answers so far ` +
+      `and would most sharpen the result. No inline choices.`;
   const data = await runModel("analyze", SYSTEM, SCHEMA, input);
-  const inText = (c) => c.span && text.toLowerCase().includes(c.span.toLowerCase());
-  const asks = (data.asks || []).filter(inText).map(({ sentence, ...a }) =>
-    ({ ...a, type: "ask", kind: a.kind === "slider" ? "single" : a.kind, statement: sentence }));
+  const inText = c => c.span && text.toLowerCase().includes(c.span.toLowerCase());
+  const asks = (data.asks || []).filter(inText).map(({ sentence, ...a }) => ({
+    ...a,
+    type: "ask",
+    kind: a.kind === "slider" ? "single" : a.kind,
+    statement: sentence,
+  }));
   // the page places each span at its first occurrence (exact case first), so that is the one that must not sit in an ask
-  const at = (span) => { const i = text.indexOf(span); return i >= 0 ? i : text.toLowerCase().indexOf(span.toLowerCase()); };
-  const inAsk = (u) => asks.some((a) => at(u.span) < at(a.span) + a.span.length && at(u.span) + u.span.length > at(a.span));
-  const underlines = (data.underlines || []).filter((u) => inText(u) && !inAsk(u)).map((u) => ({ ...u, type: "underline" }));
+  const at = span => {
+    const i = text.indexOf(span);
+    return i >= 0 ? i : text.toLowerCase().indexOf(span.toLowerCase());
+  };
+  const inAsk = u => asks.some(a => at(u.span) < at(a.span) + a.span.length && at(u.span) + u.span.length > at(a.span));
+  const underlines = (data.underlines || [])
+    .filter(u => inText(u) && !inAsk(u))
+    .map(u => ({ ...u, type: "underline" }));
   const extras = (data.extras || []).map(({ span, ...e }) => ({ ...e, type: "extra" }));
-  return { summary: data.summary, choices: more ? extras : [...asks, ...underlines, ...extras], model: data.model, ms: data.ms };
+  return {
+    summary: data.summary,
+    choices: more ? extras : [...asks, ...underlines, ...extras],
+    model: data.model,
+    ms: data.ms,
+  };
 }
 
 const EXPLAIN_SYSTEM = `Someone is answering a short questionnaire so an assistant can help with their request.
@@ -399,8 +553,10 @@ const EXPLAIN_SCHEMA = {
         type: "object",
         required: ["label", "what"],
         properties: {
-          label: { type: "string" }, what: { type: "string" },
-          good_for: { type: "string" }, image: { type: "string" },
+          label: { type: "string" },
+          what: { type: "string" },
+          good_for: { type: "string" },
+          image: { type: "string" },
         },
       },
     },
@@ -408,7 +564,7 @@ const EXPLAIN_SCHEMA = {
 };
 
 function explain(text, question, options) {
-  const input = `Request: ${text}\nQuestion: ${question}\nOptions:\n` + options.map((o) => `- ${o}`).join("\n");
+  const input = `Request: ${text}\nQuestion: ${question}\nOptions:\n` + options.map(o => `- ${o}`).join("\n");
   return runModel("explain:" + question, EXPLAIN_SYSTEM, EXPLAIN_SCHEMA, input);
 }
 
@@ -435,24 +591,37 @@ const DECIDE_SCHEMA = {
         required: ["question", "options"],
         properties: {
           question: { type: "string" },
-          options: { type: "array", items: { type: "object", required: ["label"], properties: { label: { type: "string" }, emoji: { type: "string" } } } },
+          options: {
+            type: "array",
+            items: {
+              type: "object",
+              required: ["label"],
+              properties: { label: { type: "string" }, emoji: { type: "string" } },
+            },
+          },
         },
       },
     },
-    recommendation: { type: "object", required: ["label", "why"], properties: { label: { type: "string" }, why: { type: "string" } } },
+    recommendation: {
+      type: "object",
+      required: ["label", "why"],
+      properties: { label: { type: "string" }, why: { type: "string" } },
+    },
   },
 };
 
 async function decide(text, question, options, answers = [], asked = []) {
-  let input = `Request: ${text}\nQuestion: ${question}\nOptions:\n` + options.map((o) => `- ${o}`).join("\n");
-  if (answers.length) input += `\n\nTheir answers so far:\n` + answers.map((a) => `- ${a.q} ${a.a}`).join("\n");
-  if (asked.length) input += `\n\nAlready asked (do not repeat):\n` + asked.map((q) => `- ${q}`).join("\n");
+  let input = `Request: ${text}\nQuestion: ${question}\nOptions:\n` + options.map(o => `- ${o}`).join("\n");
+  if (answers.length) input += `\n\nTheir answers so far:\n` + answers.map(a => `- ${a.q} ${a.a}`).join("\n");
+  if (asked.length) input += `\n\nAlready asked (do not repeat):\n` + asked.map(q => `- ${q}`).join("\n");
   const data = await runModel("decide:" + question, DECIDE_SYSTEM, DECIDE_SCHEMA, input);
-  const lc = new Set(options.map((o) => o.toLowerCase()));
+  const lc = new Set(options.map(o => o.toLowerCase()));
   if (data.recommendation && !lc.has(String(data.recommendation.label).toLowerCase())) delete data.recommendation;
   if (!answers.length) delete data.recommendation;
-  const seen = new Set(asked.map((q) => q.toLowerCase()));
-  data.questions = (data.questions || []).filter((q) => q.question && !seen.has(q.question.toLowerCase()) && (q.options || []).length >= 2);
+  const seen = new Set(asked.map(q => q.toLowerCase()));
+  data.questions = (data.questions || []).filter(
+    q => q.question && !seen.has(q.question.toLowerCase()) && (q.options || []).length >= 2,
+  );
   return data;
 }
 
@@ -490,16 +659,26 @@ const TIDY_SCHEMA = {
 async function tidy(sentences) {
   const input = "Sentences:\n" + sentences.map((s, i) => `${i + 1}. ${s}`).join("\n");
   const data = await runModel("tidy", TIDY_SYSTEM, TIDY_SCHEMA, input);
-  const used = new Set(), blocks = [];
+  const used = new Set(),
+    blocks = [];
   for (const b of data.blocks || []) {
     const items = [];
     for (const n of b.items || []) {
       const i = Math.round(Number(n)) - 1;
-      if (i >= 0 && i < sentences.length && !used.has(i)) { used.add(i); items.push(i); }
+      if (i >= 0 && i < sentences.length && !used.has(i)) {
+        used.add(i);
+        items.push(i);
+      }
     }
-    if (items.length) blocks.push({ heading: String(b.heading || "").trim().replace(/[:：]\s*$/, ""), items });
+    if (items.length)
+      blocks.push({
+        heading: String(b.heading || "")
+          .trim()
+          .replace(/[:：]\s*$/, ""),
+        items,
+      });
   }
-  const missing = sentences.map((_, i) => i).filter((i) => !used.has(i));
+  const missing = sentences.map((_, i) => i).filter(i => !used.has(i));
   if (missing.length) blocks.length ? blocks[0].items.push(...missing) : blocks.push({ heading: "", items: missing });
   return { blocks, model: data.model, ms: data.ms };
 }
@@ -513,8 +692,14 @@ const PAGE = PAGE_SRC.replace('"%BUILD%"', JSON.stringify(BUILD));
 function body(req) {
   return new Promise((resolve, reject) => {
     let b = "";
-    req.on("data", (d) => (b += d));
-    req.on("end", () => { try { resolve(b ? JSON.parse(b) : {}); } catch (e) { reject(e); } });
+    req.on("data", d => (b += d));
+    req.on("end", () => {
+      try {
+        resolve(b ? JSON.parse(b) : {});
+      } catch (e) {
+        reject(e);
+      }
+    });
   });
 }
 
@@ -526,15 +711,18 @@ function send(res, status, obj) {
 const OUT = opt("--out", process.env.PROMPT_SHAPER_OUT || "");
 const STATUS = { 0: "sent", 2: "cancelled", 3: "timeout" };
 
-const printed = (text) => text ? (text.endsWith("\n") ? text : text + "\n") : "";
+const printed = text => (text ? (text.endsWith("\n") ? text : text + "\n") : "");
 function finish(code, text) {
   for (const j of Object.values(running)) j.abort();
   if (text) process.stdout.write(printed(text));
   if (OUT) {
-    try { // write then rename, so a poller never reads half a file
+    try {
+      // write then rename, so a poller never reads half a file
       writeFileSync(OUT + ".tmp", JSON.stringify({ status: STATUS[code] || "error", prompt: text || "" }) + "\n");
       renameSync(OUT + ".tmp", OUT);
-    } catch (e) { log(`could not write ${OUT}: ${e.message}`); }
+    } catch (e) {
+      log(`could not write ${OUT}: ${e.message}`);
+    }
   }
   setTimeout(() => process.exit(code), 150);
 }
@@ -546,7 +734,15 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
       return res.end(PAGE);
     }
-    if (req.method === "GET" && url.pathname === "/api/init") return send(res, 200, { draft, model: MODEL || BACKEND, backend: BACKEND, agent: AGENT, images: IMAGES, build: BUILD });
+    if (req.method === "GET" && url.pathname === "/api/init")
+      return send(res, 200, {
+        draft,
+        model: MODEL || BACKEND,
+        backend: BACKEND,
+        agent: AGENT,
+        images: IMAGES,
+        build: BUILD,
+      });
     if (req.method === "POST" && url.pathname === "/api/analyze") {
       const { text = "", settled = [], answers = [], asked = [], more = false } = await body(req);
       if (text.trim().split(/\s+/).length < 2) return send(res, 200, { summary: "", choices: [] });
@@ -576,7 +772,9 @@ const server = http.createServer(async (req, res) => {
       const { text = "", question = "", options = [], answers = [], asked = [] } = await body(req);
       try {
         const data = await decide(text, question, options, answers, asked);
-        log(`helped decide "${question}" in ${data.ms} ms${data.recommendation ? `: ${data.recommendation.label}` : ""}`);
+        log(
+          `helped decide "${question}" in ${data.ms} ms${data.recommendation ? `: ${data.recommendation.label}` : ""}`,
+        );
         return send(res, 200, data);
       } catch (e) {
         if (!e.superseded) log(e.message);
@@ -610,14 +808,25 @@ const server = http.createServer(async (req, res) => {
 });
 
 const TIMEOUT_MIN = Number(setting("timeoutMin", "--timeout-min", 30));
-if (TIMEOUT_MIN > 0) setTimeout(() => { log(`no answer after ${TIMEOUT_MIN} min, giving up`); finish(3, ""); }, TIMEOUT_MIN * 60000).unref();
+if (TIMEOUT_MIN > 0)
+  setTimeout(() => {
+    log(`no answer after ${TIMEOUT_MIN} min, giving up`);
+    finish(3, "");
+  }, TIMEOUT_MIN * 60000).unref();
 
 server.listen(PORT, "127.0.0.1", () => {
   const url = `http://127.0.0.1:${server.address().port}/`;
   log(`open ${url}  (waiting for Send; Ctrl+C to abort)`);
-  log(`backend: ${BACKEND}${MODEL ? ` (${MODEL})` : ""}${IMAGES ? "" : ", no pictures"}${Object.keys(CONFIG).length ? `, defaults from ${CONFIG_FILE}` : ""}`);
+  log(
+    `backend: ${BACKEND}${MODEL ? ` (${MODEL})` : ""}${IMAGES ? "" : ", no pictures"}${Object.keys(CONFIG).length ? `, defaults from ${CONFIG_FILE}` : ""}`,
+  );
   if (!onOff("open", true)) return;
-  const cmd = setting("browser", "--browser", "") ||
+  const cmd =
+    setting("browser", "--browser", "") ||
     (platform() === "darwin" ? "open" : platform() === "win32" ? "explorer" : "xdg-open");
-  try { spawn(cmd, [url], { stdio: "ignore", detached: true }).on("error", () => {}).unref(); } catch {}
+  try {
+    spawn(cmd, [url], { stdio: "ignore", detached: true })
+      .on("error", () => {})
+      .unref();
+  } catch {}
 });
