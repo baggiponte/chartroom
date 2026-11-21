@@ -36,6 +36,30 @@ To track `main` instead, clone the repo and symlink `skills/help-me` into your a
 (e.g. `~/.claude/skills/help-me`). Sandboxed agents such as Codex will ask before the skill starts its local
 server and opens a browser: approve it.
 
+### Inside the Claude app
+
+The same page can show up inline in a Claude conversation (desktop and claude.ai) instead of a browser tab, as an
+[MCP App](https://modelcontextprotocol.io/extensions/apps). Pressing Send posts the shaped request into the chat as your
+message. Clone the repo and install the server's two dependencies (Node 20+):
+
+```bash
+git clone https://github.com/baggiponte/prompt-shaper && cd prompt-shaper/mcp && npm install
+```
+
+**Claude Desktop**: add it to `~/Library/Application Support/Claude/claude_desktop_config.json`, then restart the app.
+
+```json
+{ "mcpServers": { "prompt-shaper": { "command": "node", "args": ["/full/path/to/prompt-shaper/mcp/server.mjs"] } } }
+```
+
+**claude.ai**: custom connectors are reached from the internet, so run `npm run http` (it listens on
+`127.0.0.1:3917/mcp`), expose it with a tunnel such as `cloudflared tunnel --url http://127.0.0.1:3917`, and add
+`https://<tunnel>/mcp` in Settings → Connectors → Add custom connector. The tunnel has no login: stop it when you're done.
+
+Then ask "help me shape this: plan a weekend in Lisbon", or say "/help-me ...". The model reading your request is
+still the [backend](#backends) on your machine, picked the same way. In Claude Code's terminal there's nowhere to draw
+the page, so keep using the skill there.
+
 ## Usage
 
 ```

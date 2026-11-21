@@ -36,6 +36,8 @@ body {
   min-height: 100vh; display: flex; justify-content: center; padding: 14vh 16px 60px;
 }
 main { width: 100%; max-width: 760px; }
+/* inside the chat (MCP App): the frame is the window, so less room above */
+.in-chat body { padding-top: 28px; padding-bottom: 28px; }
 
 .summary { display: flex; gap: 12px; align-items: baseline; color: var(--muted); font-size: 20px; margin: 0 8px 18px; min-height: 30px; }
 .summary .icon { font-size: 22px; }
@@ -421,6 +423,7 @@ const ta = $("ta"), backdrop = $("backdrop"), pop = $("pop"), extrasEl = $("extr
 const EXAMPLE = "Help me choose a home coffee machine for my small kitchen, something good for lattes.";
 
 let mode = "live", modelName = "the model", agentName = "your agent", imagesOn = true;
+const chat = window.__HELP_ME_MCP__ ? chatHost() : null; // set by mcp/server.mjs when the page is shown inside the chat
 let choices = [];
 let summary = "";
 let seq = 0, timer = null, lastAnalyzed = null, busy = false, moreBusy = false;
@@ -1579,6 +1582,7 @@ function merge(text, data, more) {
 }
 
 async function post(path, body) {
+  if (chat) return chat.post(path, body);
   const r = await fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const j = await r.json().catch(() => ({}));
   if (r.status === 409) throw Object.assign(new Error("superseded"), { superseded: true });
@@ -1632,7 +1636,13 @@ async function submit() {
   if (ended || !withoutOpen()) return;
   closePop();
   const prompt = compose(), notes = sentNotes();
-  if (mode === "live") {
+  if (chat && mode === "live") {
+    // the shaped request goes into the conversation as the user's own message
+    const m = await chat.request("ui/message", { role: "user", content: [{ type: "text", text: prompt }] }).catch((e) => ({ isError: true, e }));
+    if (m?.isError) { setStatus("err", "couldn't send it to the chat" + (m.e ? ": " + esc(m.e.message) : "")); return; }
+    post("/api/submit", { prompt }).catch(() => {});
+    end("sent", "Sent to Claude", "read-only now: click an underline to look back at what you picked and why", prompt, notes);
+  } else if (mode === "live") {
     let r;
     try { r = await post("/api/submit", { prompt }); }
     catch (e) { setStatus("err", "couldn't reach the help-me server: " + esc(e.message)); return; }
@@ -1646,6 +1656,7 @@ async function submit() {
 $("cancel").onclick = async () => {
   if (ended) return;
   if (mode === "live") { try { await post("/api/cancel", {}); } catch {} }
+  if (chat && mode === "live") chat.request("ui/update-model-context", { content: [{ type: "text", text: "The user cancelled /help-me without sending a request." }] }).catch(() => {});
   closePop();
   end("cancelled", "Cancelled", `nothing was sent to ${agentName}`, "");
 };
@@ -1761,18 +1772,75 @@ async function demoDecide(ch, { options, answers, asked }) {
 
 (async () => {
   try {
-    if (location.protocol === "file:") throw 0;
-    const r = await fetch("/api/init"); if (!r.ok) throw 0;
-    const j = await r.json(); modelName = j.model || "the model"; agentName = j.agent || "your agent";
+    let j;
+    if (chat) j = await chat.init().catch((e) => { chat.failed = e.message; throw e; });
+    else {
+      if (location.protocol === "file:") throw 0;
+      const r = await fetch("/api/init"); if (!r.ok) throw 0;
+      j = await r.json();
+    }
+    modelName = j.model || "the model"; agentName = j.agent || "your agent";
     document.querySelectorAll(".agentName").forEach((el, i) => el.textContent = i === 2 ? agentName.replace(/^./, (c) => c.toUpperCase()) : agentName);
     $("send").title = `Send to ${agentName} (Shift+Enter)`; ta.value = j.draft || ""; imagesOn = j.images !== false;
   } catch {
     mode = "demo"; modelName = "demo"; ta.value = EXAMPLE;
     $("hint").innerHTML = "Demo mode: canned underlines, since this page wasn't opened by <code>/help-me</code>.";
+    if (chat?.failed) { $("hint").textContent = chat.failed; ta.value = ""; }
   }
   render(); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
   if (ta.value.trim()) analyze(); else { setStatus("", "waiting for a request"); render(); }
 })();
+
+// MCP Apps: the host (Claude web or desktop) talks to this page over postMessage JSON-RPC.
+// https://github.com/modelcontextprotocol/ext-apps (protocol 2026-01-26), written by hand to keep the page one file.
+function chatHost() {
+  document.documentElement.classList.add("in-chat");
+  const waiting = new Map(); let id = 0, session = null, gotResult, ready;
+  const result = new Promise((res, rej) => (gotResult = { res, rej }));
+  const send = (m) => window.parent.postMessage({ jsonrpc: "2.0", ...m }, "*");
+  const request = (method, params) => new Promise((res, rej) => { const i = ++id; waiting.set(i, { res, rej }); send({ id: i, method, params }); });
+  const theme = (ctx) => { if (ctx?.theme) document.documentElement.dataset.theme = ctx.theme; };
+  window.addEventListener("message", (e) => {
+    if (e.source !== window.parent) return;
+    const m = e.data; if (!m || m.jsonrpc !== "2.0") return;
+    if (m.id !== undefined && waiting.has(m.id) && !m.method) {
+      const w = waiting.get(m.id); waiting.delete(m.id);
+      return m.error ? w.rej(new Error(m.error.message)) : w.res(m.result);
+    }
+    if (m.method === "ui/notifications/tool-result") {
+      const r = m.params || {};
+      if (r.isError || !r.structuredContent?.session) gotResult.rej(new Error(r.content?.[0]?.text || "the help-me tool failed"));
+      else gotResult.res(r.structuredContent);
+    } else if (m.method === "ui/notifications/tool-cancelled") gotResult.rej(new Error("the help-me call was cancelled"));
+    else if (m.method === "ui/notifications/host-context-changed") theme(m.params);
+    else if (m.method === "ui/resource-teardown") send({ id: m.id, result: {} });
+    else if (m.id !== undefined && m.method) send({ id: m.id, error: { code: -32601, message: "method not found" } });
+  });
+  // Commons links open through the host: a sandboxed frame can't open tabs itself.
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest?.("a[href^='http']"); if (!a) return;
+    e.preventDefault(); request("ui/open-link", { url: a.href }).catch(() => {});
+  });
+  const connect = () => ready ??= request("ui/initialize", {
+    appInfo: { name: "prompt-shaper", version: "1" }, appCapabilities: {}, protocolVersion: "2026-01-26",
+  }).then((r) => {
+    theme(r?.hostContext); send({ method: "ui/notifications/initialized", params: {} });
+    // the page lays itself out in the frame's height (100vh), so ask for a fixed one rather than measuring
+    send({ method: "ui/notifications/size-changed", params: { height: 680 } });
+  });
+  connect();
+  return {
+    request,
+    async init() { await ready; const j = await result; session = j.session; return j; },
+    async post(path, body) {
+      const r = await request("tools/call", { name: "help_me_api", arguments: { session, path, body } });
+      const { status = 500, body: j = {} } = r?.structuredContent || {};
+      if (status === 409) throw Object.assign(new Error("superseded"), { superseded: true });
+      if (status >= 400) throw new Error(j.error || "error " + status);
+      return j;
+    },
+  };
+}
 })();
 </script>
 </body>

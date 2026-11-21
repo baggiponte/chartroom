@@ -1,0 +1,13 @@
+{
+  "name": "prompt-shaper-mcp",
+  "private": true,
+  "type": "module",
+  "description": "/help-me as an MCP App: the page shown inside the Claude chat.",
+  "bin": { "prompt-shaper-mcp": "server.mjs" },
+  "scripts": { "start": "node server.mjs", "http": "node server.mjs --http" },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.4.0",
+    "zod": "^4.2.0"
+  }
+}
