@@ -8,6 +8,7 @@
 import { McpServer, createMcpHandler } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import http from "node:http";
 import { homedir } from "node:os";
@@ -22,7 +23,12 @@ const MIME = "text/html;profile=mcp-app";
 const log = (...m) => console.error("[help-me mcp]", ...m);
 
 // The page decides "in the chat" from this flag, so the same file still works as the browser page.
-const page = () => readFileSync(join(SKILL, "index.html"), "utf8").replace("<script>", "<script>window.__HELP_ME_MCP__ = true;</script>\n<script>");
+// The build hash is the one skills/help-me/server.mjs puts in its /api/init, so a cached or outdated page can tell.
+const page = () => {
+  const src = readFileSync(join(SKILL, "index.html"), "utf8");
+  return src.replace('"%BUILD%"', JSON.stringify(createHash("sha256").update(src).digest("hex").slice(0, 12)))
+    .replace("<script>", "<script>window.__HELP_ME_MCP__ = true;</script>\n<script>");
+};
 
 // Desktop apps start MCP servers with a bare PATH, so the claude/codex/gemini CLIs wouldn't be found.
 const PATH = [process.env.PATH, join(homedir(), ".local", "bin"), join(homedir(), ".claude", "local"), "/opt/homebrew/bin", "/usr/local/bin"]
