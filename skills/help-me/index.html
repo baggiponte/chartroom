@@ -429,8 +429,7 @@ let summary = "";
 let seq = 0, timer = null, lastAnalyzed = null, busy = false, moreBusy = false;
 let openId = null, hoverId = null, uid = 0;
 let ended = null;            // "sent" | "cancelled": the page stays open to look back at, but nothing changes or is sent again
-const dismissed = new Set();
-const removedQs = [];
+const removed = [];          // { question, token } of each written-in question whose sentence you removed
 
 function makeChoice(c) {
   if (!["ask", "underline", "extra"].includes(c.type)) return null;
@@ -579,8 +578,7 @@ function sentenceRange(ch, text) {
   return [a, b];
 }
 function dismiss(ch) {
-  if (!removedQs.includes(ch.question)) removedQs.push(ch.question);
-  dismissed.add(ch.question.toLowerCase()); if (ch.token) dismissed.add(ch.token.toLowerCase());
+  if (!removed.some(r => r.question === ch.question)) removed.push({ question: ch.question, token: ch.token });
 }
 function demote(ch) {
   let text = ta.value; const [a, b] = sentenceRange(ch, text);
@@ -1528,7 +1526,7 @@ async function analyze({ more = false } = {}) {
     text: withoutOpen(text), more,
     settled: choices.filter(c => !c.extra && c.settled).map(c => c.cur),
     answers: extras.filter(c => c.settled).map(c => `${c.token}: ${textFor(c)}`),
-    asked: [...extras, ...choices.filter(c => c.promo)].map(c => c.question).concat([...dismissed]),
+    asked: [...extras, ...choices.filter(c => c.promo)].map(c => c.question).concat(removed.map(r => r.question)),
   };
   let data;
   try {
@@ -1558,7 +1556,7 @@ function merge(text, data, more) {
   if (!more && data.summary) summary = data.summary;
   // a fresh read keeps what you've set and replaces the rest; "+ more" only adds extras
   const kept = more ? choices : choices.filter(c => c.settled || c.promo);
-  const seen = new Set([...dismissed, ...kept.filter(c => c.extra || c.promo).flatMap(c => [c.question.toLowerCase(), c.token.toLowerCase()])]);
+  const seen = new Set([...removed, ...kept.filter(c => c.extra || c.promo)].flatMap(c => [c.question.toLowerCase(), c.token.toLowerCase()]));
   const taken = kept.filter(c => !c.extra).map(c => c.promo ? sentenceRange(c, text) : [c.start, c.end]);
   const fresh = [];
   for (const raw of data.choices || []) {
@@ -1623,7 +1621,7 @@ function sentNotes() {
   if (open.length) n.push(`Left out, unanswered: ${open.map(c => q(c.question)).join(", ")}.`);
   const unset = choices.filter(c => c.extra && !c.settled);
   if (unset.length) n.push(`Not sent: ${unset.map(c => q(c.token || c.question)).join(", ")}.`);
-  if (removedQs.length) n.push(`Removed by you: ${removedQs.map(q).join(", ")}.`);
+  if (removed.length) n.push(`Removed by you: ${removed.map(r => q(r.question)).join(", ")}.`);
   const asks = choices.filter(c => isAsk(c) && c.start >= 0 && !isSet(c));
   if (asks.length) n.push(`Sent as the question you wrote: ${asks.map(c => q(c.orig)).join(", ")}.`);
   const kept = choices.filter(c => c.type === "underline" && c.start >= 0 && text.slice(c.start, c.end) === c.orig);
