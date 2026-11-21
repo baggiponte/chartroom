@@ -346,7 +346,10 @@ async function analyze(text, settled = [], answers = [], asked = [], more = fals
   const inText = (c) => c.span && text.toLowerCase().includes(c.span.toLowerCase());
   const asks = (data.asks || []).filter(inText).map(({ sentence, ...a }) =>
     ({ ...a, kind: a.kind === "slider" ? "single" : a.kind, statement: sentence }));
-  const underlines = (data.underlines || []).filter(inText);
+  // the page places each span at its first occurrence (exact case first), so that is the one that must not sit in an ask
+  const at = (span) => { const i = text.indexOf(span); return i >= 0 ? i : text.toLowerCase().indexOf(span.toLowerCase()); };
+  const inAsk = (u) => asks.some((a) => at(u.span) < at(a.span) + a.span.length && at(u.span) + u.span.length > at(a.span));
+  const underlines = (data.underlines || []).filter((u) => inText(u) && !inAsk(u));
   const extras = (data.extras || []).map((e) => ({ ...e, span: "" }));
   return { summary: data.summary, choices: more ? extras : [...asks, ...underlines, ...extras], model: data.model, ms: data.ms };
 }

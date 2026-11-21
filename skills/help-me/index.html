@@ -1569,8 +1569,7 @@ function merge(text, data, more) {
     if (more) continue;
     let i = text.indexOf(ch.span);
     if (i < 0) { const j = text.toLowerCase().indexOf(ch.span.toLowerCase()); if (j < 0) continue; i = j; ch.span = ch.orig = ch.cur = text.slice(j, j + ch.span.length); }
-    while (i >= 0 && overlaps(taken, i, i + ch.span.length)) i = text.indexOf(ch.span, i + 1);
-    if (i < 0) continue;
+    if (overlaps(taken, i, i + ch.span.length)) continue;
     ch.start = i; ch.end = i + ch.span.length; taken.push([ch.start, ch.end]);
     fresh.push(ch);
   }
