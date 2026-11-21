@@ -1,0 +1,17 @@
+{
+  "name": "prompt-shaper-dev",
+  "private": true,
+  "description": "Development tooling only: the skill and the MCP server run without installing anything from here.",
+  "type": "module",
+  "scripts": {
+    "format": "oxfmt",
+    "format:check": "oxfmt --check"
+  },
+  "devDependencies": {
+    "oxfmt": "0.79.0"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "packageManager": "pnpm@12.21.0"
+}
