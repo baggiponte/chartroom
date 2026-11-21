@@ -1,0 +1,26 @@
+{
+  "name": "prompt-shaper-dev",
+  "private": true,
+  "description": "Development tooling only: the skill and the MCP server run without installing anything from here.",
+  "type": "module",
+  "scripts": {
+    "lint": "oxlint --type-aware && oxfmt --check",
+    "format": "oxlint --type-aware --fix && oxfmt",
+    "typecheck": "tsc",
+    "test:unit": "node --test --test-timeout=20000 \"test/*.test.ts\"",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1",
+    "@types/node": "24.19.2",
+    "oxfmt": "0.79.0",
+    "oxlint": "1.94.0",
+    "oxlint-tsgolint": "7.0.2008",
+    "typescript": "7.0.2",
+    "zod": "4.6.7"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "packageManager": "pnpm@12.21.0"
+}
