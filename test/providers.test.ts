@@ -86,4 +86,9 @@ describe("hostOf", () => {
     assert.deepEqual(hostOf({ PI_CODING_AGENT: "1" }), { name: "pi", agent: "Pi" });
     assert.equal(hostOf({ PATH: "" }), undefined);
   });
+
+  test("a user's own CODEX_HOME is not taken for running inside Codex", () => {
+    assert.equal(hostOf({ CODEX_HOME: "/x", CODEX_MANAGED_BY_NPM: "1" }), undefined);
+    assert.equal(hostOf({ CODEX_THREAD_ID: "t" })?.name, "codex");
+  });
 });
