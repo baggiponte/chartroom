@@ -12,8 +12,10 @@ export default defineConfig({
     // JSON.parse, JSON-RPC replies and the fake model's answers really are unknown; every caller parses them with
     // check() or zod straight away, which is the boundary this rule asks for.
     "quality/no-unknown-returns": "off",
-    // Temporary during migration: each rule below is enabled or explained in its own commit.
+    // Record<string, unknown> is a parsed JSON object before check() narrows it, and a JSON Schema's properties
+    // map any key the model may fill to a schema: neither has a narrower value type to give.
     "quality/no-unsafe-dictionary-type": "off",
+    // Temporary during migration: each rule below is enabled or explained in its own commit.
     "quality/no-object-parameters": "off",
   },
   overrides: [
