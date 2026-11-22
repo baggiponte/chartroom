@@ -28,7 +28,7 @@ Help me choose a bean-to-cup machine for my small kitchen, something good for la
 ```
 
 The model is the agent you're already using, on your own subscription: Claude Code, Codex, Gemini CLI, Antigravity,
-OpenCode or Pi. An API key works too. See [Backends](#backends).
+OpenCode or Pi. Anything else, such as an API key or a local model, is a small plugin. See [Backends](#backends).
 
 ## Install
 
@@ -147,26 +147,25 @@ For per-agent defaults, set the env vars in that agent's config (e.g. `"env"` in
 
 ## Backends
 
-| `--backend`   | Uses                                                                                   | Default model         |
-| ------------- | -------------------------------------------------------------------------------------- | --------------------- |
-| `claude`      | `claude -p` with your Claude Code login                                                | `haiku`               |
-| `codex`       | `codex exec` with your Codex / ChatGPT login, JSON enforced by `--output-schema`       | your Codex default    |
-| `gemini`      | `gemini -p` with your Google login                                                     | `gemini-2.5-flash`    |
-| `antigravity` | `agy -p` with your Antigravity login, JSON enforced by `--json-schema`                 | your agy default      |
-| `opencode`    | `opencode run --pure` with whatever OpenCode is set up to use                          | your OpenCode default |
-| `pi`          | `pi -p --no-tools --no-session` with whatever Pi is set up to use                      | your Pi default       |
-| `anthropic`   | `ANTHROPIC_API_KEY` (and optional `ANTHROPIC_BASE_URL`)                                | `claude-haiku-5-5`    |
-| `openai`      | `OPENAI_API_KEY` and/or `OPENAI_BASE_URL`, so OpenRouter, Ollama or LM Studio work too | `gpt-5-mini`          |
+| `--backend`   | Uses                                                                             | Default model         |
+| ------------- | -------------------------------------------------------------------------------- | --------------------- |
+| `claude`      | `claude -p` with your Claude Code login                                          | `haiku`               |
+| `codex`       | `codex exec` with your Codex / ChatGPT login, JSON enforced by `--output-schema` | your Codex default    |
+| `gemini`      | `gemini -p` with your Google login                                               | `gemini-2.5-flash`    |
+| `antigravity` | `agy -p` with your Antigravity login, JSON enforced by `--json-schema`           | your agy default      |
+| `opencode`    | `opencode run --pure` with whatever OpenCode is set up to use                    | your OpenCode default |
+| `pi`          | `pi -p --no-tools --no-session` with whatever Pi is set up to use                | your Pi default       |
 
 `host` (the default) uses the agent you're calling it from, so it runs on the subscription you're already using, with no API
-key. It never picks anything else for you: outside a known agent, or when that agent's CLI or key isn't there,
+key. It never picks anything else for you: outside a known agent, or when that agent's CLI isn't there,
 help-me stops with an error that says what's missing and where to set `backend`, and your agent can offer to fix the
 config. Antigravity doesn't say it's the one running help-me, so there set `"backend": "antigravity"`. Pick a small, fast model: every edit triggers a new read. For OpenCode and Pi, `--model` takes their own
 `provider/model` form.
 
 ### Your own backend
 
-A backend is a small module, so you can add one without a pull request here. Name it under `plugins` in the
+A backend is a small module, so you can add one without a pull request here. That is also how to use an API
+key (Anthropic, OpenAI, OpenRouter) or a local model: help-me ships no HTTP backends. Name it under `plugins` in the
 config file (paths are relative to it) and pick it like any other:
 
 ```json
@@ -229,7 +228,7 @@ pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test
 
 ## Notes
 
-- With `claude`, a read takes 4 to 9 s, mostly CLI start-up. API keys are faster.
+- With `claude`, a read takes 4 to 9 s, mostly CLI start-up. A plugin that calls an API directly is faster.
 - Pictures come from a plain Commons search, so they're sometimes off.
 - Most agents wait up to 10 minutes. If it times out, run `/help-me` again.
 - This is a prototype.

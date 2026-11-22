@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { describe, test } from "node:test";
@@ -30,7 +30,15 @@ const CALL = {
   signal: new AbortController().signal,
 } as const;
 
-const NO_CONFIG = { PROMPT_SHAPER_CONFIG: "/nonexistent/config.json", PATH: "", OPENAI_API_KEY: "x" };
+/** A PATH where the codex CLI is installed, as far as `available` can tell. */
+const withCodex = (() => {
+  const dir = mkdtempSync(join(tmpdir(), "bin-"));
+  writeFileSync(join(dir, "codex"), "#!/bin/sh\n");
+  chmodSync(join(dir, "codex"), 0o755);
+  return dir;
+})();
+
+const NO_CONFIG = { PROMPT_SHAPER_CONFIG: "/nonexistent/config.json", PATH: withCodex };
 
 /** A model that always answers `data`, checked against the schema it was asked for like a real reply. */
 const answering =
@@ -43,36 +51,36 @@ const answering =
 
 describe("readSettings", () => {
   test("a flag beats its env var", async () => {
-    const s = await readSettings(["--backend", "openai", "--model", "flag"], {
+    const s = await readSettings(["--backend", "codex", "--model", "flag"], {
       ...NO_CONFIG,
       PROMPT_SHAPER_MODEL: "env",
     });
-    assert.deepEqual([s.backend.name, s.backend.plugin], ["openai", PROVIDERS.openai]);
+    assert.deepEqual([s.backend.name, s.backend.plugin], ["codex", PROVIDERS.codex]);
     assert.equal(s.model, "flag");
   });
 
   test("a backend that can run is taken as asked, leaving the model to it", async () => {
-    const s = await readSettings(["--backend", "anthropic"], { ...NO_CONFIG, ANTHROPIC_API_KEY: "x" });
-    assert.deepEqual([s.backend.name, s.model], ["anthropic", ""]);
+    const s = await readSettings(["--backend", "codex"], NO_CONFIG);
+    assert.deepEqual([s.backend.name, s.model], ["codex", ""]);
   });
 
   test("inside a known harness, the page names it", async () => {
-    const s = await readSettings(["--backend", "openai"], { ...NO_CONFIG, CLAUDECODE: "1" });
+    const s = await readSettings(["--backend", "codex"], { ...NO_CONFIG, CLAUDECODE: "1" });
     assert.equal(s.agent, "Claude Code");
   });
 
   test("--no-open and --no-images turn those off", async () => {
-    const s = await readSettings(["--backend", "openai", "--no-open", "--no-images"], NO_CONFIG);
+    const s = await readSettings(["--backend", "codex", "--no-open", "--no-images"], NO_CONFIG);
     assert.deepEqual([s.open, s.images], [false, false]);
   });
 
   test("refuses what it can't use with a message for the user", async () => {
     await assert.rejects(readSettings(["--backend", "nope"], NO_CONFIG), /unknown backend "nope"/);
     await assert.rejects(
-      readSettings(["--backend", "anthropic"], NO_CONFIG),
-      /backend "anthropic" needs ANTHROPIC_API_KEY, which isn't there. .*Set "backend" in \/nonexistent\/config.json/,
+      readSettings(["--backend", "claude"], NO_CONFIG),
+      /backend "claude" needs the claude CLI on PATH, which isn't there. .*Set "backend" in \/nonexistent\/config.json/,
     );
-    await assert.rejects(readSettings(["--backend", "openai", "--timeout-min", "x"], NO_CONFIG), /--timeout-min/);
+    await assert.rejects(readSettings(["--backend", "codex", "--timeout-min", "x"], NO_CONFIG), /--timeout-min/);
   });
 });
 
@@ -126,7 +134,7 @@ describe("plugins", () => {
 
   test("unknown backends list the plugins too, once", async () => {
     const env = configWith({ plugins: { mine: join(plugins, "echo.ts"), claude: join(plugins, "echo.ts") } });
-    await assert.rejects(readSettings(["--backend", "nope"], env), /to one of: host, claude, .*, openai, mine\./);
+    await assert.rejects(readSettings(["--backend", "nope"], env), /to one of: host, claude, .*, pi, mine\./);
   });
 
   test("refuses a module that doesn't export a plugin, even when host only had to ask it", async () => {
@@ -216,7 +224,7 @@ async function serve(t: TestContext, model: ModelCall) {
   const server = createServer(
     createHandler({
       model,
-      init: { draft: "", model: "fake", backend: "anthropic", agent: "your agent", images: true, build: "x" },
+      init: { draft: "", model: "fake", backend: "fake", agent: "your agent", images: true, build: "x" },
       page: "<!doctype html>",
       log: () => {},
       finish: (code, prompt) => finished.push([code, prompt]),

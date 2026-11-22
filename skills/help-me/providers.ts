@@ -1,14 +1,12 @@
 import type { Plugin } from "./plugins.ts";
-import anthropic from "./providers/anthropic.ts";
 import antigravity from "./providers/antigravity.ts";
 import claude from "./providers/claude.ts";
 import codex from "./providers/codex.ts";
 import gemini from "./providers/gemini.ts";
-import openai from "./providers/openai.ts";
 import opencode from "./providers/opencode.ts";
 import pi from "./providers/pi.ts";
 
-/** The plugins that ship with help-me. Harnesses come first, so `host` asks them before the API backends. */
+/** The plugins that ship with help-me: the harness CLIs, so help-me runs on the subscription the user already has. */
 export const PROVIDERS = {
   claude,
   codex,
@@ -16,8 +14,6 @@ export const PROVIDERS = {
   antigravity,
   opencode,
   pi,
-  anthropic,
-  openai,
 } as const satisfies Record<string, Plugin>;
 
 export type ProviderName = keyof typeof PROVIDERS;

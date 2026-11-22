@@ -7,7 +7,7 @@ import type { TestContext } from "node:test";
 
 import { z } from "zod";
 
-import { runHelpMe, startFakeApi, startHelpMe } from "./support/help-me.ts";
+import { FAKE_PLUGIN, runHelpMe, startFakeApi, startHelpMe } from "./support/help-me.ts";
 import type { FakeModel, HelpMe } from "./support/help-me.ts";
 
 const scratch = mkdtempSync(join(tmpdir(), "help-me-files-"));
@@ -74,8 +74,8 @@ describe("/api/init", () => {
     const { build, ...rest } = await init(helpMe);
     assert.deepEqual(rest, {
       draft: "a coffee machine",
-      model: "claude-haiku-5-5",
-      backend: "anthropic",
+      model: "fake-1",
+      backend: "fake",
       agent: "your agent",
       images: true,
     });
@@ -83,15 +83,15 @@ describe("/api/init", () => {
   });
 
   test("a --model flag beats the env var, which beats the config file", async () => {
-    const config = configFile({ backend: "anthropic", model: "from-file" });
+    const config = { backend: "fake", model: "from-file" };
     const cases: Array<[Array<string>, Record<string, string>, string]> = [
-      [[], { PROMPT_SHAPER_CONFIG: config }, "from-file"],
-      [[], { PROMPT_SHAPER_CONFIG: config, PROMPT_SHAPER_MODEL: "from-env" }, "from-env"],
-      [["--model", "from-flag"], { PROMPT_SHAPER_CONFIG: config, PROMPT_SHAPER_MODEL: "from-env" }, "from-flag"],
+      [[], {}, "from-file"],
+      [[], { PROMPT_SHAPER_MODEL: "from-env" }, "from-env"],
+      [["--model", "from-flag"], { PROMPT_SHAPER_MODEL: "from-env" }, "from-flag"],
     ];
     const models = await Promise.all(
       cases.map(async ([args, env]) => {
-        const helpMe = await startHelpMe({ args, env, backendFlag: false });
+        const helpMe = await startHelpMe({ args, env, config, backendFlag: false });
         const { model } = await init(helpMe);
         helpMe.stop();
         return model;
@@ -104,9 +104,9 @@ describe("/api/init", () => {
   });
 
   test("a config-file model is dropped when the backend comes from a flag", async t => {
-    const helpMe = await startHelpMe({ env: { PROMPT_SHAPER_CONFIG: configFile({ model: "haiku" }) } });
+    const helpMe = await startHelpMe({ config: { model: "haiku" } });
     t.after(helpMe.stop);
-    assert.equal((await init(helpMe)).model, "claude-haiku-5-5");
+    assert.equal((await init(helpMe)).model, "fake-1");
   });
 
   test("a plugin from the config file is the backend the page shows, with its own default model", async t => {
@@ -196,29 +196,6 @@ describe("/api/analyze", () => {
     const res = await helpMe.post("/api/analyze", { text });
     assert.equal(res.status, 500);
     assert.deepEqual(Failure.parse(await res.json()), { error: "reply.underlines is missing" });
-  });
-});
-
-describe("the openai backend", () => {
-  const tidied = { blocks: [{ heading: "", items: [1] }] };
-  const openai = ["--backend", "openai"];
-
-  test("reads the reply from the first choice", async t => {
-    const { helpMe } = await withModel(t, () => tidied, openai);
-    const { blocks, model } = await helpMe.ask(
-      "/api/tidy",
-      { sentences: ["a."] },
-      Tidied.extend({ model: z.string() }),
-    );
-    assert.deepEqual(blocks, [{ heading: "", items: [0] }]);
-    assert.equal(model, "gpt-5-mini");
-  });
-
-  test("a refusal, with no content, is an error the page can show", async t => {
-    const { helpMe } = await withModel(t, () => null, openai);
-    const res = await helpMe.post("/api/tidy", { sentences: ["a."] });
-    assert.equal(res.status, 500);
-    assert.deepEqual(Failure.parse(await res.json()), { error: "empty reply" });
   });
 });
 
@@ -316,7 +293,7 @@ describe("choosing a backend", () => {
     assert.equal(code, 1);
     assert.match(
       stderr,
-      /unknown backend "nope". Set "backend" in .* to one of: host, claude, codex, gemini, antigravity, opencode, pi, anthropic, openai/,
+      /unknown backend "nope". Set "backend" in .* to one of: host, claude, codex, gemini, antigravity, opencode, pi\./,
     );
   });
 
@@ -330,22 +307,22 @@ describe("choosing a backend", () => {
 
   test("a config file that is not a JSON object exits 1 instead of being ignored", async () => {
     const config = join(scratch, "broken-config.json");
-    writeFileSync(config, "{ backend: anthropic");
+    writeFileSync(config, "{ backend: claude");
     const out = join(scratch, "broken-config-out.json");
-    const { code, stderr } = await runHelpMe(["--out", out], { PROMPT_SHAPER_CONFIG: config, ANTHROPIC_API_KEY: "x" });
+    const { code, stderr } = await runHelpMe(["--out", out], { PROMPT_SHAPER_CONFIG: config });
     assert.equal(code, 1);
     assert.match(stderr, /broken-config\.json is not a valid config/);
     assert.match(outFile(out).error ?? "", /broken-config\.json is not a valid config/);
   });
 
   test("host outside a known agent exits 1 instead of picking a backend for the user", async () => {
-    const { code, stderr } = await runHelpMe([], { ANTHROPIC_API_KEY: "x" });
+    const { code, stderr } = await runHelpMe([]);
     assert.equal(code, 1);
     assert.match(stderr, /backend is "host", but help-me can't tell which agent is running it/);
   });
 
   test("host inside an agent whose CLI is missing exits 1 instead of falling back to another", async () => {
-    const { code, stderr } = await runHelpMe([], { CLAUDECODE: "1", ANTHROPIC_API_KEY: "x" });
+    const { code, stderr } = await runHelpMe([], { CLAUDECODE: "1" });
     assert.equal(code, 1);
     assert.match(stderr, /Claude Code is running help-me, but the claude CLI on PATH isn't there/);
   });
@@ -367,17 +344,17 @@ describe("bugs", () => {
   });
 
   test("a --timeout-min that is not a number is refused at start", async () => {
-    const { code } = await runHelpMe(["--backend", "anthropic", "--timeout-min", "abc"], { ANTHROPIC_API_KEY: "x" });
+    const env = { PROMPT_SHAPER_CONFIG: configFile({ plugins: { fake: FAKE_PLUGIN } }) };
+    const { code, stderr } = await runHelpMe(["--backend", "fake", "--timeout-min", "abc"], env);
     assert.equal(code, 1);
+    assert.match(stderr, /--timeout-min should be a number/);
   });
 
   test("an empty PROMPT_SHAPER_MODEL counts as unset, so the config file's model applies", async t => {
     const helpMe = await startHelpMe({
       backendFlag: false,
-      env: {
-        PROMPT_SHAPER_CONFIG: configFile({ backend: "anthropic", model: "from-file" }),
-        PROMPT_SHAPER_MODEL: "",
-      },
+      config: { backend: "fake", model: "from-file" },
+      env: { PROMPT_SHAPER_MODEL: "" },
     });
     t.after(helpMe.stop);
     assert.equal((await init(helpMe)).model, "from-file");

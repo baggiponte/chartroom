@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "node:test";
@@ -11,17 +11,23 @@ import { fileURLToPath } from "node:url";
 
 import { z } from "zod";
 
+import { FAKE_PLUGIN } from "./support/help-me.ts";
+
 const SERVER = fileURLToPath(new URL("../mcp/server.ts", import.meta.url));
 
 function startMcp(args: Array<string> = [], env: NodeJS.ProcessEnv = {}): ChildProcessWithoutNullStreams {
   const home = mkdtempSync(join(tmpdir(), "help-me-mcp-test-"));
+  mkdirSync(join(home, ".config", "prompt-shaper"), { recursive: true });
+  writeFileSync(
+    join(home, ".config", "prompt-shaper", "config.json"),
+    JSON.stringify({ plugins: { fake: FAKE_PLUGIN } }),
+  );
   return spawn(process.execPath, [SERVER, ...args], {
     env: {
       PATH: process.env["PATH"] ?? "",
       HOME: home,
       XDG_CONFIG_HOME: join(home, ".config"),
-      ANTHROPIC_API_KEY: "test",
-      ANTHROPIC_BASE_URL: "http://127.0.0.1:9",
+      FAKE_MODEL_URL: "http://127.0.0.1:9",
       ...env,
     },
   });
@@ -95,10 +101,10 @@ describe("MCP App over stdio", () => {
       client.request("tools/call", { name, arguments: args });
 
     const { structuredContent } = Started.parse(
-      await call("help_me", { request: "help me pick a bike", backend: "anthropic" }),
+      await call("help_me", { request: "help me pick a bike", backend: "fake" }),
     );
     assert.equal(structuredContent.draft, "help me pick a bike");
-    assert.equal(structuredContent.backend, "anthropic");
+    assert.equal(structuredContent.backend, "fake");
 
     const cancel = { session: structuredContent.session, path: "/api/cancel" };
     const cancelled = ApiReply.parse(await call("help_me_api", cancel));
@@ -112,7 +118,7 @@ describe("MCP App over stdio", () => {
     const client = await connect(t);
     const call = (name: string, args: object): Promise<unknown> =>
       client.request("tools/call", { name, arguments: args });
-    const { structuredContent } = Started.parse(await call("help_me", { request: "a bike", backend: "anthropic" }));
+    const { structuredContent } = Started.parse(await call("help_me", { request: "a bike", backend: "fake" }));
     const tidy = { session: structuredContent.session, path: "/api/tidy", body: { sentences: ["a.", "b."] } };
     assert.equal(ApiReply.parse(await call("help_me_api", tidy)).structuredContent.status, 500);
     assert.equal(
@@ -127,9 +133,7 @@ describe("MCP App over stdio", () => {
     const client = await connect(t, { PROMPT_SHAPER_TIMEOUT_MIN: "soon" });
     const r = z
       .object({ isError: z.literal(true), content: z.tuple([z.object({ text: z.string() })]) })
-      .parse(
-        await client.request("tools/call", { name: "help_me", arguments: { request: "x", backend: "anthropic" } }),
-      );
+      .parse(await client.request("tools/call", { name: "help_me", arguments: { request: "x", backend: "fake" } }));
     assert.match(r.content[0].text, /couldn't start: --timeout-min should be a number/);
   });
 
