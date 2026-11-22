@@ -1,21 +1,38 @@
 // Records docs/demo.gif from demo mode (SHOTS=1 also saves checkpoint screenshots):
-//   node docs/rec.js --video
+//   node docs/rec.ts --video
 //   ffmpeg -ss 0.4 -i docs/vid/*.webm -vf "fps=12,scale=800:-1:flags=lanczos,tpad=stop_mode=clone:stop_duration=2,mpdecimate=hi=64*24:lo=64*8:frac=0.2,split[a][b];[a]palettegen=max_colors=64:stats_mode=diff[p];[b][p]paletteuse=dither=none:diff_mode=rectangle" -fps_mode vfr docs/demo.gif
-const { chromium } = require("playwright");
-const VIDEO = process.argv.includes("--video"),
-  SHOTS = !!process.env.SHOTS;
-const PAGE = "file://" + require("path").resolve(__dirname, "../skills/help-me/index.html");
-(async () => {
-  const b = await chromium.launch();
+import { fileURLToPath } from "node:url";
+
+import { type Locator, chromium } from "@playwright/test";
+
+const VIDEO = process.argv.includes("--video");
+const SHOTS = Boolean(process.env["SHOTS"]);
+const PAGE = new URL("../skills/help-me/index.html", import.meta.url).href;
+const VID = fileURLToPath(new URL("vid", import.meta.url));
+
+// The caption element keeps the timer that hides it, so a new caption can cancel the old one.
+type Caption = HTMLElement & { hideTimer?: ReturnType<typeof setTimeout> };
+
+async function center(loc: Locator): Promise<[number, number]> {
+  // first line box, so a mark that wraps is clicked on its text
+  const r = await loc.evaluate(el => {
+    const box = el.getClientRects()[0] ?? el.getBoundingClientRect();
+    return { x: box.x, y: box.y, width: box.width, height: box.height };
+  });
+  return [r.x + r.width / 2, r.y + r.height / 2];
+}
+
+async function main(): Promise<void> {
+  // Like playwright.config.ts: a machine with a Chromium already installed can skip `playwright install`.
+  const executablePath = process.env["PLAYWRIGHT_CHROMIUM_PATH"];
+  const b = await chromium.launch(executablePath === undefined ? {} : { executablePath });
   const W = 1000,
     H = 860;
   const ctx = await b.newContext({
     viewport: { width: W, height: H },
     deviceScaleFactor: 1,
     colorScheme: "light",
-    ...(VIDEO
-      ? { recordVideo: { dir: require("path").resolve(__dirname, "vid"), size: { width: W, height: H } } }
-      : {}),
+    ...(VIDEO ? { recordVideo: { dir: VID, size: { width: W, height: H } } } : {}),
   });
   await ctx.addInitScript(() => {
     addEventListener("DOMContentLoaded", () => {
@@ -28,13 +45,25 @@ const PAGE = "file://" + require("path").resolve(__dirname, "../skills/help-me/i
       addEventListener(
         "mousemove",
         e => {
-          c.style.left = e.clientX + "px";
-          c.style.top = e.clientY + "px";
+          c.style.left = `${String(e.clientX)}px`;
+          c.style.top = `${String(e.clientY)}px`;
         },
         true,
       );
-      addEventListener("mousedown", () => (c.style.transform = "translate(-3px,-2px) scale(.85)"), true);
-      addEventListener("mouseup", () => (c.style.transform = "translate(-3px,-2px)"), true);
+      addEventListener(
+        "mousedown",
+        () => {
+          c.style.transform = "translate(-3px,-2px) scale(.85)";
+        },
+        true,
+      );
+      addEventListener(
+        "mouseup",
+        () => {
+          c.style.transform = "translate(-3px,-2px)";
+        },
+        true,
+      );
       // caption for each step, top-left
       const cap = document.createElement("div");
       cap.id = "__cap";
@@ -44,32 +73,30 @@ const PAGE = "file://" + require("path").resolve(__dirname, "../skills/help-me/i
     });
   });
   const p = await ctx.newPage();
-  const w = ms => p.waitForTimeout(ms);
+  const w = (ms: number): Promise<void> => p.waitForTimeout(ms);
   let n = 0;
-  const shot = async name => {
-    if (SHOTS) await p.screenshot({ path: `c${String(++n).padStart(2, "0")}-${name}.png` });
+  const shot = async (name: string): Promise<void> => {
+    if (SHOTS) {
+      await p.screenshot({ path: `c${String(++n).padStart(2, "0")}-${name}.png` });
+    }
   };
-  const caption = t =>
+  const caption = (text: string): Promise<void> =>
     p.evaluate(t => {
-      const c = document.getElementById("__cap");
-      clearTimeout(c._t);
+      const c: Caption | null = document.getElementById("__cap");
+      if (!c) {
+        return;
+      }
+      clearTimeout(c.hideTimer);
       c.textContent = t;
-      c.style.opacity = t ? 1 : 0;
-      c._t = setTimeout(() => (c.style.opacity = 0), 2200);
-    }, t);
-  async function moveTo(x, y, steps = 16) {
+      c.style.opacity = t ? "1" : "0";
+      c.hideTimer = setTimeout(() => {
+        c.style.opacity = "0";
+      }, 2200);
+    }, text);
+  async function moveTo(x: number, y: number, steps = 16): Promise<void> {
     await p.mouse.move(x, y, { steps });
   }
-  async function center(loc) {
-    // first line box, so a mark that wraps is clicked on its text
-    const r = await loc.evaluate(el => {
-      const b = el.getClientRects()[0] || el.getBoundingClientRect();
-      return { x: b.x, y: b.y, width: b.width, height: b.height };
-    });
-    if (!r) throw new Error("no box: " + loc);
-    return [r.x + r.width / 2, r.y + r.height / 2];
-  }
-  async function click(loc, pause = 250) {
+  async function click(loc: Locator, pause = 250): Promise<void> {
     const [x, y] = await center(loc);
     await moveTo(x, y);
     await w(pause);
@@ -77,8 +104,8 @@ const PAGE = "file://" + require("path").resolve(__dirname, "../skills/help-me/i
     await w(60);
     await p.mouse.up();
   }
-  const mark = t => p.locator("#backdrop mark", { hasText: t }).first();
-  const chip = t => p.locator("#pop .chip", { hasText: t }).first();
+  const mark = (text: string): Locator => p.locator("#backdrop mark", { hasText: text }).first();
+  const chip = (text: string): Locator => p.locator("#pop .chip", { hasText: text }).first();
 
   await p.goto(PAGE);
   await p.mouse.move(500, 620);
@@ -135,7 +162,10 @@ const PAGE = "file://" + require("path").resolve(__dirname, "../skills/help-me/i
     await moveTo(x, y, 10);
   }
   await p.evaluate(() => {
-    const ta = document.getElementById("ta");
+    const ta = document.querySelector<HTMLTextAreaElement>("#ta");
+    if (!ta) {
+      throw new Error("no #ta textarea");
+    }
     const i = ta.value.indexOf("cappuccinos.") + "cappuccinos.".length;
     ta.focus();
     ta.setSelectionRange(i, i);
@@ -152,7 +182,10 @@ const PAGE = "file://" + require("path").resolve(__dirname, "../skills/help-me/i
   await w(1300);
   await shot("explain");
   const cards = p.locator("#pop [data-card]");
-  await moveTo(...(await center(cards.nth(1))), 20);
+  {
+    const [x, y] = await center(cards.nth(1));
+    await moveTo(x, y, 20);
+  }
   await w(900);
   await click(cards.nth(1));
   await w(1200);
@@ -206,7 +239,10 @@ const PAGE = "file://" + require("path").resolve(__dirname, "../skills/help-me/i
   // 9. send
   await caption("Shift+Enter sends it back to your agent");
   await p.evaluate(() => {
-    const ta = document.getElementById("ta");
+    const ta = document.querySelector<HTMLTextAreaElement>("#ta");
+    if (!ta) {
+      throw new Error("no #ta textarea");
+    }
     ta.focus();
     ta.setSelectionRange(ta.value.length, ta.value.length);
   });
@@ -230,4 +266,6 @@ const PAGE = "file://" + require("path").resolve(__dirname, "../skills/help-me/i
   await caption("");
   await ctx.close();
   await b.close();
-})();
+}
+
+await main();

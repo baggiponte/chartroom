@@ -1,26 +1,47 @@
 // Records the annotated README images in docs/img/ from demo mode:
-//   node docs/shots.js     (needs Playwright's Chromium and ffmpeg)
-const { chromium } = require("playwright");
-const path = require("path"),
-  fs = require("fs");
-const PAGE = "file://" + path.resolve(__dirname, "../skills/help-me/index.html");
-const OUT = path.resolve(__dirname, "img"),
-  VID = path.resolve(__dirname, "vid");
-fs.mkdirSync(OUT, { recursive: true });
+//   node docs/shots.ts     (needs Playwright's Chromium and ffmpeg)
+import { execFileSync } from "node:child_process";
+import { mkdirSync, readdirSync, renameSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { type Locator, type Page, chromium } from "@playwright/test";
+
+const PAGE = new URL("../skills/help-me/index.html", import.meta.url).href;
+const OUT = fileURLToPath(new URL("img", import.meta.url));
+const VID = fileURLToPath(new URL("vid", import.meta.url));
+mkdirSync(OUT, { recursive: true });
+
+type Point = [x: number, y: number];
+interface Note {
+  /** A selector, or a box in viewport pixels: [x, y, width, height]. */
+  el: string | [number, number, number, number];
+  text: string;
+  dx?: number;
+  dy?: number;
+  at?: Point;
+  to?: Point;
+  ring?: boolean | number;
+  bend?: number;
+  arrow?: false;
+}
+interface Box {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
 
 const ACCENT = "#e8590c";
-// Draws labelled arrows over the page. Each note: { el: selector | [x,y,w,h], text, dx, dy | at, to, ring, bend }
-// dx/dy place the label's center relative to the target's center (at: absolute viewport point instead);
-// to overrides where the arrow ends; ring outlines the target.
-function annotate(notes, accent) {
+// Draws labelled arrows over the page. dx/dy place the label's center relative to the target's center (at: absolute
+// viewport point instead); to overrides where the arrow ends; ring outlines the target.
+// It runs inside the page (Playwright sends its source), so it may use only its argument and the page's globals.
+function annotate({ notes, accent }: { notes: Note[]; accent: string }): void {
   document.getElementById("__ann")?.remove();
   const NS = "http://www.w3.org/2000/svg";
   const root = document.createElement("div");
   root.id = "__ann";
-  root.style.cssText =
-    "position:absolute;left:0;top:0;width:100%;height:" +
-    document.documentElement.scrollHeight +
-    "px;pointer-events:none;z-index:99990";
+  root.style.cssText = `position:absolute;left:0;top:0;width:100%;height:${String(document.documentElement.scrollHeight)}px;pointer-events:none;z-index:99990`;
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("width", "100%");
   svg.setAttribute("height", "100%");
@@ -28,12 +49,22 @@ function annotate(notes, accent) {
   svg.innerHTML = `<defs><marker id="__ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="${accent}"/></marker></defs>`;
   root.appendChild(svg);
   document.body.appendChild(root);
-  const box = el => {
-    if (Array.isArray(el)) return { x: el[0], y: el[1] + scrollY, w: el[2], h: el[3] };
-    const n = typeof el === "string" ? document.querySelector(el) : el;
-    if (!n) throw new Error("annotate: no element " + el);
-    const r = n.getClientRects()[0] || n.getBoundingClientRect();
+  const box = (el: Note["el"]): Box => {
+    if (Array.isArray(el)) {
+      return { x: el[0], y: el[1] + scrollY, w: el[2], h: el[3] };
+    }
+    const n = document.querySelector(el);
+    if (!n) {
+      throw new Error(`annotate: no element ${el}`);
+    }
+    const r = n.getClientRects()[0] ?? n.getBoundingClientRect();
     return { x: r.x, y: r.y + scrollY, w: r.width, h: r.height };
+  };
+  // oxlint-disable-next-line unicorn/consistent-function-scoping -- annotate runs in the page, so it can't use helpers from this file
+  const setAll = (node: Element, attrs: Record<string, string | number>): void => {
+    for (const [k, v] of Object.entries(attrs)) {
+      node.setAttribute(k, String(v));
+    }
   };
   for (const n of notes) {
     const t = box(n.el);
@@ -45,14 +76,14 @@ function annotate(notes, accent) {
     root.appendChild(lab);
     const lw = lab.offsetWidth,
       lh = lab.offsetHeight,
-      lx = (n.at ? n.at[0] : cx + n.dx) - lw / 2,
-      ly = (n.at ? n.at[1] + scrollY : cy + n.dy) - lh / 2;
-    lab.style.left = lx + "px";
-    lab.style.top = ly + "px";
+      lx = (n.at ? n.at[0] : cx + (n.dx ?? 0)) - lw / 2,
+      ly = (n.at ? n.at[1] + scrollY : cy + (n.dy ?? 0)) - lh / 2;
+    lab.style.left = `${String(lx)}px`;
+    lab.style.top = `${String(ly)}px`;
     if (n.ring) {
       const r = document.createElementNS(NS, "rect");
       const pad = n.ring === true ? 5 : n.ring;
-      Object.entries({
+      setAll(r, {
         x: t.x - pad,
         y: t.y - pad,
         width: t.w + 2 * pad,
@@ -62,14 +93,16 @@ function annotate(notes, accent) {
         stroke: accent,
         "stroke-width": 2.5,
         "stroke-dasharray": "6 4",
-      }).forEach(([k, v]) => r.setAttribute(k, v));
+      });
       svg.appendChild(r);
     }
-    if (n.arrow === false) continue;
+    if (n.arrow === false) {
+      continue;
+    }
     // start on the label's edge facing the target, end just outside the target's box
     const lcx = lx + lw / 2,
       lcy = ly + lh / 2;
-    const clampTo = (px, py, b, pad) => [
+    const clampTo = (px: number, py: number, b: Box, pad: number): Point => [
       Math.max(b.x - pad, Math.min(px, b.x + b.w + pad)),
       Math.max(b.y - pad, Math.min(py, b.y + b.h + pad)),
     ];
@@ -80,29 +113,105 @@ function annotate(notes, accent) {
       mx = (sx + ex) / 2 - (ey - sy) * bend,
       my = (sy + ey) / 2 + (ex - sx) * bend;
     const p = document.createElementNS(NS, "path");
-    Object.entries({
-      d: `M${sx} ${sy} Q${mx} ${my} ${ex} ${ey}`,
+    setAll(p, {
+      d: `M${String(sx)} ${String(sy)} Q${String(mx)} ${String(my)} ${String(ex)} ${String(ey)}`,
       fill: "none",
       stroke: accent,
       "stroke-width": 2.5,
       "stroke-linecap": "round",
       "marker-end": "url(#__ah)",
-    }).forEach(([k, v]) => p.setAttribute(k, v));
+    });
     svg.appendChild(p);
   }
 }
 
-(async () => {
-  const b = await chromium.launch();
-  const page = async (opts = {}) => {
+/** The page's bounding box, which only a hidden element lacks. */
+async function boxOf(loc: Locator): Promise<{ x: number; y: number; width: number; height: number }> {
+  const b = await loc.boundingBox();
+  if (!b) {
+    throw new Error(`${String(loc)} is not visible`);
+  }
+  return b;
+}
+
+// The middle of the element's first line box, so a mark that wraps is clicked on its text.
+const center = (loc: Locator): Promise<Point> =>
+  loc.evaluate((el): Point => {
+    const b = el.getClientRects()[0] ?? el.getBoundingClientRect();
+    return [b.x + b.width / 2, b.y + b.height / 2];
+  });
+
+// Helpers bound to one page, so each step reads as what a person does.
+function helpers(p: Page) {
+  return {
+    w: (ms: number): Promise<void> => p.waitForTimeout(ms),
+    mark: (text: string): Locator => p.locator("#backdrop mark", { hasText: text }).first(),
+    chip: (text: string): Locator => p.locator("#pop .chip", { hasText: text }).first(),
+    center,
+    async click(loc: Locator, pause = 200): Promise<void> {
+      const [x, y] = await center(loc);
+      await p.mouse.move(x, y, { steps: 14 });
+      await p.waitForTimeout(pause);
+      await p.mouse.down();
+      await p.waitForTimeout(60);
+      await p.mouse.up();
+    },
+    async scrub(loc: Locator, dx: number): Promise<void> {
+      const [x, y] = await center(loc);
+      await p.mouse.move(x, y, { steps: 12 });
+      await p.waitForTimeout(300);
+      await p.mouse.down();
+      await p.mouse.move(x + dx * 1.8, y, { steps: 28 });
+      await p.waitForTimeout(250);
+      await p.mouse.move(x + dx, y, { steps: 14 });
+      await p.waitForTimeout(200);
+      await p.mouse.up();
+    },
+    async ask(atEnd = false): Promise<void> {
+      await p.evaluate(end => {
+        const ta = document.querySelector<HTMLTextAreaElement>("#ta");
+        if (!ta) {
+          throw new Error("no #ta textarea");
+        }
+        const i = end ? ta.value.length : ta.value.indexOf("lattes.") + "lattes.".length;
+        ta.focus();
+        ta.setSelectionRange(i, i);
+      }, atEnd);
+      await p.keyboard.type(" Which heating system should it have?", { delay: 0 });
+      await p.waitForTimeout(1600);
+    },
+    ann: (notes: Note[]): Promise<void> => p.evaluate(annotate, { notes, accent: ACCENT }),
+    shot: (name: string, clip?: { x: number; y: number; width: number; height: number }): Promise<Buffer> =>
+      p.screenshot({ path: join(OUT, name), ...(clip ? { clip } : {}) }),
+  };
+}
+type Helpers = ReturnType<typeof helpers>;
+
+const quiet = (p: Page): Promise<void> =>
+  p.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  });
+
+const markTexts = (p: Page): Promise<string[]> =>
+  p.evaluate(() => [...document.querySelectorAll("#backdrop mark")].map(m => m.textContent));
+
+async function main(): Promise<void> {
+  // Like playwright.config.ts: a machine with a Chromium already installed can skip `playwright install`.
+  const executablePath = process.env["PLAYWRIGHT_CHROMIUM_PATH"];
+  const b = await chromium.launch(executablePath === undefined ? {} : { executablePath });
+  const page = async (opts: { w?: number; h?: number; video?: boolean } = {}): Promise<Page> => {
+    const width = opts.w ?? 1360;
+    const height = opts.h ?? 760;
     const ctx = await b.newContext({
-      viewport: { width: opts.w || 1360, height: opts.h || 760 },
+      viewport: { width, height },
       deviceScaleFactor: opts.video ? 1 : 2,
       colorScheme: "light",
-      ...(opts.video ? { recordVideo: { dir: VID, size: { width: opts.w, height: opts.h } } } : {}),
+      ...(opts.video ? { recordVideo: { dir: VID, size: { width, height } } } : {}),
     });
-    if (opts.video)
-      await ctx.addInitScript(() =>
+    if (opts.video) {
+      await ctx.addInitScript(() => {
         addEventListener("DOMContentLoaded", () => {
           const c = document.createElement("div");
           c.style.cssText =
@@ -113,72 +222,23 @@ function annotate(notes, accent) {
           addEventListener(
             "mousemove",
             e => {
-              c.style.left = e.clientX + "px";
-              c.style.top = e.clientY + "px";
+              c.style.left = `${String(e.clientX)}px`;
+              c.style.top = `${String(e.clientY)}px`;
             },
             true,
           );
-        }),
-      );
+        });
+      });
+    }
     const p = await ctx.newPage();
-    p.ctx = ctx;
     await p.goto(PAGE);
     await p.waitForTimeout(2300);
     return p;
   };
-  const H = p => ({
-    w: ms => p.waitForTimeout(ms),
-    mark: t => p.locator("#backdrop mark", { hasText: t }).first(),
-    chip: t => p.locator("#pop .chip", { hasText: t }).first(),
-    async center(loc) {
-      const r = await loc.evaluate(el => {
-        const b = el.getClientRects()[0] || el.getBoundingClientRect();
-        return [b.x + b.width / 2, b.y + b.height / 2];
-      });
-      return r;
-    },
-    async click(loc, pause = 200) {
-      const [x, y] = await this.center(loc);
-      await p.mouse.move(x, y, { steps: 14 });
-      await p.waitForTimeout(pause);
-      await p.mouse.down();
-      await p.waitForTimeout(60);
-      await p.mouse.up();
-    },
-    async scrub(loc, dx) {
-      const [x, y] = await this.center(loc);
-      await p.mouse.move(x, y, { steps: 12 });
-      await p.waitForTimeout(300);
-      await p.mouse.down();
-      await p.mouse.move(x + dx * 1.8, y, { steps: 28 });
-      await p.waitForTimeout(250);
-      await p.mouse.move(x + dx, y, { steps: 14 });
-      await p.waitForTimeout(200);
-      await p.mouse.up();
-    },
-    async ask(atEnd) {
-      await p.evaluate(atEnd => {
-        const ta = document.getElementById("ta");
-        const i = atEnd ? ta.value.length : ta.value.indexOf("lattes.") + "lattes.".length;
-        ta.focus();
-        ta.setSelectionRange(i, i);
-      }, !!atEnd);
-      await p.keyboard.type(" Which heating system should it have?", { delay: 0 });
-      await p.waitForTimeout(1600);
-    },
-    ann: notes =>
-      p.evaluate(([n, a]) => (0, eval)("(" + n.f + ")")(n.notes, a), [{ f: annotate.toString(), notes }, ACCENT]),
-    shot: (name, clip) => p.screenshot({ path: path.join(OUT, name), clip }),
-  });
-  const quiet = p =>
-    p.evaluate(() => {
-      document.activeElement?.blur();
-    });
-
   // 1. Overview: every kind of mark in one request, plus the timeline
   {
     const p = await page({ h: 640 });
-    const h = H(p);
+    const h = helpers(p);
     await p.addStyleTag({ content: "body{padding-top:70px} #summary,#hint,.hint{display:none!important}" });
     await h.w(300);
     await h.click(h.mark("coffee machine"));
@@ -195,32 +255,32 @@ function annotate(notes, accent) {
     await quiet(p);
     await p.mouse.move(1350, 630);
     await h.w(400);
-    const marks = await p.evaluate(() => [...document.querySelectorAll("#backdrop mark")].map(m => m.textContent));
+    const marks = await markTexts(p);
     console.log("marks", marks);
     await h.ann([
       {
-        el: `#backdrop mark:nth-of-type(${marks.findIndex(m => m.startsWith("espresso")) + 1})`,
+        el: `#backdrop mark:nth-of-type(${String(marks.findIndex(m => m.startsWith("espresso")) + 1)})`,
         text: "Click an underline to flip it",
         dx: -90,
         dy: -78,
         bend: -0.2,
       },
       {
-        el: `#backdrop mark:nth-of-type(${marks.findIndex(m => m.startsWith("Which")) + 1})`,
+        el: `#backdrop mark:nth-of-type(${String(marks.findIndex(m => m.startsWith("Which")) + 1)})`,
         text: "A question you asked: pick an answer",
         dx: 230,
         dy: -128,
         bend: 0.1,
       },
       {
-        el: `#backdrop mark:nth-of-type(${marks.findIndex(m => m.startsWith("up to")) + 1})`,
+        el: `#backdrop mark:nth-of-type(${String(marks.findIndex(m => m.startsWith("up to")) + 1)})`,
         text: "Drag a blue value",
         dx: 30,
         dy: 150,
         bend: -0.15,
       },
       {
-        el: `#backdrop mark:nth-of-type(${marks.findIndex(m => m === "[milk]") + 1})`,
+        el: `#backdrop mark:nth-of-type(${String(marks.findIndex(m => m === "[milk]") + 1)})`,
         text: "Click a [blank] to fill it",
         dx: -45,
         dy: 150,
@@ -230,13 +290,13 @@ function annotate(notes, accent) {
       { el: "#journey", text: "Where you are and what to do now", dx: 0, dy: 230, ring: 8, bend: 0 },
     ]);
     await h.shot("overview.png", { x: 120, y: 0, width: 1140, height: 540 });
-    await p.ctx.close();
+    await p.context().close();
   }
 
   // 2. A question you wrote gets answers, plus Explain me / Help me decide
   {
     const p = await page({ w: 1000, h: 760 });
-    const h = H(p);
+    const h = helpers(p);
     await p.addStyleTag({ content: "#summary,.hint{display:none!important}" });
     await h.w(200);
     await h.ask(true);
@@ -245,11 +305,11 @@ function annotate(notes, accent) {
     await quiet(p);
     await p.mouse.move(990, 750);
     await h.w(300);
-    const card = await p.locator("#card").boundingBox();
+    const card = await boxOf(p.locator("#card"));
     const ox = card.x - 20,
       oy = card.y - 20;
-    const hx = await h.chip("Dual boiler").boundingBox(),
-      so = await p.locator('#pop [data-role="other"]').boundingBox();
+    const hx = await boxOf(h.chip("Dual boiler")),
+      so = await boxOf(p.locator('#pop [data-role="other"]'));
     await h.ann([
       {
         el: "#pop .chip:nth-of-type(3)",
@@ -267,40 +327,35 @@ function annotate(notes, accent) {
       },
       { el: '#pop [data-role="decide-open"]', text: "Not sure? Ask for help", dx: 60, dy: 75, bend: 0.2 },
     ]);
-    const pb = await p.locator("#pop").boundingBox();
+    const pb = await boxOf(p.locator("#pop"));
     await h.shot("question.png", { x: ox, y: oy, width: card.width + 40, height: pb.y + pb.height + 90 - oy });
     // picking one rewrites the question as a statement
-    await p.evaluate(() => document.getElementById("__ann")?.remove());
+    await p.evaluate(() => {
+      document.getElementById("__ann")?.remove();
+    });
     await h.click(h.chip("Dual boiler"));
     await h.w(900);
     await p.keyboard.press("Escape");
     await quiet(p);
     await p.mouse.move(990, 750);
     await h.w(400);
-    const qi = await p.evaluate(
-      () =>
-        [...document.querySelectorAll("#backdrop mark")].findIndex(m => m.textContent.startsWith("For heating")) + 1,
-    );
-    const st = await p.evaluate(i => {
-      const r = document.querySelector(`#backdrop mark:nth-of-type(${i})`).getClientRects()[0];
-      return [r.right, r.top];
-    }, qi);
+    const qi = (await markTexts(p)).findIndex(m => m.startsWith("For heating")) + 1;
     await h.ann([
       {
-        el: `#backdrop mark:nth-of-type(${qi})`,
+        el: `#backdrop mark:nth-of-type(${String(qi)})`,
         text: "Pick one and it becomes a statement",
         at: [ox + 420, card.y + card.height + 40],
         bend: 0,
       },
     ]);
     await h.shot("question-answered.png", { x: ox, y: oy, width: card.width + 40, height: card.height + 100 });
-    await p.ctx.close();
+    await p.context().close();
   }
 
   // 3. Explain me
   {
     const p = await page({ w: 1000, h: 1180 });
-    const h = H(p);
+    const h = helpers(p);
     await p.addStyleTag({ content: "#summary,.hint{display:none!important}" });
     await h.w(200);
     await h.click(h.mark("[milk]"));
@@ -310,7 +365,7 @@ function annotate(notes, accent) {
     await quiet(p);
     await p.mouse.move(995, 5);
     await h.w(300);
-    const pop = await p.locator("#pop").boundingBox();
+    const pop = await boxOf(p.locator("#pop"));
     const ox = pop.x - 20,
       oy = pop.y - 20;
     await h.ann([
@@ -323,30 +378,33 @@ function annotate(notes, accent) {
       { el: '#pop [data-role="decide"]', text: "Questions about you, then a suggestion", dx: 330, dy: 0, bend: 0 },
     ]);
     await h.shot("explain.png", { x: ox, y: oy, width: pop.width + 40, height: pop.height + 40 });
-    await p.ctx.close();
+    await p.context().close();
   }
 
   // 4. Help me decide
   {
     const p = await page({ w: 1000, h: 860 });
-    const h = H(p);
+    const h = helpers(p);
     await h.click(h.mark("[milk]"));
     await h.w(600);
     await h.click(p.locator('#pop [data-role="explain"]'));
     await h.w(1300);
     await h.click(p.locator('#pop [data-role="decide"]'));
     await h.w(1500);
+    // One answer at a time, as a person would: each answer changes the next question.
+    /* oxlint-disable no-await-in-loop */
     for (let q = 0; q < 3; q++) {
-      const c = p.locator(`#pop .chip[data-dq="${q}"]`).first();
+      const c = p.locator(`#pop .chip[data-dq="${String(q)}"]`).first();
       if (await c.count()) {
         await h.click(c);
         await h.w(1300);
       }
     }
+    /* oxlint-enable no-await-in-loop */
     await quiet(p);
     await p.mouse.move(995, 5);
     await h.w(300);
-    const rec = await p.locator(".decide-rec").boundingBox();
+    const rec = await boxOf(p.locator(".decide-rec"));
     await h.ann([
       { el: '.sheet-you .chip[data-dq="1"]', text: "A few questions about you", at: [210, 560], bend: 0 },
       {
@@ -359,13 +417,13 @@ function annotate(notes, accent) {
       { el: ".ocard.rec", text: "Marked in your options", at: [835, 500], bend: -0.2 },
     ]);
     await h.shot("decide.png");
-    await p.ctx.close();
+    await p.context().close();
   }
 
   // 5. What was sent
   {
     const p = await page({ w: 1000, h: 820 });
-    const h = H(p);
+    const h = helpers(p);
     await p.addStyleTag({ content: "#summary{display:none!important}" });
     await h.w(200);
     await h.click(h.mark("coffee machine"));
@@ -380,7 +438,10 @@ function annotate(notes, accent) {
     await h.w(600);
     await p.keyboard.press("Escape");
     await p.evaluate(() => {
-      const ta = document.getElementById("ta");
+      const ta = document.querySelector<HTMLTextAreaElement>("#ta");
+      if (!ta) {
+        throw new Error("no #ta textarea");
+      }
       ta.focus();
       ta.setSelectionRange(ta.value.length, ta.value.length);
     });
@@ -391,14 +452,18 @@ function annotate(notes, accent) {
     await quiet(p);
     await p.mouse.move(995, 5);
     await h.w(300);
-    const a = await p.locator("#endedBar").boundingBox(),
-      pre = await p.locator("#endedPrompt").boundingBox(),
-      z = await p.locator("#sentNotes").boundingBox();
-    const li = await p.evaluate(() => {
+    const a = await boxOf(p.locator("#endedBar")),
+      pre = await boxOf(p.locator("#endedPrompt")),
+      z = await boxOf(p.locator("#sentNotes"));
+    const li = await p.evaluate((): Point => {
+      const item = document.querySelector("#sentNotes li");
+      if (!item) {
+        throw new Error("nothing was left out");
+      }
       const r = document.createRange();
-      r.selectNodeContents(document.querySelector("#sentNotes li"));
-      const b = r.getBoundingClientRect();
-      return [b.right, b.y + b.height / 2];
+      r.selectNodeContents(item);
+      const box = r.getBoundingClientRect();
+      return [box.right, box.y + box.height / 2];
     });
     await h.ann([
       {
@@ -411,12 +476,17 @@ function annotate(notes, accent) {
       { el: "#sentNotes", text: "and what was left out", at: [835, li[1] + 30], to: [li[0] + 8, li[1]], bend: -0.2 },
     ]);
     await h.shot("sent.png", { x: 100, y: a.y - 16, width: 860, height: z.y + z.height - a.y + 40 });
-    await p.ctx.close();
+    await p.context().close();
   }
 
   // GIF clips (video at 1x; ffmpeg turns them into GIFs)
-  const starts = {};
-  const clip = async (name, w, h, fn) => {
+  const starts: Record<string, number> = {};
+  const clip = async (
+    name: string,
+    w: number,
+    h: number,
+    fn: (p: Page, helper: Helpers, go: () => void) => Promise<void>,
+  ): Promise<void> => {
     const t0 = Date.now();
     const p = await page({ w, h, video: true });
     await p.addStyleTag({
@@ -424,12 +494,15 @@ function annotate(notes, accent) {
         "#summary,.hint,#journey{display:none!important} body{padding-top:0!important} .layout,main{padding-top:14px!important;margin-top:0!important}",
     });
     let start = 0;
-    await fn(p, H(p), () => {
+    await fn(p, helpers(p), () => {
       start = (Date.now() - t0) / 1000;
     });
     const v = p.video();
-    await p.ctx.close();
-    fs.renameSync(await v.path(), path.join(VID, name + ".webm"));
+    if (!v) {
+      throw new Error("the page was not recorded");
+    }
+    await p.context().close();
+    renameSync(await v.path(), join(VID, `${name}.webm`));
     starts[name] = start;
   };
   await clip("underlines", 860, 330, async (p, h, go) => {
@@ -477,8 +550,7 @@ function annotate(notes, accent) {
   });
 
   // GIFs: 12 fps, 720 px wide, 64 colours, duplicate frames dropped
-  const { execFileSync } = require("child_process");
-  for (const [name, ss] of Object.entries(starts))
+  for (const [name, ss] of Object.entries(starts)) {
     execFileSync("ffmpeg", [
       "-loglevel",
       "error",
@@ -486,26 +558,28 @@ function annotate(notes, accent) {
       "-ss",
       String(ss),
       "-i",
-      path.join(VID, name + ".webm"),
+      join(VID, `${name}.webm`),
       "-vf",
       "fps=12,scale=720:-1:flags=lanczos,tpad=stop_mode=clone:stop_duration=1.5,mpdecimate=hi=64*24:lo=64*8:frac=0.2,split[a][b];[a]palettegen=max_colors=64:stats_mode=diff[p];[b][p]paletteuse=dither=none:diff_mode=rectangle",
       "-fps_mode",
       "vfr",
-      path.join(OUT, name + ".gif"),
+      join(OUT, `${name}.gif`),
     ]);
-  fs.rmSync(VID, { recursive: true, force: true });
+  }
+  rmSync(VID, { recursive: true, force: true });
   // shrink the PNGs to 128 colours (about a quarter of the size) when Pillow is around
   try {
     execFileSync("python3", [
       "-c",
       'import sys,PIL.Image as I\nfor f in sys.argv[1:]: I.open(f).convert("RGB").quantize(128, I.Quantize.MEDIANCUT, dither=I.Dither.NONE).save(f, optimize=True)',
-      ...fs
-        .readdirSync(OUT)
+      ...readdirSync(OUT)
         .filter(f => f.endsWith(".png"))
-        .map(f => path.join(OUT, f)),
+        .map(f => join(OUT, f)),
     ]);
   } catch {
     console.warn("Pillow not found: PNGs left unquantized");
   }
   await b.close();
-})();
+}
+
+await main();

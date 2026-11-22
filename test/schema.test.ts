@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { check, checkedReply, dropNulls, strict, withSchema } from "../skills/help-me/schema.mjs";
+import { type Schema, check, checkedReply, dropNulls, strict, withSchema } from "../skills/help-me/schema.ts";
 
 const choice = {
   type: "object",
@@ -14,7 +14,7 @@ const choice = {
       items: { type: "object", required: ["label"], properties: { label: { type: "string" } } },
     },
   },
-};
+} as const satisfies Schema;
 
 test("strict makes every property required and turns the optional ones nullable", () => {
   assert.deepEqual(strict(choice), {

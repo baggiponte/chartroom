@@ -422,7 +422,7 @@ const ta = $("ta"), backdrop = $("backdrop"), pop = $("pop"), extrasEl = $("extr
 const EXAMPLE = "Help me choose a home coffee machine for my small kitchen, something good for lattes.";
 
 let mode = "live", modelName = "the model", agentName = "your agent", imagesOn = true;
-const chat = window.__HELP_ME_MCP__ ? chatHost() : null; // set by mcp/server.mjs when the page is shown inside the chat
+const chat = window.__HELP_ME_MCP__ ? chatHost() : null; // set by mcp/server.ts when the page is shown inside the chat
 const BUILD = "%BUILD%"; // the serving process swaps in a hash of this file; a file:// page keeps the placeholder
 const STALE = "this page doesn't match the running help-me server. Run /help-me again to restart it";
 const staleFor = (j) => BUILD[0] !== "%" && j.build !== BUILD;

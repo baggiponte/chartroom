@@ -1,7 +1,7 @@
 ---
 name: help-me
 description: Opens a browser page where the user shapes a vague request by clicking on it, then returns the sharpened request. Use when the user types /help-me or asks to refine their request in the browser before you start.
-compatibility: Needs Node 18+, a local browser, and one analysis backend (the claude, codex or gemini CLI, or ANTHROPIC_API_KEY / OPENAI_API_KEY).
+compatibility: Needs Node 22.18+, a local browser, and one analysis backend (the claude, codex or gemini CLI, or ANTHROPIC_API_KEY / OPENAI_API_KEY).
 allowed-tools: Bash(node:*)
 metadata:
   version: "0.4.0"
@@ -17,7 +17,7 @@ The user shapes their request in a browser page; you get the sharpened request b
 their message) on stdin with a quoted heredoc:
 
 ```bash
-node "SKILL_DIR/server.mjs" --stdin --agent "<your name, e.g. Codex>" [override flags] <<'HELP_ME_EOF'
+node "SKILL_DIR/server.ts" --stdin --agent "<your name, e.g. Codex>" [override flags] <<'HELP_ME_EOF'
 <the user's request, verbatim, minus any overrides (see below)>
 HELP_ME_EOF
 ```

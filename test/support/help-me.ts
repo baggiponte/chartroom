@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 
 import { z } from "zod";
 
-const SERVER = fileURLToPath(new URL("../../skills/help-me/server.mjs", import.meta.url));
+const SERVER = fileURLToPath(new URL("../../skills/help-me/server.ts", import.meta.url));
 
 export interface ModelRequest {
   model: string;
@@ -92,7 +92,7 @@ export interface StartOptions {
   stdin?: string;
 }
 
-/** Starts server.mjs on a free port; with no `api` it gets one that fails the test if the model is ever called. */
+/** Starts server.ts on a free port; with no `api` it gets one that fails the test if the model is ever called. */
 export async function startHelpMe({
   args = [],
   env = {},
@@ -158,7 +158,7 @@ export async function startHelpMe({
 }
 
 /**
- * Runs server.mjs when it is expected to exit on its own before listening. A server that starts listening instead is
+ * Runs server.ts when it is expected to exit on its own before listening. A server that starts listening instead is
  * killed after `waitMs` and reported with code null.
  */
 export function runHelpMe(
