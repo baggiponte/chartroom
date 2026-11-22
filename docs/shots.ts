@@ -280,7 +280,7 @@ async function main(): Promise<void> {
         bend: -0.15,
       },
       {
-        el: `#backdrop mark:nth-of-type(${String(marks.findIndex(m => m === "[milk]") + 1)})`,
+        el: `#backdrop mark:nth-of-type(${String(marks.indexOf("[milk]") + 1)})`,
         text: "Click a [blank] to fill it",
         dx: -45,
         dy: 150,
