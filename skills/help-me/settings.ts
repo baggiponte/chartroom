@@ -117,7 +117,7 @@ export function readSettings(argv: Array<string>, env: NodeJS.ProcessEnv): Setti
     (f: Flag) => env["PROMPT_SHAPER_" + f.replaceAll("-", "_").toUpperCase()] || undefined,
     // Config values are read as text, like flags and env vars: `"port": 8080` and `"port": "8080"` mean the same.
     (f: Flag) => {
-      const v = config[f.replace(/-(\w)/g, (_, c: string) => c.toUpperCase())];
+      const v = config[f.replaceAll(/-(\w)/g, (_, c: string) => c.toUpperCase())];
       return typeof v === "string" || typeof v === "number" || typeof v === "boolean" ? String(v) : undefined;
     },
   ] as const;

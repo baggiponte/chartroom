@@ -987,7 +987,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		">": "&gt;",
 		"\"": "&quot;"
 	};
-	const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ESCAPES[c] ?? c);
+	const esc = (s) => String(s).replaceAll(/[&<>"]/g, (c) => ESCAPES[c] ?? c);
 	const cap = (s) => s.replace(/^./, (c) => c.toUpperCase());
 	const errorMessage = (e) => e instanceof Error ? e.message : String(e);
 	// page/choice.ts
@@ -1878,9 +1878,9 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		}
 		if (state.tidyHeads.size) {
 			const lines = text.split("\n").filter((l) => !/^[ \t]*[-*•][ \t]*$/.test(l));
-			text = lines.filter((l, i) => !(isHeading(l) && !(lines[i + 1] ?? "").trim())).join("\n").replace(/\n{3,}/g, "\n\n");
+			text = lines.filter((l, i) => !(isHeading(l) && !(lines[i + 1] ?? "").trim())).join("\n").replaceAll(/\n{3,}/g, "\n\n");
 		}
-		return text.replace(/[ \t]+$/gm, "").trim();
+		return text.replaceAll(/[ \t]+$/gm, "").trim();
 	}
 	// page/tidy.ts
 	/** Sentences as [a, b) ranges, never cutting through an underline; bullets and our own headings are left out. */

@@ -189,7 +189,7 @@ export function withoutOpen(text = ta.value): string {
     text = lines
       .filter((l, i) => !(isHeading(l) && !(lines[i + 1] ?? "").trim()))
       .join("\n")
-      .replace(/\n{3,}/g, "\n\n");
+      .replaceAll(/\n{3,}/g, "\n\n");
   }
-  return text.replace(/[ \t]+$/gm, "").trim();
+  return text.replaceAll(/[ \t]+$/gm, "").trim();
 }

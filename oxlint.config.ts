@@ -13,7 +13,6 @@ export default defineConfig({
     "quality/no-known-value-widening": "off",
     "quality/no-conditional-empty-object-spread": "off",
     "no-console": "off",
-    "unicorn/prefer-string-replace-all": "off",
     "quality/no-object-parameters": "off",
     "no-promise-executor-return": "off",
     "unicorn/numeric-separators-style": "off",
