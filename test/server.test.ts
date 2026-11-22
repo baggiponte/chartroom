@@ -316,7 +316,7 @@ describe("choosing a backend", () => {
     assert.equal(code, 1);
     assert.match(
       stderr,
-      /unknown backend "nope". Set "backend" in .* to one of: claude, codex, gemini, antigravity, opencode, pi, anthropic, openai/,
+      /unknown backend "nope". Set "backend" in .* to one of: host, claude, codex, gemini, antigravity, opencode, pi, anthropic, openai/,
     );
   });
 
@@ -338,13 +338,13 @@ describe("choosing a backend", () => {
     assert.match(outFile(out).error ?? "", /broken-config\.json is not a valid config/);
   });
 
-  test("auto outside a known agent exits 1 instead of picking a backend for the user", async () => {
+  test("host outside a known agent exits 1 instead of picking a backend for the user", async () => {
     const { code, stderr } = await runHelpMe([], { ANTHROPIC_API_KEY: "x" });
     assert.equal(code, 1);
-    assert.match(stderr, /backend is "auto", but help-me can't tell which agent is running it/);
+    assert.match(stderr, /backend is "host", but help-me can't tell which agent is running it/);
   });
 
-  test("auto inside an agent whose CLI is missing exits 1 instead of falling back to another", async () => {
+  test("host inside an agent whose CLI is missing exits 1 instead of falling back to another", async () => {
     const { code, stderr } = await runHelpMe([], { CLAUDECODE: "1", ANTHROPIC_API_KEY: "x" });
     assert.equal(code, 1);
     assert.match(stderr, /Claude Code is running help-me, but the claude CLI on PATH isn't there/);
