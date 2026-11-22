@@ -6,9 +6,8 @@ import { readFileSync } from "node:fs";
 import http from "node:http";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { buffer } from "node:stream/consumers";
-import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import * as z from "zod";
 
@@ -25,7 +24,7 @@ interface Session {
   end: () => void;
 }
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = join(import.meta.dirname, "..");
 const VERSION = z
   .object({ version: z.string() })
   .parse(JSON.parse(readFileSync(join(ROOT, ".claude-plugin", "plugin.json"), "utf8"))).version;

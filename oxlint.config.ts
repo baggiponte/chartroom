@@ -17,7 +17,6 @@ export default defineConfig({
     "no-promise-executor-return": "off",
     "quality/no-array-filter-map": "off",
     "unicorn/prefer-top-level-await": "off",
-    "unicorn/prefer-import-meta-properties": "off",
     "unicorn/prefer-at": "off",
     "unicorn/prefer-array-index-of": "off",
     "import/no-namespace": "off",
