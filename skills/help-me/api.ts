@@ -1,17 +1,71 @@
-// The page's HTTP API: what each route takes and returns, and the handler that answers it.
+import { SupersededError } from "./jobs.ts";
+import type { ModelCall } from "./model.ts";
+import { BOOLEAN, type Infer, STRING, STRINGS, type Schema, check } from "./schema.ts";
+import {
+  type Analysis,
+  type Decision,
+  type Explanation,
+  type Tidied,
+  analyze,
+  decide,
+  explain,
+  tidy,
+} from "./tasks.ts";
 
-import type { IncomingMessage, ServerResponse } from "node:http";
-import { text as readAll } from "node:stream/consumers";
+/** Every POST route, with the body it takes and what it answers with a 200. */
+export interface Api {
+  "/api/analyze": { body: Infer<typeof BODY.analyze>; reply: Analysis };
+  "/api/explain": { body: Infer<typeof BODY.explain>; reply: Explanation };
+  "/api/decide": { body: Infer<typeof BODY.decide>; reply: Decision };
+  "/api/tidy": { body: Infer<typeof BODY.tidy>; reply: Tidied };
+  /** `sent` is exactly what the server printed for the agent. */
+  "/api/submit": { body: Infer<typeof BODY.submit>; reply: { ok: true; sent: string } };
+  "/api/cancel": { body: Record<string, never>; reply: { ok: true } };
+}
+export type Route = keyof Api;
 
-import { type ModelCall, SupersededError } from "./model.ts";
-import { type Infer, type Schema, check } from "./schema.ts";
-import { analyze, decide, explain, tidy } from "./tasks.ts";
+/** What `GET /api/init` answers, and what the MCP App's help_me tool returns. */
+export interface Init {
+  draft: string;
+  model: string;
+  backend: string;
+  agent: string;
+  images: boolean;
+  /** The hash of the page this process serves, so a page that outlived its server can tell. */
+  build: string;
+}
 
-const STRING = { type: "string" } as const;
-const STRINGS = { type: "array", items: STRING } as const;
-const BOOLEAN = { type: "boolean" } as const;
+/** What a route answers, whichever way the page reached it. */
+export interface Answer {
+  status: number;
+  body: unknown;
+}
 
-// Every field is optional, with its default where the handler reads it; a field that is there must have this shape.
+/** The body of every failed route: 400 for a body it can't read, 409 when superseded, 500 when the model failed. */
+export interface Failure {
+  error: string;
+}
+
+export type ExitCode = 0 | 1 | 2 | 3;
+
+export interface ApiDeps {
+  model: ModelCall;
+  log: (message: string) => void;
+  /** Called once the page sends or cancels, with what goes back to the agent. */
+  finish: (code: ExitCode, prompt: string) => void;
+}
+
+export const ROUTES = [
+  "/api/analyze",
+  "/api/explain",
+  "/api/decide",
+  "/api/tidy",
+  "/api/submit",
+  "/api/cancel",
+] as const satisfies Route[];
+export const isRoute = (path: string): path is Route => (ROUTES as readonly string[]).includes(path);
+
+// No field is required: each one's default sits where the route reads it.
 const BODY = {
   analyze: {
     type: "object",
@@ -32,69 +86,18 @@ const BODY = {
   submit: { type: "object", properties: { prompt: STRING } },
 } as const satisfies Record<string, Schema>;
 
-export type ExitCode = 0 | 1 | 2 | 3;
-
-export interface Init {
-  draft: string;
-  model: string;
-  backend: string;
-  agent: string;
-  images: boolean;
-  build: string;
-}
-
-/** Every POST route, with the body it takes and what it answers with a 200. */
-export interface Api {
-  "/api/analyze": { body: Infer<typeof BODY.analyze>; reply: Awaited<ReturnType<typeof analyze>> };
-  "/api/explain": { body: Infer<typeof BODY.explain>; reply: Awaited<ReturnType<typeof explain>> };
-  "/api/decide": { body: Infer<typeof BODY.decide>; reply: Awaited<ReturnType<typeof decide>> };
-  "/api/tidy": { body: Infer<typeof BODY.tidy>; reply: Awaited<ReturnType<typeof tidy>> };
-  /** `sent` is exactly what the server printed for the agent. */
-  "/api/submit": { body: Infer<typeof BODY.submit>; reply: { ok: true; sent: string } };
-  "/api/cancel": { body: Record<string, never>; reply: { ok: true } };
-}
-export type Route = keyof Api;
-
-/** What every failed route answers: 400 for a body it can't read, 409 when superseded, 500 when the model failed. */
-export interface Failure {
-  error: string;
-}
-
-export interface ApiDeps {
-  model: ModelCall;
-  log: (message: string) => void;
-  /** Called once the page sends or cancels, with what goes back to the agent. */
-  finish: (code: ExitCode, prompt: string) => void;
-}
-
-export interface HandlerDeps extends ApiDeps {
-  init: Init;
-  page: string;
-}
-
-/** What a route answers: the HTTP status and the JSON body, whichever way the page reached it. */
-export interface Answer {
-  status: number;
-  body: unknown;
-}
-
-const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+export const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 /** The text the server prints for `prompt`: nothing for nothing, and always ending in a newline. */
 export const printed = (prompt: string): string => (prompt ? (prompt.endsWith("\n") ? prompt : prompt + "\n") : "");
 
-/** Rejects a body that is not shaped like `schema`, which `call` answers with a 400. */
 function read<S extends Schema>(data: unknown, schema: S): Infer<S> {
   check(data, schema, "body");
   return data;
 }
 
-/**
- * The page's API without HTTP around it, so the browser server and the MCP App answer the same way: `call` takes a
- * route and its parsed JSON body, and never throws.
- */
+/** The page's API without a transport, so the browser server and the MCP App answer the same way. Never throws. */
 export function createApi({ model, log, finish }: ApiDeps) {
-  /** Answers a model-backed route: 409 when a newer request in the same slot took over, 500 for any other failure. */
   async function answer<T>(work: () => Promise<T>, done: (data: T) => string): Promise<Answer> {
     const t0 = Date.now();
     try {
@@ -158,47 +161,5 @@ export function createApi({ model, log, finish }: ApiDeps) {
         return { status: 400, body: { error: errorMessage(e) } satisfies Failure };
       }
     },
-  };
-}
-
-const ROUTES = new Set<string>([
-  "/api/analyze",
-  "/api/explain",
-  "/api/decide",
-  "/api/tidy",
-  "/api/submit",
-  "/api/cancel",
-] satisfies Route[]);
-export const isRoute = (path: string): path is Route => ROUTES.has(path);
-
-function send(res: ServerResponse, { status, body: obj }: Answer): void {
-  res.writeHead(status, { "content-type": "application/json" });
-  res.end(JSON.stringify(obj));
-}
-
-/** The browser server's request handler: the page, /api/init, and `createApi` behind POST. */
-export function createHandler({ init, page, ...deps }: HandlerDeps) {
-  const api = createApi(deps);
-
-  async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const { pathname } = new URL(req.url ?? "/", "http://x");
-    const at = `${req.method ?? ""} ${pathname}`;
-    if (at === "GET /" || at === "GET /index.html") {
-      res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
-      res.end(page);
-    } else if (at === "GET /api/init") {
-      send(res, { status: 200, body: init });
-    } else if (req.method === "POST" && isRoute(pathname)) {
-      const raw = await readAll(req);
-      send(res, await api.call(pathname, raw ? JSON.parse(raw) : {}));
-    } else {
-      send(res, { status: 404, body: { error: "not found" } satisfies Failure });
-    }
-  }
-
-  return (req: IncomingMessage, res: ServerResponse): void => {
-    route(req, res).catch((e: unknown) => {
-      send(res, { status: 400, body: { error: errorMessage(e) } satisfies Failure });
-    });
   };
 }

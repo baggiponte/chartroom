@@ -1,16 +1,53 @@
-// What each route asks the model for: its schema, the input built from the page's body, and the clean-up of the reply.
-// The prompts themselves are in prompts.ts.
-
-import type { ModelCall } from "./model.ts";
-import type { Infer, Schema } from "./schema.ts";
+import type { ModelCall, Reply } from "./model.ts";
 import { ANALYZE_SYSTEM, DECIDE_SYSTEM, EXPLAIN_SYSTEM, TIDY_SYSTEM } from "./prompts.ts";
+import { BOOLEAN, type Infer, NUMBER, STRING, STRINGS, type Schema } from "./schema.ts";
 
-const STRING = { type: "string" } as const;
-const STRINGS = { type: "array", items: STRING } as const;
-const NUMBER = { type: "number" } as const;
-const BOOLEAN = { type: "boolean" } as const;
+/** A choice as the page gets it: `type` says where it goes in the request. */
+export type Choice =
+  | (Omit<Item<"asks">, "sentence" | "kind"> & { type: "ask"; kind: "single" | "multi"; statement: string })
+  | (Item<"underlines"> & { type: "underline" })
+  | (Item<"extras"> & { type: "extra" });
+type Item<K extends "asks" | "underlines" | "extras"> = Infer<(typeof ANALYZE_SCHEMA)["properties"][K]["items"]>;
 
-// What asks, underlines and extras share; each adds the field that says where it goes in the request.
+export interface Analysis {
+  summary: string;
+  choices: Choice[];
+  model?: string;
+  ms?: number | undefined;
+}
+export type Explanation = Reply<typeof EXPLAIN_SCHEMA>;
+export type Decision = Omit<Reply<typeof DECIDE_SCHEMA>, "recommendation"> & {
+  recommendation?: Infer<(typeof DECIDE_SCHEMA)["properties"]["recommendation"]>;
+};
+/** Each block lists 0-based sentence indexes, and every sentence lands in exactly one block. */
+export interface Tidied {
+  blocks: { heading: string; items: number[] }[];
+  model: string;
+  ms: number | undefined;
+}
+
+export interface AnalyzeInput {
+  text: string;
+  settled: string[];
+  answers: string[];
+  asked: string[];
+  more: boolean;
+}
+
+export interface ExplainInput {
+  text: string;
+  question: string;
+  options: string[];
+}
+
+export interface DecideInput {
+  text: string;
+  question: string;
+  options: string[];
+  answers: { q: string; a: string }[];
+  asked: string[];
+}
+
 const CHOICE_FIELDS = {
   question: STRING,
   kind: { type: "string", enum: ["single", "multi", "slider"] },
@@ -41,7 +78,7 @@ const CHOICE_FIELDS = {
 } as const satisfies Record<string, Schema>;
 
 // Separate lists keep Haiku from mixing up "answer this question", "underline this phrase" and "add this missing setting".
-const SCHEMA = {
+const ANALYZE_SCHEMA = {
   type: "object",
   required: ["summary", "asks", "underlines", "extras"],
   properties: {
@@ -69,27 +106,6 @@ const SCHEMA = {
   },
 } as const satisfies Schema;
 
-type Item<K extends "asks" | "underlines" | "extras"> = Infer<(typeof SCHEMA)["properties"][K]["items"]>;
-/** A choice as the page gets it: `type` says where it goes in the request. */
-export type Choice =
-  | (Omit<Item<"asks">, "sentence" | "kind"> & { type: "ask"; kind: "single" | "multi"; statement: string })
-  | (Item<"underlines"> & { type: "underline" })
-  | (Item<"extras"> & { type: "extra" });
-export interface Analysis {
-  summary: string;
-  choices: Choice[];
-  model?: string;
-  ms?: number | undefined;
-}
-
-export interface AnalyzeInput {
-  text: string;
-  settled: string[];
-  answers: string[];
-  asked: string[];
-  more: boolean;
-}
-
 export async function analyze(
   model: ModelCall,
   { text, settled, answers, asked, more }: AnalyzeInput,
@@ -114,7 +130,7 @@ export async function analyze(
       `\n\nReturn no underlines and only 2-3 NEW extras that build on the answers so far ` +
       `and would most sharpen the result. No inline choices.`;
   }
-  const data = await model("analyze", ANALYZE_SYSTEM, SCHEMA, input);
+  const data = await model("analyze", ANALYZE_SYSTEM, ANALYZE_SCHEMA, input);
   const inText = (c: { span: string }): boolean => Boolean(c.span) && text.toLowerCase().includes(c.span.toLowerCase());
   const asks = data.asks.filter(inText).map(({ sentence, kind, ...a }): Choice & { type: "ask" } =>
     Object.assign(a, {
@@ -158,13 +174,7 @@ const EXPLAIN_SCHEMA = {
   },
 } as const satisfies Schema;
 
-export interface ExplainInput {
-  text: string;
-  question: string;
-  options: string[];
-}
-
-export function explain(model: ModelCall, { text, question, options }: ExplainInput) {
+export function explain(model: ModelCall, { text, question, options }: ExplainInput): Promise<Explanation> {
   const input = `Request: ${text}\nQuestion: ${question}\nOptions:\n` + options.map(o => `- ${o}`).join("\n");
   return model(`explain:${question}`, EXPLAIN_SYSTEM, EXPLAIN_SCHEMA, input);
 }
@@ -191,15 +201,10 @@ const DECIDE_SCHEMA = {
   },
 } as const satisfies Schema;
 
-export interface DecideInput {
-  text: string;
-  question: string;
-  options: string[];
-  answers: { q: string; a: string }[];
-  asked: string[];
-}
-
-export async function decide(model: ModelCall, { text, question, options, answers, asked }: DecideInput) {
+export async function decide(
+  model: ModelCall,
+  { text, question, options, answers, asked }: DecideInput,
+): Promise<Decision> {
   let input = `Request: ${text}\nQuestion: ${question}\nOptions:\n` + options.map(o => `- ${o}`).join("\n");
   if (answers.length) {
     input += `\n\nTheir answers so far:\n` + answers.map(a => `- ${a.q} ${a.a}`).join("\n");
@@ -233,12 +238,11 @@ const TIDY_SCHEMA = {
   },
 } as const satisfies Schema;
 
-// Returns 0-based sentence indexes; every sentence lands in exactly one block, so nothing the user wrote is lost.
-export async function tidy(model: ModelCall, sentences: string[]) {
+export async function tidy(model: ModelCall, sentences: string[]): Promise<Tidied> {
   const input = "Sentences:\n" + sentences.map((s, i) => `${String(i + 1)}. ${s}`).join("\n");
   const data = await model("tidy", TIDY_SYSTEM, TIDY_SCHEMA, input);
   const used = new Set<number>();
-  const blocks: { heading: string; items: number[] }[] = [];
+  const blocks: Tidied["blocks"] = [];
   for (const b of data.blocks) {
     const items = [];
     for (const n of b.items) {

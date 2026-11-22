@@ -1,29 +1,10 @@
-// The server's settings: each from its flag, then `PROMPT_SHAPER_<FLAG>`, then the config file, then a default.
-
 import { existsSync, readFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { delimiter, join } from "node:path";
 import { type ParseArgsOptionsConfig, parseArgs } from "node:util";
 
-import { BACKENDS, type BackendName, isBackend } from "./model.ts";
+import { BACKENDS, type BackendName, isBackend } from "./backends.ts";
 import { isRecord } from "./schema.ts";
-
-const FLAGS = {
-  out: { type: "string" },
-  stdin: { type: "boolean" },
-  draft: { type: "string" },
-  agent: { type: "string" },
-  backend: { type: "string" },
-  model: { type: "string" },
-  effort: { type: "string" },
-  images: { type: "boolean" },
-  open: { type: "boolean" },
-  browser: { type: "string" },
-  port: { type: "string" },
-  "timeout-min": { type: "string" },
-} as const satisfies ParseArgsOptionsConfig;
-type Flag = keyof typeof FLAGS;
-const ARGS = { options: FLAGS, allowNegative: true } as const;
 
 export interface Settings {
   /** Where to write `{status, prompt}` for an agent that polls instead of blocking; "" for nowhere. */
@@ -46,6 +27,25 @@ export interface Settings {
   configured: boolean;
 }
 
+const FLAGS = {
+  out: { type: "string" },
+  stdin: { type: "boolean" },
+  draft: { type: "string" },
+  agent: { type: "string" },
+  backend: { type: "string" },
+  model: { type: "string" },
+  effort: { type: "string" },
+  images: { type: "boolean" },
+  open: { type: "boolean" },
+  browser: { type: "string" },
+  port: { type: "string" },
+  "timeout-min": { type: "string" },
+} as const satisfies ParseArgsOptionsConfig;
+type Flag = keyof typeof FLAGS;
+const ARGS = { options: FLAGS, allowNegative: true } as const;
+
+const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+
 /**
  * The --out file, read leniently so that a command line `readSettings` refuses can still say so there. A value that
  * starts with "-" is the next flag, which the lenient parse would take as the file name.
@@ -54,8 +54,6 @@ export function outPath(argv: string[], env: NodeJS.ProcessEnv): string {
   const out = parseArgs({ ...ARGS, args: argv, strict: false }).values.out;
   return (typeof out === "string" && !out.startsWith("-") ? out : "") || env["PROMPT_SHAPER_OUT"] || "";
 }
-
-const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 function readConfig(file: string): Readonly<Record<string, unknown>> {
   if (!existsSync(file)) {
@@ -100,7 +98,10 @@ function autoBackend(env: NodeJS.ProcessEnv): BackendName {
   );
 }
 
-/** Throws, with a message for the user, when a flag, env var or config value can't be used. */
+/**
+ * Each setting comes from its flag, then `PROMPT_SHAPER_<FLAG>`, then the config file, then a default. Throws, with a
+ * message for the user, when one can't be used.
+ */
 export function readSettings(argv: string[], env: NodeJS.ProcessEnv): Settings {
   const flags = parseArgs({ ...ARGS, args: argv }).values;
   const configFile =
@@ -118,7 +119,6 @@ export function readSettings(argv: string[], env: NodeJS.ProcessEnv): Settings {
       return typeof v === "string" || typeof v === "number" || typeof v === "boolean" ? String(v) : undefined;
     },
   ] as const;
-  /** The index in `sources` of the first one that sets `f`, or sources.length when none does. */
   const sourceOf = (f: Flag): number => {
     const i = sources.findIndex(get => get(f) !== undefined);
     return i < 0 ? sources.length : i;

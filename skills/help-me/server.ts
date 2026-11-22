@@ -1,16 +1,15 @@
 #!/usr/bin/env node
-// prompt-shaper: serves index.html, blocks until Send, prints the shaped request on stdout.
-// Exit codes: 0 sent, 2 cancelled, 3 timeout. Flags and settings: see README.
-
 import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
-import { readFileSync, renameSync, writeFileSync } from "node:fs";
+import { renameSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { platform } from "node:os";
 import { text as readAll } from "node:stream/consumers";
 
-import { type ExitCode, createHandler, printed } from "./api.ts";
-import { createJobs, createModel } from "./model.ts";
+import { type ExitCode, errorMessage, printed } from "./api.ts";
+import { createHandler } from "./http.ts";
+import { createJobs } from "./jobs.ts";
+import { createModel } from "./model.ts";
+import { readPage } from "./page.ts";
 import { type Settings, outPath, readSettings } from "./settings.ts";
 
 const STATUS = { 0: "sent", 1: "error", 2: "cancelled", 3: "timeout" } as const satisfies Record<ExitCode, string>;
@@ -30,7 +29,7 @@ function writeOut(out: string, code: ExitCode, prompt: string): void {
     writeFileSync(`${out}.tmp`, JSON.stringify({ status: STATUS[code], prompt }) + "\n");
     renameSync(`${out}.tmp`, out);
   } catch (e) {
-    log(`could not write ${out}: ${e instanceof Error ? e.message : String(e)}`);
+    log(`could not write ${out}: ${errorMessage(e)}`);
   }
 }
 
@@ -39,7 +38,7 @@ const settings = ((): Settings => {
   try {
     return readSettings(argv, env);
   } catch (e) {
-    log(e instanceof Error ? e.message : String(e));
+    log(errorMessage(e));
     writeOut(outPath(argv, env), 1, "");
     return process.exit(1);
   }
@@ -47,10 +46,7 @@ const settings = ((): Settings => {
 
 const draft = settings.stdin ? (await readAll(process.stdin)).trim() : settings.draft;
 
-// Read once, so a running server never serves a page newer than its own code. The page carries a hash of the
-// file it was cut from and /api/init returns this process's, so a page that outlived its server can tell.
-const source = readFileSync(new URL("index.html", import.meta.url), "utf8");
-const build = createHash("sha256").update(source).digest("hex").slice(0, 12);
+const page = readPage();
 
 const jobs = createJobs();
 let finished = false;
@@ -69,8 +65,8 @@ const { backend, model, effort, images, agent } = settings;
 const server = http.createServer(
   createHandler({
     model: createModel({ backend, model, effort, env, jobs }),
-    init: { draft, model: model || backend, backend, agent, images, build },
-    page: source.replace('"%BUILD%"', JSON.stringify(build)),
+    init: { draft, model: model || backend, backend, agent, images, build: page.build },
+    page: page.html,
     log,
     finish,
   }),
@@ -99,6 +95,6 @@ server.listen(settings.port, "127.0.0.1", () => {
       .on("error", () => {})
       .unref();
   } catch {
-    // no browser to open: the URL is in the log above
+    // the URL is in the log above
   }
 });

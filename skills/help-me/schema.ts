@@ -1,4 +1,3 @@
-// JSON Schema helpers shared by every backend. Pure, so tests import them without starting the server.
 // Not Zod: the skill runs straight from its folder with no install step, so it can't have runtime dependencies,
 // and the same plain object doubles as the JSON Schema the model is given.
 
@@ -51,11 +50,17 @@ export type StrictSchema =
       readonly additionalProperties: false;
     };
 
+export const STRING = { type: "string" } as const;
+export const STRINGS = { type: "array", items: STRING } as const;
+export const NUMBER = { type: "number" } as const;
+export const BOOLEAN = { type: "boolean" } as const;
+export const ANY = {} as const satisfies Schema;
+
 export const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
-// OpenAI-style strict schemas want every property required and no extra keys. Optional fields become nullable,
-// and dropNulls() removes them again so the page sees the same shape as from the other backends.
+// Optional fields become nullable, and dropNulls() removes them again so the page sees the same shape as from the
+// other backends.
 export function strict(schema: Schema): StrictSchema {
   if (schema.type === "array") {
     return { ...schema, items: strict(schema.items) };
@@ -85,10 +90,7 @@ export const dropNulls = (v: unknown): unknown =>
 
 const typeName = (v: unknown): string => (v === null ? "null" : Array.isArray(v) ? "array" : typeof v);
 
-/**
- * Throws, naming the path, unless `v` has the shape of `schema`. Keys the schema doesn't name are deleted, so what
- * TypeScript knows afterwards is all there is.
- */
+/** Keys the schema doesn't name are deleted, so what TypeScript knows afterwards is all there is. */
 export function check<S extends Schema>(v: unknown, schema: S, at = "reply"): asserts v is Infer<S> {
   const s: Schema = schema;
   if (s.type === undefined) {
@@ -143,7 +145,7 @@ export function check<S extends Schema>(v: unknown, schema: S, at = "reply"): as
   }
 }
 
-// For backends that only see the schema in the prompt: the model may still wrap its JSON in a code fence.
+// A model that only sees the schema in the prompt may still wrap its JSON in a code fence.
 export function parseFenced(text: string): unknown {
   const fenced = /```(?:json)?\s*\n([\s\S]*?)```/i.exec(text);
   try {
