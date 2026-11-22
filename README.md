@@ -206,7 +206,8 @@ and end with `satisfies Plugin`. A plugin with a built-in's name replaces it.
 
 The built-in backends are plugins of the same shape (`skills/help-me/providers/`), so the optional fields they use
 work for yours too: `needs` and `available(env)` make help-me stop with a clear error when it can't run, and
-`host: { agent, running(env) }` lets `host` pick it when help-me runs inside that harness.
+`host: { agent, running(env) }` lets `host` pick it when help-me runs inside that harness. [`PLUGINS.md`](skills/help-me/PLUGINS.md) is
+the guide for an agent writing one: ask yours to "write a help-me plugin for X".
 
 ## Development
 
