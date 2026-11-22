@@ -16,10 +16,10 @@ interface Segment {
 }
 
 /** Sentences as [a, b) ranges, never cutting through an underline; bullets and our own headings are left out. */
-export function segments(text: string): Segment[] {
+export function segments(text: string): Array<Segment> {
   const marks = state.choices.filter(c => !c.extra && c.start >= 0);
   const inMark = (p: number): boolean => marks.some(c => p > c.start && p < c.end);
-  const segs: Segment[] = [];
+  const segs: Array<Segment> = [];
   let ls = 0;
   for (const line of text.split("\n")) {
     const le = ls + line.length;
@@ -100,10 +100,10 @@ async function runTidy(): Promise<void> {
   setStatus("", "");
 }
 
-function applyTidy(text: string, segs: Segment[], raw: { heading: string; items: number[] }[]): void {
+function applyTidy(text: string, segs: Array<Segment>, raw: Array<{ heading: string; items: Array<number> }>): void {
   // every sentence exactly once, whatever came back
   const used = new Set<number>();
-  const blocks: { heading: string; items: number[] }[] = [];
+  const blocks: Array<{ heading: string; items: Array<number> }> = [];
   for (const b of raw) {
     const items = b.items.filter(i => {
       const ok = Number.isInteger(i) && i >= 0 && i < segs.length && !used.has(i);

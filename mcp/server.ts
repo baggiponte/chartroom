@@ -28,7 +28,7 @@ const VERSION = z
   .parse(JSON.parse(readFileSync(join(ROOT, ".claude-plugin", "plugin.json"), "utf8"))).version;
 const URI = "ui://help-me/page.html";
 const MIME = "text/html;profile=mcp-app";
-const log = (...m: unknown[]): void => {
+const log = (...m: Array<unknown>): void => {
   console.error("[help-me mcp]", ...m);
 };
 

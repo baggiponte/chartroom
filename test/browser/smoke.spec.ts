@@ -4,8 +4,8 @@ import { startFakeApi, startHelpMe } from "../support/help-me.ts";
 
 const PAGE = new URL("../../skills/help-me/index.html", import.meta.url).href;
 
-async function openDemo(page: Page): Promise<string[]> {
-  const errors: string[] = [];
+async function openDemo(page: Page): Promise<Array<string>> {
+  const errors: Array<string> = [];
   page.on("pageerror", e => errors.push(e.message));
   page.on("console", m => {
     if (m.type() === "error") {
@@ -107,7 +107,7 @@ test("served by the help-me server, the page reads the request with the model an
   }));
   const helpMe = await startHelpMe({ api, args: ["--draft", "Help me choose a coffee machine"] });
   try {
-    const errors: string[] = [];
+    const errors: Array<string> = [];
     page.on("pageerror", e => errors.push(e.message));
     await page.goto(helpMe.url);
     await expect(page.locator("#summaryText")).toHaveText("Let's pick a machine.");

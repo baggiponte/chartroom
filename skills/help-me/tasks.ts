@@ -11,24 +11,24 @@ export type Tidied = Infer<typeof TIDIED>;
 
 export interface AnalyzeInput {
   text: string;
-  settled: string[];
-  answers: string[];
-  asked: string[];
+  settled: Array<string>;
+  answers: Array<string>;
+  asked: Array<string>;
   more: boolean;
 }
 
 export interface ExplainInput {
   text: string;
   question: string;
-  options: string[];
+  options: Array<string>;
 }
 
 export interface DecideInput {
   text: string;
   question: string;
-  options: string[];
-  answers: { q: string; a: string }[];
-  asked: string[];
+  options: Array<string>;
+  answers: Array<{ q: string; a: string }>;
+  asked: Array<string>;
 }
 
 const CHOICE_FIELDS = {
@@ -270,7 +270,7 @@ export const TIDIED = {
   properties: { ...TIDY_SCHEMA.properties, ...MODEL_INFO },
 } as const satisfies Schema;
 
-export async function tidy(model: ModelCall, sentences: string[]): Promise<Tidied> {
+export async function tidy(model: ModelCall, sentences: Array<string>): Promise<Tidied> {
   const input = "Sentences:\n" + sentences.map((s, i) => `${String(i + 1)}. ${s}`).join("\n");
   const data = await model("tidy", TIDY_SYSTEM, TIDY_SCHEMA, input);
   const used = new Set<number>();

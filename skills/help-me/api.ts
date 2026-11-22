@@ -68,8 +68,8 @@ export const ROUTES = [
   "/api/tidy",
   "/api/submit",
   "/api/cancel",
-] as const satisfies Route[];
-export const isRoute = (path: string): path is Route => (ROUTES as readonly string[]).includes(path);
+] as const satisfies Array<Route>;
+export const isRoute = (path: string): path is Route => (ROUTES as ReadonlyArray<string>).includes(path);
 
 // No field is required: each one's default sits where the route reads it.
 const BODY = {

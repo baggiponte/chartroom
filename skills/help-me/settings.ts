@@ -50,7 +50,7 @@ const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : S
  * The --out file, read leniently so that a command line `readSettings` refuses can still say so there. A value that
  * starts with "-" is the next flag, which the lenient parse would take as the file name.
  */
-export function outPath(argv: string[], env: NodeJS.ProcessEnv): string {
+export function outPath(argv: Array<string>, env: NodeJS.ProcessEnv): string {
   const out = parseArgs({ ...ARGS, args: argv, strict: false }).values.out;
   return (typeof out === "string" && !out.startsWith("-") ? out : "") || env["PROMPT_SHAPER_OUT"] || "";
 }
@@ -102,7 +102,7 @@ function autoBackend(env: NodeJS.ProcessEnv): BackendName {
  * Each setting comes from its flag, then `PROMPT_SHAPER_<FLAG>`, then the config file, then a default. Throws, with a
  * message for the user, when one can't be used.
  */
-export function readSettings(argv: string[], env: NodeJS.ProcessEnv): Settings {
+export function readSettings(argv: Array<string>, env: NodeJS.ProcessEnv): Settings {
   const flags = parseArgs({ ...ARGS, args: argv }).values;
   const configFile =
     env["PROMPT_SHAPER_CONFIG"] ||

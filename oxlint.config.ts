@@ -7,7 +7,6 @@ export default defineConfig({
   rules: {
     ...cloudflare.rules,
     // Temporary during migration: each rule below is enabled or explained in its own commit.
-    "typescript/array-type": "off",
     "import/consistent-type-specifier-style": "off",
     "unicorn/catch-error-name": "off",
     "@nkzw/no-instanceof": "off",

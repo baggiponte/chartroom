@@ -62,7 +62,7 @@ export function makeChoice(c: Sent): Choice | null {
     sentence: c.type === "extra" ? c.sentence : "",
     statement: c.type === "ask" ? c.statement || "{value}" : "",
     options,
-    selected: [] as string[],
+    selected: [] as Array<string>,
     custom: "",
     touched: false,
     orig: span,
@@ -159,7 +159,7 @@ export function sentenceParts(ch: Choice): { pre: string; post: string } {
   return { pre: t.slice(0, i), post: t.slice(i + 7).replaceAll("{value}", "") };
 }
 
-export function optionLabels(ch: Choice): string[] {
+export function optionLabels(ch: Choice): Array<string> {
   if (ch.kind !== "slider") {
     return ch.options.map(o => o.label);
   }

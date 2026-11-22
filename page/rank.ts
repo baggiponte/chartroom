@@ -15,14 +15,14 @@ interface List {
   head: number;
   title: string;
   /** Line numbers of the list's bullets. */
-  items: number[];
+  items: Array<number>;
 }
 
-export function tidyLists(text = ta.value): List[] {
+export function tidyLists(text = ta.value): Array<List> {
   if (!state.tidyHeads.size || state.ended) {
     return [];
   }
-  const lists: List[] = [];
+  const lists: Array<List> = [];
   let cur: List | null = null;
   text.split("\n").forEach((l, i) => {
     if (isHeading(l)) {
@@ -37,8 +37,8 @@ export function tidyLists(text = ta.value): List[] {
   return lists;
 }
 
-const lineStarts = (lines: string[]): number[] => {
-  const s: number[] = [];
+const lineStarts = (lines: Array<string>): Array<number> => {
+  const s: Array<number> = [];
   let p = 0;
   for (const l of lines) {
     s.push(p);
@@ -47,7 +47,7 @@ const lineStarts = (lines: string[]): number[] => {
   return s;
 };
 
-function whereIs(lists: List[], ln: number): { li: number; k: number } | null {
+function whereIs(lists: Array<List>, ln: number): { li: number; k: number } | null {
   for (const [li, list] of lists.entries()) {
     const k = list.items.indexOf(ln);
     if (k >= 0) {
@@ -150,7 +150,7 @@ function moveItem(from: number, li: number, k: number): number | null {
     return from;
   }
   const oldS = lineStarts(lines);
-  const newS: number[] = Array.from({ length: lines.length }, () => 0);
+  const newS: Array<number> = Array.from({ length: lines.length }, () => 0);
   let p = 0;
   for (const i of order) {
     newS[i] = p;

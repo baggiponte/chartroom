@@ -14,7 +14,7 @@ import { type Settings, outPath, readSettings } from "./settings.ts";
 
 const STATUS = { 0: "sent", 1: "error", 2: "cancelled", 3: "timeout" } as const satisfies Record<ExitCode, string>;
 
-const log = (...m: unknown[]): void => {
+const log = (...m: Array<unknown>): void => {
   console.error("[prompt-shaper]", ...m);
 };
 const argv = process.argv.slice(2);

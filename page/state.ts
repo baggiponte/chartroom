@@ -12,8 +12,8 @@ interface ChoiceBase {
   token: string;
   sentence: string;
   statement: string;
-  options: Option[];
-  selected: string[];
+  options: Array<Option>;
+  selected: Array<string>;
   custom: string;
   value: number;
   touched: boolean;
@@ -50,7 +50,7 @@ export interface Promo {
 export type Explanation = Omit<Explained, "model" | "ms">;
 
 export interface Decide {
-  qs: DecideQuestion[];
+  qs: Array<DecideQuestion>;
   rec: { label: string; why: string } | null;
   busy: boolean;
   err: string;
@@ -59,7 +59,7 @@ export interface Decide {
 
 export interface DecideQuestion {
   question: string;
-  options: { label: string; emoji?: string | undefined }[];
+  options: Array<{ label: string; emoji?: string | undefined }>;
   answer: string;
 }
 
@@ -70,7 +70,7 @@ export interface PageState {
   agentName: string;
   imagesOn: boolean;
   chat: ChatHost | null;
-  choices: Choice[];
+  choices: Array<Choice>;
   summary: string;
   /** Bumped by each read of the request, so an older read's answer is dropped. */
   analysisSeq: number;
@@ -86,7 +86,7 @@ export interface PageState {
   /** Once sent or cancelled the page stays open to look back at, but nothing changes or is sent again. */
   ended: "sent" | "cancelled" | null;
   /** Each written-in question whose sentence you removed. */
-  removed: { question: string; token: string }[];
+  removed: Array<{ question: string; token: string }>;
   skipNextAnalysisFor: string | null;
   statusKind: string;
   readInfo: string;
@@ -95,7 +95,7 @@ export interface PageState {
   tidyBusy: boolean;
   tidyUndo: TidyUndo | null;
   tidySeq: number;
-  moveUndo: (Snapshot & { after: string })[];
+  moveUndo: Array<Snapshot & { after: string }>;
   ranking: RankDrag | null;
   laneLine: number;
   press: Press | null;
@@ -104,12 +104,12 @@ export interface PageState {
 export interface TidyUndo {
   before: string;
   after: string;
-  pos: [Choice, number, number, string | undefined][];
+  pos: Array<[Choice, number, number, string | undefined]>;
 }
 
 export interface Snapshot {
   text: string;
-  pos: [Choice, number, number][];
+  pos: Array<[Choice, number, number]>;
   linked: boolean;
 }
 

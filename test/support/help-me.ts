@@ -22,7 +22,7 @@ export type FakeModel = (req: ModelRequest) => unknown;
 
 export interface FakeApi {
   url: string;
-  calls: ModelRequest[];
+  calls: Array<ModelRequest>;
   close: () => Promise<void>;
 }
 
@@ -37,7 +37,7 @@ const ChatBody = z.object({
 });
 
 /** Answers like the Anthropic Messages API, or like OpenAI's chat completions on that path. */
-function reply(path: string, raw: string, answer: FakeModel, calls: ModelRequest[]): unknown {
+function reply(path: string, raw: string, answer: FakeModel, calls: Array<ModelRequest>): unknown {
   if (path.endsWith("/chat/completions")) {
     const { model, messages } = ChatBody.parse(JSON.parse(raw));
     const call = { model, system: messages[0].content, input: messages[1].content };
@@ -52,7 +52,7 @@ function reply(path: string, raw: string, answer: FakeModel, calls: ModelRequest
 }
 
 export async function startFakeApi(answer: FakeModel): Promise<FakeApi> {
-  const calls: ModelRequest[] = [];
+  const calls: Array<ModelRequest> = [];
   const server: Server = createServer((req, res) => {
     void readAll(req).then(raw => {
       res.writeHead(200, { "content-type": "application/json" });
@@ -83,7 +83,7 @@ export interface HelpMe {
 }
 
 export interface StartOptions {
-  args?: string[];
+  args?: Array<string>;
   env?: Record<string, string>;
   api?: FakeApi;
   /** Pass --backend anthropic on the command line (default), or leave the backend to env and config. */
@@ -164,7 +164,7 @@ export async function startHelpMe({
  * killed after `waitMs` and reported with code null.
  */
 export function runHelpMe(
-  args: string[],
+  args: Array<string>,
   env: Record<string, string> = {},
   waitMs = 3000,
 ): Promise<{ code: number | null; stderr: string }> {

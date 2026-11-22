@@ -5,22 +5,22 @@
 export type Schema = AnySchema | StringSchema | NumberSchema | BooleanSchema | ArraySchema | ObjectSchema | AnyOfSchema;
 /** Anything goes: for the parts of a backend's envelope that are passed on unread. */
 type AnySchema = { readonly type?: never };
-type StringSchema = { readonly type: "string"; readonly enum?: readonly string[] };
+type StringSchema = { readonly type: "string"; readonly enum?: ReadonlyArray<string> };
 type NumberSchema = { readonly type: "number" | "integer" };
 type BooleanSchema = { readonly type: "boolean" };
 type ArraySchema = { readonly type: "array"; readonly items: Schema };
 export type ObjectSchema = {
   readonly type: "object";
   readonly properties: { readonly [key: string]: Schema };
-  readonly required?: readonly string[];
+  readonly required?: ReadonlyArray<string>;
 };
 /** The first branch that fits wins: the page's choices are told apart by their `type`. */
-type AnyOfSchema = { readonly type?: never; readonly anyOf: readonly ObjectSchema[] };
+type AnyOfSchema = { readonly type?: never; readonly anyOf: ReadonlyArray<ObjectSchema> };
 
 /** The TypeScript type of a value that passes `check(value, S)`, so a schema is written once and never retyped. */
-export type Infer<S> = S extends { readonly anyOf: readonly (infer B)[] }
+export type Infer<S> = S extends { readonly anyOf: ReadonlyArray<infer B> }
   ? Infer<B>
-  : S extends { readonly type: "string"; readonly enum: readonly (infer E)[] }
+  : S extends { readonly type: "string"; readonly enum: ReadonlyArray<infer E> }
     ? E
     : S extends StringSchema
       ? string
@@ -29,9 +29,9 @@ export type Infer<S> = S extends { readonly anyOf: readonly (infer B)[] }
         : S extends BooleanSchema
           ? boolean
           : S extends { readonly type: "array"; readonly items: infer I }
-            ? Infer<I>[]
+            ? Array<Infer<I>>
             : S extends { readonly type: "object"; readonly properties: infer P }
-              ? InferObject<P, S extends { readonly required: readonly (infer R)[] } ? R : never>
+              ? InferObject<P, S extends { readonly required: ReadonlyArray<infer R> } ? R : never>
               : unknown;
 type InferObject<P, Required> = Flatten<
   { -readonly [K in keyof P & Required]: Infer<P[K]> } & {
@@ -47,12 +47,12 @@ export type StrictSchema =
   | NumberSchema
   | BooleanSchema
   | { readonly type: "null" }
-  | { readonly anyOf: readonly StrictSchema[] }
+  | { readonly anyOf: ReadonlyArray<StrictSchema> }
   | { readonly type: "array"; readonly items: StrictSchema }
   | {
       readonly type: "object";
       readonly properties: { readonly [key: string]: StrictSchema };
-      readonly required: readonly string[];
+      readonly required: ReadonlyArray<string>;
       readonly additionalProperties: false;
     };
 

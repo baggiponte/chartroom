@@ -5,7 +5,7 @@ import { render, renderExtras } from "./render.ts";
 import { pop, ta } from "./dom.ts";
 import { type Choice, state } from "./state.ts";
 
-export const overlaps = (ranges: [number, number][], a: number, b: number): boolean =>
+export const overlaps = (ranges: Array<[number, number]>, a: number, b: number): boolean =>
   ranges.some(([s, e]) => a < e && b > s);
 
 export const isHeading = (line: string): boolean => {
@@ -16,7 +16,7 @@ export const hasTidyLayout = (text = ta.value): boolean => state.tidyHeads.size 
 
 /** Finds each choice again after an edit, at the occurrence nearest where it was; a choice whose text is gone goes. */
 export function relocate(text: string): void {
-  const taken: [number, number][] = [];
+  const taken: Array<[number, number]> = [];
   state.choices = state.choices.filter(ch => {
     if (ch.extra) {
       return true;

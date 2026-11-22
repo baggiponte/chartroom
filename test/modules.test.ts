@@ -79,7 +79,7 @@ describe("tasks", () => {
 });
 
 async function serve(t: TestContext, model: ModelCall) {
-  const finished: [ExitCode, string][] = [];
+  const finished: Array<[ExitCode, string]> = [];
   const server = createServer(
     createHandler({
       model,
@@ -112,7 +112,7 @@ describe("createHandler", () => {
   });
 });
 
-const api = (model: ModelCall, finished: [ExitCode, string][] = []) =>
+const api = (model: ModelCall, finished: Array<[ExitCode, string]> = []) =>
   createApi({ model, log: () => {}, finish: (code, prompt) => finished.push([code, prompt]) });
 
 describe("createApi", () => {
@@ -133,7 +133,7 @@ describe("createApi", () => {
   });
 
   test("Cancel hands nothing to finish", async () => {
-    const finished: [ExitCode, string][] = [];
+    const finished: Array<[ExitCode, string]> = [];
     assert.equal((await api(answering({}), finished).call("/api/cancel", {})).status, 200);
     assert.deepEqual(finished, [[2, ""]]);
   });

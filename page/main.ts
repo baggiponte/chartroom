@@ -116,7 +116,7 @@ function merge(text: string, data: Analysis, more: boolean): void {
   const taken = kept
     .filter(c => !c.extra)
     .map(c => (c.promo ? sentenceRange(c, text) : ([c.start, c.end] as [number, number])));
-  const fresh: Choice[] = [];
+  const fresh: Array<Choice> = [];
   for (const raw of data.choices) {
     const ch = makeChoice(raw);
     if (!ch) {
@@ -177,9 +177,9 @@ function compose(): string {
 
 const q = (s: string): string => `<b>${esc(s)}</b>`;
 
-function sentNotes(): string[] {
+function sentNotes(): Array<string> {
   const text = ta.value;
-  const n: string[] = [];
+  const n: Array<string> = [];
   const { choices, removed } = state;
   const open = choices.filter(c => c.promo && !c.settled && c.start >= 0);
   if (open.length) {
@@ -262,7 +262,7 @@ async function cancel(): Promise<void> {
 }
 
 // The help-me server exits once you send, so from here on everything the page shows comes from what it already has.
-function end(kind: "sent" | "cancelled", title: string, sub: string, prompt: string, notes: string[] = []): void {
+function end(kind: "sent" | "cancelled", title: string, sub: string, prompt: string, notes: Array<string> = []): void {
   state.ended = kind;
   clearTimeout(state.timer);
   state.analysisSeq++;

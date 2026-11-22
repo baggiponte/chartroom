@@ -36,7 +36,7 @@ const ACCENT = "#e8590c";
 // Draws labelled arrows over the page. dx/dy place the label's center relative to the target's center (at: absolute
 // viewport point instead); to overrides where the arrow ends; ring outlines the target.
 // It runs inside the page (Playwright sends its source), so it may use only its argument and the page's globals.
-function annotate({ notes, accent }: { notes: Note[]; accent: string }): void {
+function annotate({ notes, accent }: { notes: Array<Note>; accent: string }): void {
   document.getElementById("__ann")?.remove();
   const NS = "http://www.w3.org/2000/svg";
   const root = document.createElement("div");
@@ -180,7 +180,7 @@ function helpers(p: Page) {
       await p.keyboard.type(" Which heating system should it have?", { delay: 0 });
       await p.waitForTimeout(1600);
     },
-    ann: (notes: Note[]): Promise<void> => p.evaluate(annotate, { notes, accent: ACCENT }),
+    ann: (notes: Array<Note>): Promise<void> => p.evaluate(annotate, { notes, accent: ACCENT }),
     shot: (name: string, clip?: { x: number; y: number; width: number; height: number }): Promise<Buffer> =>
       p.screenshot({ path: join(OUT, name), ...(clip ? { clip } : {}) }),
   };
@@ -194,7 +194,7 @@ const quiet = (p: Page): Promise<void> =>
     }
   });
 
-const markTexts = (p: Page): Promise<string[]> =>
+const markTexts = (p: Page): Promise<Array<string>> =>
   p.evaluate(() => [...document.querySelectorAll("#backdrop mark")].map(m => m.textContent));
 
 async function main(): Promise<void> {

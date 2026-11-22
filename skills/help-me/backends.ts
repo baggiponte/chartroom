@@ -47,7 +47,7 @@ export interface RawReply {
 function runCli<T>(
   { slot, env, jobs }: BackendCall,
   cmd: string,
-  argv: string[],
+  argv: Array<string>,
   stdin: string,
   parse: (out: string) => T,
   cwd = tmpdir(),

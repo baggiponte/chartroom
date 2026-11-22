@@ -27,7 +27,7 @@ export async function demoAnalyze(text: string, more: boolean): Promise<Analysis
       ],
     };
   }
-  const all: Sent[] = [
+  const all: Array<Sent> = [
     {
       type: "ask",
       span: "Should I get a grinder too?",
@@ -145,11 +145,11 @@ export async function demoAnalyze(text: string, more: boolean): Promise<Analysis
     choices: all.filter(c => c.type === "extra" || text.includes(c.span)),
   };
 }
-export async function demoTidy(sentences: string[]): Reply<"/api/tidy"> {
+export async function demoTidy(sentences: Array<string>): Reply<"/api/tidy"> {
   await pause(600);
   const must = /budget|need|must|small|kitchen|\bmy\b.*\bis\b/i,
     about = /\b(I'm|I am|I drink|I mostly|I'll probably|beginner)\b/i;
-  const blocks: { heading: string; items: number[] }[] = [
+  const blocks: Array<{ heading: string; items: Array<number> }> = [
     { heading: "", items: [0] },
     { heading: "Must-haves", items: [] },
     { heading: "Nice to have", items: [] },
@@ -161,7 +161,7 @@ export async function demoTidy(sentences: string[]): Reply<"/api/tidy"> {
   });
   return { model: "demo", ms: 600, blocks };
 }
-export async function demoExplain(ch: Choice, opts: string[]): Promise<Explanation> {
+export async function demoExplain(ch: Choice, opts: Array<string>): Promise<Explanation> {
   await pause(500);
   if (ch.question === "What kind of machine?") {
     return {
@@ -258,7 +258,7 @@ export async function demoDecide(ch: Choice, { options, answers, asked }: Decide
   await pause(500);
   const machine = ch.question === "What kind of machine?";
   const heating = ch.question === "Which heating system?";
-  const bank: { question: string; options: { label: string; emoji?: string; fav: string }[] }[] = heating
+  const bank: Array<{ question: string; options: Array<{ label: string; emoji?: string; fav: string }> }> = heating
     ? [
         {
           question: "How many milk drinks in a row?",

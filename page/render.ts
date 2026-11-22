@@ -125,9 +125,9 @@ export function openItems() {
     .toSorted((a, b) => a.start - b.start);
 }
 
-function waits(): string[] {
+function waits(): Array<string> {
   const M = esc(cap(state.modelName));
-  const w: string[] = [];
+  const w: Array<string> = [];
   if (state.busy && state.lastAnalyzed) {
     w.push(`${M} is re-reading your edit`);
   }
@@ -192,7 +192,7 @@ export function journey(): void {
   const nextBtn = n
     ? ` <button data-j="next">Show me ${n > 1 || !open.some(c => c.id === state.openId) ? "the next one" : "it"}</button>`
     : "";
-  const steps: Step[] = [
+  const steps: Array<Step> = [
     {
       title: empty && !state.busy ? "Write your request" : `${esc(cap(state.modelName))} reads your request`,
       now: readErr

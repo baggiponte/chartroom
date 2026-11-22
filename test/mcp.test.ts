@@ -11,7 +11,7 @@ import { z } from "zod";
 
 const SERVER = fileURLToPath(new URL("../mcp/server.ts", import.meta.url));
 
-function startMcp(args: string[] = [], env: NodeJS.ProcessEnv = {}): ChildProcessWithoutNullStreams {
+function startMcp(args: Array<string> = [], env: NodeJS.ProcessEnv = {}): ChildProcessWithoutNullStreams {
   const home = mkdtempSync(join(tmpdir(), "help-me-mcp-test-"));
   return spawn(process.execPath, [SERVER, ...args], {
     env: {

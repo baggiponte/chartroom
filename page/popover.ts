@@ -92,7 +92,7 @@ function explainHTML(c: Choice): string {
   return c.explanation ? `<div class="explain"><p>${esc(c.explanation.intro)}</p></div>` : "";
 }
 
-function explainedOptions(ch: Choice): ExplainedOption[] {
+function explainedOptions(ch: Choice): Array<ExplainedOption> {
   const ex = ch.explanation?.options ?? [];
   const find = (label: string, i: number) => ex.find(x => x.label.toLowerCase() === label.toLowerCase()) ?? ex[i] ?? {};
   if (ch.kind !== "slider") {
