@@ -54,14 +54,16 @@ const CONFIG = (() => {
   }
 })();
 const ENV_NAME = key => "PROMPT_SHAPER_" + key.replace(/[A-Z]/g, c => "_" + c).toUpperCase();
+// An empty variable counts as unset, so `PROMPT_SHAPER_MODEL=` falls through to the config file like no variable does.
+const fromEnv = key => process.env[ENV_NAME(key)] || undefined;
 const setting = (key, flagName, fallback) => {
-  const v = opt(flagName, process.env[ENV_NAME(key)] ?? CONFIG[key]);
+  const v = opt(flagName, fromEnv(key) ?? CONFIG[key]);
   return v === undefined || v === "" ? fallback : v;
 };
 const onOff = (key, fallback) => {
   if (flag(`--${key}`)) return true;
   if (flag(`--no-${key}`)) return false;
-  const v = process.env[ENV_NAME(key)] ?? CONFIG[key];
+  const v = fromEnv(key) ?? CONFIG[key];
   if (v === undefined || v === "") return fallback;
   return !["0", "false", "no", "off"].includes(String(v).toLowerCase());
 };
@@ -433,7 +435,7 @@ const BACKEND = pickBackend();
 // A config-file model is dropped when the backend comes from a flag or env var, so `--backend gemini`
 // doesn't run gemini with "haiku".
 const rank = (key, flagName) =>
-  flag(flagName) ? 0 : process.env[ENV_NAME(key)] ? 1 : CONFIG[key] !== undefined ? 2 : 3;
+  flag(flagName) ? 0 : fromEnv(key) !== undefined ? 1 : CONFIG[key] !== undefined ? 2 : 3;
 const MODEL =
   rank("model", "--model") <= rank("backend", "--backend")
     ? setting("model", "--model", BACKENDS[BACKEND].model)
