@@ -40,7 +40,7 @@ type InferObject<P, Required> = Flatten<
 >;
 type Flatten<T> = { [K in keyof T]: T[K] } & {};
 
-/** What `strict()` sends to OpenAI and Codex: every property required, the optional ones nullable. */
+/** What `strict()` sends to Codex: every property required, the optional ones nullable. */
 export type StrictSchema =
   | AnySchema
   | StringSchema

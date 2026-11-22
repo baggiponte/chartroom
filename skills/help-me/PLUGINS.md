@@ -1,7 +1,8 @@
 # Writing a backend plugin
 
 Read this when the user wants help-me to run on something it doesn't ship with (the built-ins are `claude`, `codex`,
-`gemini`, `antigravity`, `opencode`, `pi`, `anthropic`, `openai`), or wants a built-in called differently. A plugin
+`gemini`, `antigravity`, `opencode`, `pi`), for example an API key or a local model, or wants a built-in called
+differently. A plugin
 is one module the user's config file names; nothing in help-me changes.
 
 ## Steps
@@ -71,7 +72,8 @@ export default {
 ````
 
 For an HTTP API the README's Ollama example is the template: `fetch` with `signal`, a JSON-schema response format
-if the API has one.
+(or a forced tool call) if the API has one, the key read from `env` in `run` and checked in `available`, and a
+non-2xx answer thrown with its body.
 
 ## The contract
 
@@ -116,6 +118,5 @@ if the API has one.
 For a pull request to help-me rather than a user's config: move the module to `providers/<name>.ts` and use
 `providers/run.ts` (`runCli` already handles `signal`, `PROMPT_SHAPER_CHILD`, the temp `cwd` and a CLI that exits
 before reading stdin; `timed` fills `ms`; `onPath` handles Windows extensions) and `withSchema` / `parseFenced` from
-`schema.ts`. Then add it to `PROVIDERS` in `providers.ts` (harnesses before the API backends, since `host` asks them
-in order), a fake-CLI test in `test/providers.test.ts` that prints the stdout you captured in step 1, a row in the
+`schema.ts`. Then add it to `PROVIDERS` in `providers.ts` (`host` asks them in order), a fake-CLI test in `test/providers.test.ts` that prints the stdout you captured in step 1, a row in the
 README's backend table, and the name in SKILL.md's `compatibility` and overrides table.

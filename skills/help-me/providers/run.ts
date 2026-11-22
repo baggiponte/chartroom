@@ -53,30 +53,8 @@ export function runCli<T>(
   });
 }
 
-export async function runHttp<T>(
-  { signal }: BackendCall,
-  url: string,
-  headers: Record<string, string>,
-  payload: unknown,
-  parse: (reply: unknown) => T,
-): Promise<T> {
-  const r = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json", ...headers },
-    body: JSON.stringify(payload),
-    signal,
-  });
-  const text = await r.text();
-  if (!r.ok) {
-    throw new Error(`${new URL(url).host} answered ${String(r.status)}: ${text.slice(0, 400)}`);
-  }
-  return parse(JSON.parse(text));
-}
-
 export const timed = async <T extends RawReply>(run: () => Promise<T>): Promise<T> => {
   const t0 = Date.now();
   const reply = await run();
   return { ...reply, ms: reply.ms ?? Date.now() - t0 };
 };
-
-export const baseUrl = (value: string | undefined, fallback: string): string => (value || fallback).replace(/\/$/, "");
