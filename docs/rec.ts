@@ -112,7 +112,6 @@ async function main(): Promise<void> {
   await w(2200);
   await shot("start");
 
-  // 1. flip an underline
   await caption("Click an underline to flip it");
   await click(mark("coffee machine"), 300);
   await w(700);
@@ -120,7 +119,6 @@ async function main(): Promise<void> {
   await w(1000);
   await shot("flip");
 
-  // 2. multiselect
   await caption("Pick several");
   await click(mark("lattes"), 300);
   await w(600);
@@ -130,7 +128,6 @@ async function main(): Promise<void> {
   await w(700);
   await shot("multi");
 
-  // 3. scrub a number
   await caption("Drag a blue value");
   {
     const [x, y] = await center(mark("[budget]"));
@@ -146,7 +143,6 @@ async function main(): Promise<void> {
   await w(1000);
   await shot("scrub");
 
-  // 4. remove a sentence
   await caption("Drop a sentence you don't need");
   await click(mark("[counter space]"), 300);
   await w(800);
@@ -155,7 +151,6 @@ async function main(): Promise<void> {
   await w(1100);
   await shot("removed");
 
-  // 5. a question in the text gets detected
   await caption("Ask a question in the text");
   {
     const [x, y] = await center(mark("lattes and cappuccinos"));
@@ -174,7 +169,6 @@ async function main(): Promise<void> {
   await w(1800);
   await shot("ask");
 
-  // 6. Explain me on milk
   await caption("Explain me");
   await click(mark("[milk]"), 300);
   await w(700);
@@ -193,7 +187,6 @@ async function main(): Promise<void> {
   await p.keyboard.press("Escape");
   await w(500);
 
-  // 7. Help me decide on heating
   await caption("Help me decide");
   await click(mark("Which heating system should it have?"), 300);
   await w(700);
@@ -216,7 +209,6 @@ async function main(): Promise<void> {
   await p.keyboard.press("Escape");
   await w(700);
 
-  // 8. Tidy up and rank
   await caption("Tidy up, then drag to rank");
   await click(p.locator("#tidy"), 300);
   await w(1600);
@@ -236,7 +228,6 @@ async function main(): Promise<void> {
   await w(1300);
   await shot("ranked");
 
-  // 9. send
   await caption("Shift+Enter sends it back to your agent");
   await p.evaluate(() => {
     const ta = document.querySelector<HTMLTextAreaElement>("#ta");
