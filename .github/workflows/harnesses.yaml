@@ -11,6 +11,7 @@ on:
   pull_request:
     paths:
       - skills/help-me/providers.ts
+      - skills/help-me/providers/**
       - skills/help-me/schema.ts
       - test/harnesses/**
       - .github/workflows/harnesses.yaml
