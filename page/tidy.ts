@@ -74,14 +74,14 @@ async function runTidy(): Promise<void> {
   let blocks;
   try {
     blocks = (state.mode === "live" ? await post("/api/tidy", { sentences }) : await demoTidy(sentences)).blocks;
-  } catch (e) {
+  } catch (error) {
     if (my !== state.tidySeq) {
       return;
     }
     state.tidyBusy = false;
     render();
-    if (!isSuperseded(e)) {
-      setStatus("err", `couldn't tidy: ${esc(errorMessage(e))} · <button id="retry">retry</button>`);
+    if (!isSuperseded(error)) {
+      setStatus("err", `couldn't tidy: ${esc(errorMessage(error))} · <button id="retry">retry</button>`);
     }
     document.getElementById("retry")?.addEventListener("click", () => void runTidy());
     return;

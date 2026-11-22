@@ -30,8 +30,8 @@ function writeOut(out: string, code: ExitCode, prompt: string): void {
     // write then rename, so a poller never reads half a file
     writeFileSync(`${out}.tmp`, JSON.stringify({ status: STATUS[code], prompt }) + "\n");
     renameSync(`${out}.tmp`, out);
-  } catch (e) {
-    log(`could not write ${out}: ${errorMessage(e)}`);
+  } catch (error) {
+    log(`could not write ${out}: ${errorMessage(error)}`);
   }
 }
 
@@ -39,8 +39,8 @@ function writeOut(out: string, code: ExitCode, prompt: string): void {
 const settings = ((): Settings => {
   try {
     return readSettings(argv, env);
-  } catch (e) {
-    log(errorMessage(e));
+  } catch (error) {
+    log(errorMessage(error));
     writeOut(outPath(argv, env), 1, "");
     return process.exit(1);
   }

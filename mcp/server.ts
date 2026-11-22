@@ -166,11 +166,11 @@ function build(): McpServer {
           ],
           structuredContent: { ...open(input) },
         };
-      } catch (e) {
-        log(errorMessage(e));
+      } catch (error) {
+        log(errorMessage(error));
         return {
           isError: true,
-          content: [{ type: "text", text: `The help-me page couldn't start: ${errorMessage(e)}` }],
+          content: [{ type: "text", text: `The help-me page couldn't start: ${errorMessage(error)}` }],
         };
       }
     },
@@ -237,8 +237,8 @@ if (flags.http) {
     }
     toWeb(req)
       .then(async request => fromWeb(await handler.fetch(request), res))
-      .catch((e: unknown) => {
-        log(errorMessage(e));
+      .catch((error: unknown) => {
+        log(errorMessage(error));
         if (!res.headersSent) {
           res.writeHead(500);
         }

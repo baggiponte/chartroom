@@ -20,9 +20,9 @@ export const staleFor = (init: Pick<Init, "build">): boolean => !BUILD.startsWit
 export function fits<S extends Schema>(j: unknown, schema: S): Infer<S> {
   try {
     check(j, schema);
-  } catch (e) {
-    throw new Error(`the help-me server answered something this page can't read (${errorMessage(e)}). ${RESTART}`, {
-      cause: e,
+  } catch (error) {
+    throw new Error(`the help-me server answered something this page can't read (${errorMessage(error)}). ${RESTART}`, {
+      cause: error,
     });
   }
   return j;

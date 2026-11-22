@@ -439,8 +439,8 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			for (const branch of s.anyOf) {
 				try {
 					walk(structuredClone(v), branch, at);
-				} catch (e) {
-					errors.push(e instanceof Error ? e.message : String(e));
+				} catch (error) {
+					errors.push(error instanceof Error ? error.message : String(error));
 					continue;
 				}
 				walk(v, branch, at);
@@ -791,8 +791,8 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 	function fits(j, schema) {
 		try {
 			check(j, schema);
-		} catch (e) {
-			throw new Error(`the help-me server answered something this page can't read (${errorMessage$1(e)}). ${RESTART}`, { cause: e });
+		} catch (error) {
+			throw new Error(`the help-me server answered something this page can't read (${errorMessage$1(error)}). ${RESTART}`, { cause: error });
 		}
 		return j;
 	}
@@ -1933,11 +1933,11 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		let blocks;
 		try {
 			blocks = (state.mode === "live" ? await post("/api/tidy", { sentences }) : await demoTidy(sentences)).blocks;
-		} catch (e) {
+		} catch (error) {
 			if (my !== state.tidySeq) return;
 			state.tidyBusy = false;
 			render();
-			if (!isSuperseded(e)) setStatus("err", `couldn't tidy: ${esc(errorMessage(e))} · <button id="retry">retry</button>`);
+			if (!isSuperseded(error)) setStatus("err", `couldn't tidy: ${esc(errorMessage(error))} · <button id="retry">retry</button>`);
 			document.getElementById("retry")?.addEventListener("click", () => void runTidy());
 			return;
 		}
@@ -2995,9 +2995,9 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 				answer: ""
 			})));
 			d.rec = answers.length ? r.recommendation ?? d.rec : null;
-		} catch (e) {
-			if (isSuperseded(e) || ch.decide !== d || my !== d.seq) return;
-			d.err = errorMessage(e);
+		} catch (error) {
+			if (isSuperseded(error) || ch.decide !== d || my !== d.seq) return;
+			d.err = errorMessage(error);
 		}
 		d.busy = false;
 		refreshChoice(ch);
@@ -3018,8 +3018,8 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 					question: ch.question,
 					options
 				}) : await demoExplain(ch, options);
-			} catch (e) {
-				if (!isSuperseded(e)) ch.explainErr = errorMessage(e);
+			} catch (error) {
+				if (!isSuperseded(error)) ch.explainErr = errorMessage(error);
 			}
 			ch.explainBusy = false;
 		}
@@ -3184,15 +3184,15 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		let data;
 		try {
 			data = state.mode === "live" ? await post("/api/analyze", payload) : await demoAnalyze(text, more);
-		} catch (e) {
+		} catch (error) {
 			if (more) {
 				state.moreBusy = false;
 				render();
 			}
-			if (my !== state.analysisSeq || isSuperseded(e)) return;
+			if (my !== state.analysisSeq || isSuperseded(error)) return;
 			state.busy = false;
 			render();
-			setStatus("err", `couldn't analyse: ${esc(errorMessage(e))} · <button id="retry">retry</button>`);
+			setStatus("err", `couldn't analyse: ${esc(errorMessage(error))} · <button id="retry">retry</button>`);
 			$("retry").addEventListener("click", () => {
 				state.lastAnalyzed = null;
 				analyze({ more });
@@ -3296,7 +3296,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 					type: "text",
 					text: prompt
 				}]
-			}).then((r) => isRecord(r) && r["isError"] ? "" : null, (e) => `: ${esc(errorMessage(e))}`);
+			}).then((r) => isRecord(r) && r["isError"] ? "" : null, (error) => `: ${esc(errorMessage(error))}`);
 			if (failed !== null) {
 				setStatus("err", `couldn't send it to the chat${failed}`);
 				return;
@@ -3307,8 +3307,8 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			let sent;
 			try {
 				({sent} = await post("/api/submit", { prompt }));
-			} catch (e) {
-				setStatus("err", "couldn't reach the help-me server: " + esc(errorMessage(e)));
+			} catch (error) {
+				setStatus("err", "couldn't reach the help-me server: " + esc(errorMessage(error)));
 				return;
 			}
 			end("sent", `Sent to ${state.agentName}`, LOOK_BACK, sent, notes);
@@ -3431,9 +3431,9 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		state.chat = chat;
 		try {
 			if (!chat && location.protocol === "file:") throw new Error("no server behind a file");
-			const j = chat ? await chat.init().catch((e) => {
-				chat.failed = errorMessage(e);
-				throw e;
+			const j = chat ? await chat.init().catch((error) => {
+				chat.failed = errorMessage(error);
+				throw error;
 			}) : await getInit();
 			state.modelName = j.model || "the model";
 			state.agentName = j.agent || "your agent";

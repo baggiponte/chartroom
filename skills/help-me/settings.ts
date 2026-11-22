@@ -67,8 +67,8 @@ function readConfig(file: string): Readonly<Record<string, unknown>> {
       throw new Error("not a JSON object");
     }
     return c;
-  } catch (e) {
-    throw new Error(`${file} is not a valid config: ${errorMessage(e)}`, { cause: e });
+  } catch (error) {
+    throw new Error(`${file} is not a valid config: ${errorMessage(error)}`, { cause: error });
   }
 }
 

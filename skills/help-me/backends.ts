@@ -65,9 +65,9 @@ function runCli<T>(
       }
       try {
         resolve(parse(out));
-      } catch (e) {
+      } catch (error) {
         // A bare JSON.parse failure ("Unexpected token…") says less than the CLI's own output does.
-        const why = e instanceof Error && !e.message.startsWith("Unexpected") ? `${e.message} ` : "";
+        const why = error instanceof Error && !error.message.startsWith("Unexpected") ? `${error.message} ` : "";
         reject(new Error(`${cmd} exited ${String(code)}: ${why}${(err || out).slice(0, 400)}`));
       }
     });
@@ -97,11 +97,11 @@ async function runHttp<T>(
       throw new Error(`${new URL(url).host} answered ${String(r.status)}: ${text.slice(0, 400)}`);
     }
     return parse(JSON.parse(text));
-  } catch (e) {
-    if (e instanceof Error && e.name === "AbortError") {
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
       throw new SupersededError();
     }
-    throw e;
+    throw error;
   } finally {
     jobs.release(slot, job);
   }

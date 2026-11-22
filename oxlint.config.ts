@@ -7,7 +7,6 @@ export default defineConfig({
   rules: {
     ...cloudflare.rules,
     // Temporary during migration: each rule below is enabled or explained in its own commit.
-    "unicorn/catch-error-name": "off",
     "@nkzw/no-instanceof": "off",
     "unicorn/prefer-dom-node-append": "off",
     "quality/no-unknown-returns": "off",

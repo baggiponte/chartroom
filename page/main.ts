@@ -55,17 +55,17 @@ async function analyze({ more = false } = {}): Promise<void> {
   let data: Analysis;
   try {
     data = state.mode === "live" ? await post("/api/analyze", payload) : await demoAnalyze(text, more);
-  } catch (e) {
+  } catch (error) {
     if (more) {
       state.moreBusy = false;
       render();
     }
-    if (my !== state.analysisSeq || isSuperseded(e)) {
+    if (my !== state.analysisSeq || isSuperseded(error)) {
       return;
     }
     state.busy = false;
     render();
-    setStatus("err", `couldn't analyse: ${esc(errorMessage(e))} · <button id="retry">retry</button>`);
+    setStatus("err", `couldn't analyse: ${esc(errorMessage(error))} · <button id="retry">retry</button>`);
     $("retry").addEventListener("click", () => {
       state.lastAnalyzed = null;
       void analyze({ more });
@@ -219,7 +219,7 @@ async function submit(): Promise<void> {
     // the shaped request goes into the conversation as the user's own message
     const failed = await chat.request("ui/message", { role: "user", content: [{ type: "text", text: prompt }] }).then(
       r => (isRecord(r) && r["isError"] ? "" : null),
-      (e: unknown) => `: ${esc(errorMessage(e))}`,
+      (error: unknown) => `: ${esc(errorMessage(error))}`,
     );
     if (failed !== null) {
       setStatus("err", `couldn't send it to the chat${failed}`);
@@ -231,8 +231,8 @@ async function submit(): Promise<void> {
     let sent;
     try {
       ({ sent } = await post("/api/submit", { prompt }));
-    } catch (e) {
-      setStatus("err", "couldn't reach the help-me server: " + esc(errorMessage(e)));
+    } catch (error) {
+      setStatus("err", "couldn't reach the help-me server: " + esc(errorMessage(error)));
       return;
     }
     end("sent", `Sent to ${state.agentName}`, LOOK_BACK, sent, notes);
@@ -394,9 +394,9 @@ async function start(): Promise<void> {
       throw new Error("no server behind a file");
     }
     const j = chat
-      ? await chat.init().catch((e: unknown) => {
-          chat.failed = errorMessage(e);
-          throw e;
+      ? await chat.init().catch((error: unknown) => {
+          chat.failed = errorMessage(error);
+          throw error;
         })
       : await getInit();
     state.modelName = j.model || "the model";

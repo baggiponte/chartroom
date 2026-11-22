@@ -389,11 +389,11 @@ async function runDecide(ch: Choice): Promise<void> {
     }
     d.qs.push(...r.questions.map(q => ({ question: q.question, options: q.options, answer: "" })));
     d.rec = answers.length ? (r.recommendation ?? d.rec) : null;
-  } catch (e) {
-    if (isSuperseded(e) || ch.decide !== d || my !== d.seq) {
+  } catch (error) {
+    if (isSuperseded(error) || ch.decide !== d || my !== d.seq) {
       return;
     }
-    d.err = errorMessage(e);
+    d.err = errorMessage(error);
   }
   d.busy = false;
   refreshChoice(ch);
@@ -414,9 +414,9 @@ async function toggleExplain(ch: Choice): Promise<void> {
         state.mode === "live"
           ? await post("/api/explain", { text: ta.value, question: ch.question, options })
           : await demoExplain(ch, options);
-    } catch (e) {
-      if (!isSuperseded(e)) {
-        ch.explainErr = errorMessage(e);
+    } catch (error) {
+      if (!isSuperseded(error)) {
+        ch.explainErr = errorMessage(error);
       }
     }
     ch.explainBusy = false;

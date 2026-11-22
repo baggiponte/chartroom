@@ -111,8 +111,8 @@ function walk(v: unknown, s: Schema, at: string): void {
     for (const branch of s.anyOf) {
       try {
         walk(structuredClone(v), branch, at);
-      } catch (e) {
-        errors.push(e instanceof Error ? e.message : String(e));
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : String(error));
         continue;
       }
       walk(v, branch, at);

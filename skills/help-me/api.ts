@@ -111,12 +111,12 @@ export function createApi({ model, log, finish }: ApiDeps) {
       const data = await work();
       log(`${done(data)} in ${String(Date.now() - t0)} ms`);
       return { status: 200, body: data };
-    } catch (e) {
-      if (e instanceof SupersededError) {
-        return { status: 409, body: { error: e.message } satisfies Failure };
+    } catch (error) {
+      if (error instanceof SupersededError) {
+        return { status: 409, body: { error: error.message } satisfies Failure };
       }
-      log(errorMessage(e));
-      return { status: 500, body: { error: errorMessage(e) } satisfies Failure };
+      log(errorMessage(error));
+      return { status: 500, body: { error: errorMessage(error) } satisfies Failure };
     }
   }
 
@@ -164,8 +164,8 @@ export function createApi({ model, log, finish }: ApiDeps) {
     async call(path: Route, data: unknown): Promise<Answer> {
       try {
         return await routes[path](data);
-      } catch (e) {
-        return { status: 400, body: { error: errorMessage(e) } satisfies Failure };
+      } catch (error) {
+        return { status: 400, body: { error: errorMessage(error) } satisfies Failure };
       }
     },
   };
