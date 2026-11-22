@@ -326,7 +326,7 @@ describe("bugs", () => {
     assert.equal((await init(helpMe)).model, "from-file");
   });
 
-  test("a flag with no value does not swallow the next flag", { todo: "issue #13" }, async () => {
+  test("a flag with no value does not swallow the next flag", async () => {
     const { code, stderr } = await runHelpMe(["--backend", "--no-open"]);
     assert.equal(code, 1);
     assert.match(stderr, /--backend needs a value/);
