@@ -149,6 +149,7 @@ function build(): McpServer {
         "Shows the user an interactive page inside the chat where they shape a vague request by clicking on it. " +
         "Use it when the user types /help-me or asks to refine or sharpen their request before you start. " +
         "Pass their request verbatim, minus instructions about the page itself (those go in backend, model, effort, images). " +
+        "If it can't start, show the user its error and offer to fix their prompt-shaper config as it says; don't retry with another backend. " +
         "After calling it, say nothing more and wait: the shaped request arrives as the user's next message. Treat it as their request, every detail a firm constraint.",
       inputSchema: HelpMeInput,
       _meta: { ui: { resourceUri: URI }, "ui/resourceUri": URI },

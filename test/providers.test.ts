@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "node:test";
 
-import { PROVIDERS, autoProvider, hostOf } from "../skills/help-me/providers.ts";
+import { PROVIDERS, hostOf } from "../skills/help-me/providers.ts";
 import type { ProviderName } from "../skills/help-me/providers.ts";
 
 const SCHEMA = { type: "object", required: ["n"], properties: { n: { type: "number" } } } as const;
@@ -54,23 +54,6 @@ describe("harness CLIs", () => {
     await assert.rejects(ask("antigravity", "agy", JSON.stringify({ status: "ERROR", error: "no auth" })), /no auth/);
   });
 
-  test("qwen reads the last result message, fenced or not, and the model from the run", async () => {
-    const run = [
-      { type: "system", subtype: "session_start", model: "qwen3-coder" },
-      { type: "result", subtype: "success", is_error: false, result: '```json\n{"n":3}\n```', duration_ms: 9 },
-    ];
-    const { reply, argv } = await ask("qwen", "qwen", JSON.stringify(run), "qwen3-coder");
-    assert.deepEqual(reply, { data: { n: 3 }, model: "qwen3-coder", ms: 9 });
-    assert.deepEqual(argv.slice(0, 2), ["-m", "qwen3-coder"]);
-  });
-
-  test("qwen surfaces an error result", async () => {
-    await assert.rejects(
-      ask("qwen", "qwen", JSON.stringify([{ type: "result", is_error: true, result: "quota" }])),
-      /quota/,
-    );
-  });
-
   test("opencode joins the text parts of its event stream", async () => {
     const events = [
       { type: "step_start", part: {} },
@@ -98,17 +81,9 @@ describe("harness CLIs", () => {
   });
 });
 
-describe("auto", () => {
-  test("prefers the harness it runs in when that CLI is installed", () => {
-    const { env } = fakeCli("pi", "");
-    assert.equal(autoProvider({ ...env, PI_CODING_AGENT: "1" }), "pi");
-    assert.equal(hostOf({ PI_CODING_AGENT: "1" })?.agent, "Pi");
-  });
-
-  test("falls back to the first CLI on PATH, then to an API key", () => {
-    const { env } = fakeCli("opencode", "");
-    assert.equal(autoProvider({ ...env, CLAUDECODE: "1" }), "opencode");
-    assert.equal(autoProvider({ PATH: "", OPENAI_API_KEY: "x" }), "openai");
-    assert.equal(autoProvider({ PATH: "" }), undefined);
+describe("hostOf", () => {
+  test("names the agent help-me runs in, and nothing outside one", () => {
+    assert.deepEqual(hostOf({ PI_CODING_AGENT: "1" }), { name: "pi", agent: "Pi" });
+    assert.equal(hostOf({ PATH: "" }), undefined);
   });
 });

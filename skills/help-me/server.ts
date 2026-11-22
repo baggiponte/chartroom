@@ -23,13 +23,14 @@ const log = (...m: Array<unknown>): void => {
 const argv = process.argv.slice(2);
 const env = process.env;
 
-function writeOut(out: string, code: ExitCode, prompt: string): void {
+/** `error` says why help-me couldn't start, so the agent polling --out can tell the user and offer to fix it. */
+function writeOut(out: string, code: ExitCode, prompt: string, error = ""): void {
   if (!out) {
     return;
   }
   try {
     // write then rename, so a poller never reads half a file
-    writeFileSync(`${out}.tmp`, JSON.stringify({ status: STATUS[code], prompt }) + "\n");
+    writeFileSync(`${out}.tmp`, JSON.stringify({ status: STATUS[code], prompt, ...(error ? { error } : {}) }) + "\n");
     renameSync(`${out}.tmp`, out);
   } catch (error) {
     log(`could not write ${out}: ${errorMessage(error)}`);
@@ -42,7 +43,7 @@ const settings = ((): Settings => {
     return readSettings(argv, env);
   } catch (error) {
     log(errorMessage(error));
-    writeOut(outPath(argv, env), 1, "");
+    writeOut(outPath(argv, env), 1, "", errorMessage(error));
     return process.exit(1);
   }
 })();
