@@ -14,7 +14,6 @@ export default defineConfig({
     "quality/no-conditional-empty-object-spread": "off",
     "quality/no-object-parameters": "off",
     "quality/no-array-filter-map": "off",
-    "unicorn/prefer-top-level-await": "off",
   },
   overrides: [
     ...(cloudflare.overrides ?? []),
@@ -22,6 +21,11 @@ export default defineConfig({
       // Command-line entry points and dev scripts: the console is how they report.
       files: ["skills/help-me/server.ts", "mcp/server.ts", "scripts/**", "docs/**"],
       rules: { "no-console": "off" },
+    },
+    {
+      // The page is bundled as a classic IIFE script, where top-level await is a syntax error.
+      files: ["page/**"],
+      rules: { "unicorn/prefer-top-level-await": "off" },
     },
     {
       // node:test registers tests synchronously and reports their failures itself.
