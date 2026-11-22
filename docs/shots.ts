@@ -256,7 +256,6 @@ async function main(): Promise<void> {
     await p.mouse.move(1350, 630);
     await h.w(400);
     const marks = await markTexts(p);
-    console.log("marks", marks);
     await h.ann([
       {
         el: `#backdrop mark:nth-of-type(${String(marks.findIndex(m => m.startsWith("espresso")) + 1)})`,

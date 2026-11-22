@@ -12,13 +12,17 @@ export default defineConfig({
     "quality/no-unsafe-dictionary-type": "off",
     "quality/no-known-value-widening": "off",
     "quality/no-conditional-empty-object-spread": "off",
-    "no-console": "off",
     "quality/no-object-parameters": "off",
     "quality/no-array-filter-map": "off",
     "unicorn/prefer-top-level-await": "off",
   },
   overrides: [
     ...(cloudflare.overrides ?? []),
+    {
+      // Command-line entry points and dev scripts: the console is how they report.
+      files: ["skills/help-me/server.ts", "mcp/server.ts", "scripts/**", "docs/**"],
+      rules: { "no-console": "off" },
+    },
     {
       // node:test registers tests synchronously and reports their failures itself.
       files: ["**/*.ts"],
