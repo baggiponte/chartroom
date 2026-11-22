@@ -15,7 +15,6 @@ export default defineConfig({
     "no-console": "off",
     "quality/no-object-parameters": "off",
     "no-promise-executor-return": "off",
-    "unicorn/numeric-separators-style": "off",
     "quality/no-array-filter-map": "off",
     "unicorn/prefer-top-level-await": "off",
     "unicorn/prefer-number-properties": "off",

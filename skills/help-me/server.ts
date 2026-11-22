@@ -78,7 +78,7 @@ if (settings.timeoutMin > 0) {
   setTimeout(() => {
     log(`no answer after ${String(settings.timeoutMin)} min, giving up`);
     finish(3, "");
-  }, settings.timeoutMin * 60000).unref();
+  }, settings.timeoutMin * 60_000).unref();
 }
 
 server.listen(settings.port, "127.0.0.1", () => {

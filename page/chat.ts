@@ -99,7 +99,7 @@ export function chatHost() {
     } else if (method === "ui/resource-teardown") {
       send({ id: mid, result: {} });
     } else if (mid !== undefined && method) {
-      send({ id: mid, error: { code: -32601, message: "method not found" } });
+      send({ id: mid, error: { code: -32_601, message: "method not found" } });
     }
   });
   // Commons links open through the host: a sandboxed frame can't open tabs itself.

@@ -94,7 +94,7 @@ function open({ request, images, ...flags }: z.infer<typeof HelpMeInput>): Init 
     timer = setTimeout(() => {
       log(`session ${id}: no answer after ${String(settings.timeoutMin)} min, closing it`);
       end();
-    }, settings.timeoutMin * 60000).unref();
+    }, settings.timeoutMin * 60_000).unref();
   }
   const api = createApi({
     model: createModel({ backend, model, effort, env: ENV, jobs }),
