@@ -203,7 +203,9 @@ export const PROVIDERS = {
     model: "",
     needs: "the codex CLI on PATH",
     available: env => onPath("codex", env),
-    host: { agent: "Codex", running: env => Object.keys(env).some(k => k.startsWith("CODEX_")) },
+    // Not any CODEX_* variable: CODEX_HOME is a user setting and the npm wrapper sets CODEX_MANAGED_BY_NPM, so
+    // only what Codex sets for the commands it runs counts.
+    host: { agent: "Codex", running: env => Boolean(env["CODEX_THREAD_ID"] || env["CODEX_SANDBOX"]) },
     run: call => {
       const dir = mkdtempSync(join(tmpdir(), "prompt-shaper-"));
       const schemaFile = join(dir, "schema.json");
