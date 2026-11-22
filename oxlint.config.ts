@@ -1,0 +1,53 @@
+import cloudflare from "@cloudflare/oxlint-config";
+import { defineConfig } from "oxlint";
+
+export default defineConfig({
+  ...cloudflare,
+  ignorePatterns: [...(cloudflare.ignorePatterns ?? []), "docs/vid"],
+  rules: {
+    ...cloudflare.rules,
+    // Temporary during migration: each rule below is enabled or explained in its own commit.
+    "typescript/array-type": "off",
+    "import/consistent-type-specifier-style": "off",
+    "unicorn/catch-error-name": "off",
+    "@nkzw/no-instanceof": "off",
+    "unicorn/prefer-dom-node-append": "off",
+    "quality/no-unknown-returns": "off",
+    "quality/no-unsafe-dictionary-type": "off",
+    "quality/no-known-value-widening": "off",
+    "quality/no-conditional-empty-object-spread": "off",
+    "no-console": "off",
+    "unicorn/prefer-string-replace-all": "off",
+    "quality/no-object-parameters": "off",
+    "no-promise-executor-return": "off",
+    "unicorn/numeric-separators-style": "off",
+    "quality/no-array-filter-map": "off",
+    "unicorn/prefer-top-level-await": "off",
+    "unicorn/prefer-number-properties": "off",
+    "unicorn/prefer-import-meta-properties": "off",
+    "unicorn/prefer-at": "off",
+    "unicorn/prefer-array-index-of": "off",
+    "import/no-namespace": "off",
+  },
+  overrides: [
+    ...(cloudflare.overrides ?? []),
+    {
+      // node:test registers tests synchronously and reports their failures itself.
+      files: ["**/*.ts"],
+      rules: {
+        "typescript/no-floating-promises": [
+          "error",
+          {
+            allowForKnownSafeCalls: [
+              {
+                from: "package",
+                package: "node:test",
+                name: ["test", "describe", "it", "suite"],
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ],
+});

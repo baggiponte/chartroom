@@ -23,6 +23,6 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["skills", "page", "scripts", "mcp", "docs", "test", "playwright.config.ts"],
+  "include": ["skills", "page", "scripts", "mcp", "docs", "test", "playwright.config.ts", "oxlint.config.ts"],
   "exclude": ["**/node_modules"]
 }

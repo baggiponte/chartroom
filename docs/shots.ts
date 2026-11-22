@@ -388,7 +388,6 @@ async function main(): Promise<void> {
     await h.click(p.locator('#pop [data-role="decide"]'));
     await h.w(1500);
     // One answer at a time, as a person would: each answer changes the next question.
-    /* oxlint-disable no-await-in-loop */
     for (let q = 0; q < 3; q++) {
       const c = p.locator(`#pop .chip[data-dq="${String(q)}"]`).first();
       if (await c.count()) {
@@ -396,7 +395,6 @@ async function main(): Promise<void> {
         await h.w(1300);
       }
     }
-    /* oxlint-enable no-await-in-loop */
     await quiet(p);
     await p.mouse.move(995, 5);
     await h.w(300);
