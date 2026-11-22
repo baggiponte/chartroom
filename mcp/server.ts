@@ -1,16 +1,18 @@
 #!/usr/bin/env node
-import { type CallToolResult, McpServer, createMcpHandler } from "@modelcontextprotocol/server";
+import { McpServer, createMcpHandler } from "@modelcontextprotocol/server";
+import type { CallToolResult } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { readFileSync } from "node:fs";
-import http, { type IncomingMessage, type ServerResponse } from "node:http";
+import http from "node:http";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { buffer } from "node:stream/consumers";
-import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import * as z from "zod";
+import { z } from "zod";
 
-import { type Answer, type Init, ROUTES, createApi, errorMessage } from "../skills/help-me/api.ts";
+import { ROUTES, createApi, errorMessage } from "../skills/help-me/api.ts";
+import type { Answer, Init } from "../skills/help-me/api.ts";
 import { createJobs } from "../skills/help-me/jobs.ts";
 import { createModel } from "../skills/help-me/model.ts";
 import { readPage } from "../skills/help-me/page.ts";
@@ -22,13 +24,13 @@ interface Session {
   end: () => void;
 }
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = join(import.meta.dirname, "..");
 const VERSION = z
   .object({ version: z.string() })
   .parse(JSON.parse(readFileSync(join(ROOT, ".claude-plugin", "plugin.json"), "utf8"))).version;
 const URI = "ui://help-me/page.html";
 const MIME = "text/html;profile=mcp-app";
-const log = (...m: unknown[]): void => {
+const log = (...m: Array<unknown>): void => {
   console.error("[help-me mcp]", ...m);
 };
 
@@ -91,7 +93,7 @@ function open({ request, images, ...flags }: z.infer<typeof HelpMeInput>): Init 
     timer = setTimeout(() => {
       log(`session ${id}: no answer after ${String(settings.timeoutMin)} min, closing it`);
       end();
-    }, settings.timeoutMin * 60000).unref();
+    }, settings.timeoutMin * 60_000).unref();
   }
   const api = createApi({
     model: createModel({ backend, model, effort, env: ENV, jobs }),
@@ -163,11 +165,11 @@ function build(): McpServer {
           ],
           structuredContent: { ...open(input) },
         };
-      } catch (e) {
-        log(errorMessage(e));
+      } catch (error) {
+        log(errorMessage(error));
         return {
           isError: true,
-          content: [{ type: "text", text: `The help-me page couldn't start: ${errorMessage(e)}` }],
+          content: [{ type: "text", text: `The help-me page couldn't start: ${errorMessage(error)}` }],
         };
       }
     },
@@ -234,8 +236,8 @@ if (flags.http) {
     }
     toWeb(req)
       .then(async request => fromWeb(await handler.fetch(request), res))
-      .catch((e: unknown) => {
-        log(errorMessage(e));
+      .catch((error: unknown) => {
+        log(errorMessage(error));
         if (!res.headersSent) {
           res.writeHead(500);
         }

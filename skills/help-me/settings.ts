@@ -1,9 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { delimiter, join } from "node:path";
-import { type ParseArgsOptionsConfig, parseArgs } from "node:util";
+import { parseArgs } from "node:util";
+import type { ParseArgsOptionsConfig } from "node:util";
 
-import { BACKENDS, type BackendName, isBackend } from "./backends.ts";
+import { BACKENDS, isBackend } from "./backends.ts";
+import type { BackendName } from "./backends.ts";
 import { isRecord } from "./schema.ts";
 
 export interface Settings {
@@ -50,7 +52,7 @@ const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : S
  * The --out file, read leniently so that a command line `readSettings` refuses can still say so there. A value that
  * starts with "-" is the next flag, which the lenient parse would take as the file name.
  */
-export function outPath(argv: string[], env: NodeJS.ProcessEnv): string {
+export function outPath(argv: Array<string>, env: NodeJS.ProcessEnv): string {
   const out = parseArgs({ ...ARGS, args: argv, strict: false }).values.out;
   return (typeof out === "string" && !out.startsWith("-") ? out : "") || env["PROMPT_SHAPER_OUT"] || "";
 }
@@ -65,8 +67,8 @@ function readConfig(file: string): Readonly<Record<string, unknown>> {
       throw new Error("not a JSON object");
     }
     return c;
-  } catch (e) {
-    throw new Error(`${file} is not a valid config: ${errorMessage(e)}`, { cause: e });
+  } catch (error) {
+    throw new Error(`${file} is not a valid config: ${errorMessage(error)}`, { cause: error });
   }
 }
 
@@ -102,7 +104,7 @@ function autoBackend(env: NodeJS.ProcessEnv): BackendName {
  * Each setting comes from its flag, then `PROMPT_SHAPER_<FLAG>`, then the config file, then a default. Throws, with a
  * message for the user, when one can't be used.
  */
-export function readSettings(argv: string[], env: NodeJS.ProcessEnv): Settings {
+export function readSettings(argv: Array<string>, env: NodeJS.ProcessEnv): Settings {
   const flags = parseArgs({ ...ARGS, args: argv }).values;
   const configFile =
     env["PROMPT_SHAPER_CONFIG"] ||
@@ -115,7 +117,7 @@ export function readSettings(argv: string[], env: NodeJS.ProcessEnv): Settings {
     (f: Flag) => env["PROMPT_SHAPER_" + f.replaceAll("-", "_").toUpperCase()] || undefined,
     // Config values are read as text, like flags and env vars: `"port": 8080` and `"port": "8080"` mean the same.
     (f: Flag) => {
-      const v = config[f.replace(/-(\w)/g, (_, c: string) => c.toUpperCase())];
+      const v = config[f.replaceAll(/-(\w)/g, (_, c: string) => c.toUpperCase())];
       return typeof v === "string" || typeof v === "number" || typeof v === "boolean" ? String(v) : undefined;
     },
   ] as const;

@@ -1,6 +1,8 @@
-import { BACKENDS, type Backend, type BackendName } from "./backends.ts";
+import { BACKENDS } from "./backends.ts";
+import type { Backend, BackendName } from "./backends.ts";
 import type { Jobs } from "./jobs.ts";
-import { type Infer, type ObjectSchema, check, dropNulls } from "./schema.ts";
+import { check, dropNulls } from "./schema.ts";
+import type { Infer, ObjectSchema } from "./schema.ts";
 
 /**
  * Asks the model for JSON matching `schema`. A newer call in the same `slot` aborts this one, which then rejects with

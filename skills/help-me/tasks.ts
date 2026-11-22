@@ -1,6 +1,7 @@
 import type { ModelCall } from "./model.ts";
 import { ANALYZE_SYSTEM, DECIDE_SYSTEM, EXPLAIN_SYSTEM, TIDY_SYSTEM } from "./prompts.ts";
-import { BOOLEAN, type Infer, NUMBER, STRING, STRINGS, type Schema } from "./schema.ts";
+import { BOOLEAN, NUMBER, STRING, STRINGS } from "./schema.ts";
+import type { Infer, Schema } from "./schema.ts";
 
 export type Choice = Infer<typeof CHOICE>;
 export type Analysis = Infer<typeof ANALYSIS>;
@@ -11,24 +12,24 @@ export type Tidied = Infer<typeof TIDIED>;
 
 export interface AnalyzeInput {
   text: string;
-  settled: string[];
-  answers: string[];
-  asked: string[];
+  settled: Array<string>;
+  answers: Array<string>;
+  asked: Array<string>;
   more: boolean;
 }
 
 export interface ExplainInput {
   text: string;
   question: string;
-  options: string[];
+  options: Array<string>;
 }
 
 export interface DecideInput {
   text: string;
   question: string;
-  options: string[];
-  answers: { q: string; a: string }[];
-  asked: string[];
+  options: Array<string>;
+  answers: Array<{ q: string; a: string }>;
+  asked: Array<string>;
 }
 
 const CHOICE_FIELDS = {
@@ -270,7 +271,7 @@ export const TIDIED = {
   properties: { ...TIDY_SCHEMA.properties, ...MODEL_INFO },
 } as const satisfies Schema;
 
-export async function tidy(model: ModelCall, sentences: string[]): Promise<Tidied> {
+export async function tidy(model: ModelCall, sentences: Array<string>): Promise<Tidied> {
   const input = "Sentences:\n" + sentences.map((s, i) => `${String(i + 1)}. ${s}`).join("\n");
   const data = await model("tidy", TIDY_SYSTEM, TIDY_SCHEMA, input);
   const used = new Set<number>();
@@ -288,7 +289,7 @@ export async function tidy(model: ModelCall, sentences: string[]): Promise<Tidie
       blocks.push({ heading: b.heading.trim().replace(/[:：]\s*$/, ""), items });
     }
   }
-  const missing = sentences.map((_, i) => i).filter(i => !used.has(i));
+  const missing = sentences.flatMap((_, i) => (used.has(i) ? [] : [i]));
   const first = blocks[0];
   if (missing.length && first) {
     first.items.push(...missing);

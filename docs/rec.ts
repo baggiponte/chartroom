@@ -3,7 +3,8 @@
 //   ffmpeg -ss 0.4 -i docs/vid/*.webm -vf "fps=12,scale=800:-1:flags=lanczos,tpad=stop_mode=clone:stop_duration=2,mpdecimate=hi=64*24:lo=64*8:frac=0.2,split[a][b];[a]palettegen=max_colors=64:stats_mode=diff[p];[b][p]paletteuse=dither=none:diff_mode=rectangle" -fps_mode vfr docs/demo.gif
 import { fileURLToPath } from "node:url";
 
-import { type Locator, chromium } from "@playwright/test";
+import { chromium } from "@playwright/test";
+import type { Locator } from "@playwright/test";
 
 const VIDEO = process.argv.includes("--video");
 const SHOTS = Boolean(process.env["SHOTS"]);
@@ -41,7 +42,7 @@ async function main(): Promise<void> {
         "position:fixed;left:0;top:0;width:18px;height:18px;z-index:99999;pointer-events:none;transform:translate(-3px,-2px);transition:transform .08s";
       c.innerHTML =
         '<svg width="18" height="22" viewBox="0 0 18 22"><path d="M1 1 L1 17 L5.5 13 L8.5 20 L11 19 L8 12 L14 12 Z" fill="#111" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>';
-      document.body.appendChild(c);
+      document.body.append(c);
       addEventListener(
         "mousemove",
         e => {
@@ -69,7 +70,7 @@ async function main(): Promise<void> {
       cap.id = "__cap";
       cap.style.cssText =
         "position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:99998;pointer-events:none;background:#111;color:#fff;font:600 15px/1.2 system-ui,sans-serif;padding:8px 14px;border-radius:999px;opacity:0;transition:opacity .25s";
-      document.body.appendChild(cap);
+      document.body.append(cap);
     });
   });
   const p = await ctx.newPage();

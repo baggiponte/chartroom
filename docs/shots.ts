@@ -5,7 +5,8 @@ import { mkdirSync, readdirSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { type Locator, type Page, chromium } from "@playwright/test";
+import { chromium } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 const PAGE = new URL("../skills/help-me/index.html", import.meta.url).href;
 const OUT = fileURLToPath(new URL("img", import.meta.url));
@@ -36,7 +37,7 @@ const ACCENT = "#e8590c";
 // Draws labelled arrows over the page. dx/dy place the label's center relative to the target's center (at: absolute
 // viewport point instead); to overrides where the arrow ends; ring outlines the target.
 // It runs inside the page (Playwright sends its source), so it may use only its argument and the page's globals.
-function annotate({ notes, accent }: { notes: Note[]; accent: string }): void {
+function annotate({ notes, accent }: { notes: Array<Note>; accent: string }): void {
   document.getElementById("__ann")?.remove();
   const NS = "http://www.w3.org/2000/svg";
   const root = document.createElement("div");
@@ -47,8 +48,8 @@ function annotate({ notes, accent }: { notes: Note[]; accent: string }): void {
   svg.setAttribute("height", "100%");
   svg.style.cssText = "position:absolute;inset:0;overflow:visible";
   svg.innerHTML = `<defs><marker id="__ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="${accent}"/></marker></defs>`;
-  root.appendChild(svg);
-  document.body.appendChild(root);
+  root.append(svg);
+  document.body.append(root);
   const box = (el: Note["el"]): Box => {
     if (Array.isArray(el)) {
       return { x: el[0], y: el[1] + scrollY, w: el[2], h: el[3] };
@@ -73,7 +74,7 @@ function annotate({ notes, accent }: { notes: Note[]; accent: string }): void {
     const lab = document.createElement("div");
     lab.textContent = n.text;
     lab.style.cssText = `position:absolute;white-space:nowrap;background:${accent};color:#fff;font:600 14px/1 system-ui,-apple-system,"Segoe UI",sans-serif;padding:7px 11px;border-radius:999px;box-shadow:0 2px 6px rgba(0,0,0,.18)`;
-    root.appendChild(lab);
+    root.append(lab);
     const lw = lab.offsetWidth,
       lh = lab.offsetHeight,
       lx = (n.at ? n.at[0] : cx + (n.dx ?? 0)) - lw / 2,
@@ -94,7 +95,7 @@ function annotate({ notes, accent }: { notes: Note[]; accent: string }): void {
         "stroke-width": 2.5,
         "stroke-dasharray": "6 4",
       });
-      svg.appendChild(r);
+      svg.append(r);
     }
     if (n.arrow === false) {
       continue;
@@ -121,7 +122,7 @@ function annotate({ notes, accent }: { notes: Note[]; accent: string }): void {
       "stroke-linecap": "round",
       "marker-end": "url(#__ah)",
     });
-    svg.appendChild(p);
+    svg.append(p);
   }
 }
 
@@ -180,7 +181,7 @@ function helpers(p: Page) {
       await p.keyboard.type(" Which heating system should it have?", { delay: 0 });
       await p.waitForTimeout(1600);
     },
-    ann: (notes: Note[]): Promise<void> => p.evaluate(annotate, { notes, accent: ACCENT }),
+    ann: (notes: Array<Note>): Promise<void> => p.evaluate(annotate, { notes, accent: ACCENT }),
     shot: (name: string, clip?: { x: number; y: number; width: number; height: number }): Promise<Buffer> =>
       p.screenshot({ path: join(OUT, name), ...(clip ? { clip } : {}) }),
   };
@@ -194,7 +195,7 @@ const quiet = (p: Page): Promise<void> =>
     }
   });
 
-const markTexts = (p: Page): Promise<string[]> =>
+const markTexts = (p: Page): Promise<Array<string>> =>
   p.evaluate(() => [...document.querySelectorAll("#backdrop mark")].map(m => m.textContent));
 
 async function main(): Promise<void> {
@@ -218,7 +219,7 @@ async function main(): Promise<void> {
             "position:fixed;left:0;top:0;width:18px;height:18px;z-index:99999;pointer-events:none;transform:translate(-3px,-2px)";
           c.innerHTML =
             '<svg width="18" height="22" viewBox="0 0 18 22"><path d="M1 1 L1 17 L5.5 13 L8.5 20 L11 19 L8 12 L14 12 Z" fill="#111" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>';
-          document.body.appendChild(c);
+          document.body.append(c);
           addEventListener(
             "mousemove",
             e => {
@@ -255,7 +256,6 @@ async function main(): Promise<void> {
     await p.mouse.move(1350, 630);
     await h.w(400);
     const marks = await markTexts(p);
-    console.log("marks", marks);
     await h.ann([
       {
         el: `#backdrop mark:nth-of-type(${String(marks.findIndex(m => m.startsWith("espresso")) + 1)})`,
@@ -279,7 +279,7 @@ async function main(): Promise<void> {
         bend: -0.15,
       },
       {
-        el: `#backdrop mark:nth-of-type(${String(marks.findIndex(m => m === "[milk]") + 1)})`,
+        el: `#backdrop mark:nth-of-type(${String(marks.indexOf("[milk]") + 1)})`,
         text: "Click a [blank] to fill it",
         dx: -45,
         dy: 150,
@@ -388,7 +388,6 @@ async function main(): Promise<void> {
     await h.click(p.locator('#pop [data-role="decide"]'));
     await h.w(1500);
     // One answer at a time, as a person would: each answer changes the next question.
-    /* oxlint-disable no-await-in-loop */
     for (let q = 0; q < 3; q++) {
       const c = p.locator(`#pop .chip[data-dq="${String(q)}"]`).first();
       if (await c.count()) {
@@ -396,7 +395,6 @@ async function main(): Promise<void> {
         await h.w(1300);
       }
     }
-    /* oxlint-enable no-await-in-loop */
     await quiet(p);
     await p.mouse.move(995, 5);
     await h.w(300);

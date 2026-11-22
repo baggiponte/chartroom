@@ -1,5 +1,7 @@
-import { type Api, INIT, type Init, REPLY, type Route, errorMessage } from "../skills/help-me/api.ts";
-import { type Infer, type Schema, check, isRecord } from "../skills/help-me/schema.ts";
+import { INIT, REPLY, errorMessage } from "../skills/help-me/api.ts";
+import type { Api, Init, Route } from "../skills/help-me/api.ts";
+import { check, isRecord } from "../skills/help-me/schema.ts";
+import type { Infer, Schema } from "../skills/help-me/schema.ts";
 import { state } from "./state.ts";
 
 /** A newer request of the same kind took over; the page drops the older one's answer. */
@@ -18,9 +20,9 @@ export const staleFor = (init: Pick<Init, "build">): boolean => !BUILD.startsWit
 export function fits<S extends Schema>(j: unknown, schema: S): Infer<S> {
   try {
     check(j, schema);
-  } catch (e) {
-    throw new Error(`the help-me server answered something this page can't read (${errorMessage(e)}). ${RESTART}`, {
-      cause: e,
+  } catch (error) {
+    throw new Error(`the help-me server answered something this page can't read (${errorMessage(error)}). ${RESTART}`, {
+      cause: error,
     });
   }
   return j;

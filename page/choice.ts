@@ -1,6 +1,7 @@
 import type { Choice as Sent } from "../skills/help-me/tasks.ts";
 import { clamp, fmtNum } from "./format.ts";
-import { type Choice, type Slider, state } from "./state.ts";
+import { state } from "./state.ts";
+import type { Choice, Slider } from "./state.ts";
 
 const WORDS = [
   "zero",
@@ -31,7 +32,13 @@ export function numberIn(t: string): number | null {
   return null;
 }
 
-function sliderFrom(raw: Sent["slider"], span: string): { slider: Slider; value: number } {
+/** A slider read from the model's reply, and where it starts. */
+interface SliderStart {
+  slider: Slider;
+  value: number;
+}
+
+function sliderFrom(raw: Sent["slider"], span: string): SliderStart {
   const s = raw ?? {};
   const stops = s.stops?.length ? s.stops : undefined;
   const slider: Slider = {
@@ -62,7 +69,7 @@ export function makeChoice(c: Sent): Choice | null {
     sentence: c.type === "extra" ? c.sentence : "",
     statement: c.type === "ask" ? c.statement || "{value}" : "",
     options,
-    selected: [] as string[],
+    selected: [] as Array<string>,
     custom: "",
     touched: false,
     orig: span,
@@ -147,7 +154,13 @@ export function tokenValue(ch: Choice): string {
     .join(", ");
 }
 
-export function sentenceParts(ch: Choice): { pre: string; post: string } {
+/** A choice's sentence split around where its value goes. */
+interface SentenceParts {
+  pre: string;
+  post: string;
+}
+
+export function sentenceParts(ch: Choice): SentenceParts {
   let t = ch.sentence.trim();
   if (!t.includes("{value}")) {
     t = `${ch.token || "Also"}: {value}.`;
@@ -159,7 +172,7 @@ export function sentenceParts(ch: Choice): { pre: string; post: string } {
   return { pre: t.slice(0, i), post: t.slice(i + 7).replaceAll("{value}", "") };
 }
 
-export function optionLabels(ch: Choice): string[] {
+export function optionLabels(ch: Choice): Array<string> {
   if (ch.kind !== "slider") {
     return ch.options.map(o => o.label);
   }

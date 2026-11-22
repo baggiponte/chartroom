@@ -1,6 +1,7 @@
 import { SupersededError } from "./jobs.ts";
 import type { ModelCall } from "./model.ts";
-import { BOOLEAN, type Infer, STRING, STRINGS, type Schema, check } from "./schema.ts";
+import { BOOLEAN, STRING, STRINGS, check } from "./schema.ts";
+import type { Infer, Schema } from "./schema.ts";
 import { ANALYSIS, DECISION, EXPLANATION, TIDIED, analyze, decide, explain, tidy } from "./tasks.ts";
 
 /** Every POST route, with the body it takes and what it answers with a 200. */
@@ -68,8 +69,8 @@ export const ROUTES = [
   "/api/tidy",
   "/api/submit",
   "/api/cancel",
-] as const satisfies Route[];
-export const isRoute = (path: string): path is Route => (ROUTES as readonly string[]).includes(path);
+] as const satisfies Array<Route>;
+export const isRoute = (path: string): path is Route => (ROUTES as ReadonlyArray<string>).includes(path);
 
 // No field is required: each one's default sits where the route reads it.
 const BODY = {
@@ -110,16 +111,16 @@ export function createApi({ model, log, finish }: ApiDeps) {
       const data = await work();
       log(`${done(data)} in ${String(Date.now() - t0)} ms`);
       return { status: 200, body: data };
-    } catch (e) {
-      if (e instanceof SupersededError) {
-        return { status: 409, body: { error: e.message } satisfies Failure };
+    } catch (error) {
+      if (error instanceof SupersededError) {
+        return { status: 409, body: { error: error.message } satisfies Failure };
       }
-      log(errorMessage(e));
-      return { status: 500, body: { error: errorMessage(e) } satisfies Failure };
+      log(errorMessage(error));
+      return { status: 500, body: { error: errorMessage(error) } satisfies Failure };
     }
   }
 
-  const routes: { [R in Route]: (data: unknown) => Answer | Promise<Answer> } = {
+  const routes = {
     "/api/analyze": data => {
       const { text = "", settled = [], answers = [], asked = [], more = false } = read(data, BODY.analyze);
       return answer(
@@ -157,14 +158,14 @@ export function createApi({ model, log, finish }: ApiDeps) {
       finish(2, "");
       return { status: 200, body: { ok: true } satisfies Api["/api/cancel"]["reply"] };
     },
-  };
+  } satisfies { [R in Route]: (data: unknown) => Answer | Promise<Answer> };
 
   return {
     async call(path: Route, data: unknown): Promise<Answer> {
       try {
         return await routes[path](data);
-      } catch (e) {
-        return { status: 400, body: { error: errorMessage(e) } satisfies Failure };
+      } catch (error) {
+        return { status: 400, body: { error: errorMessage(error) } satisfies Failure };
       }
     },
   };

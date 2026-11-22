@@ -1,7 +1,8 @@
 // The MCP Apps protocol (https://github.com/modelcontextprotocol/ext-apps, 2026-01-26), written by hand to keep the
 // page one file.
 
-import { type Api, INIT, type Init, REPLY, type Route } from "../skills/help-me/api.ts";
+import { INIT, REPLY } from "../skills/help-me/api.ts";
+import type { Api, Init, Route } from "../skills/help-me/api.ts";
 import { check, isRecord } from "../skills/help-me/schema.ts";
 import { fits, superseded } from "./client.ts";
 
@@ -98,7 +99,7 @@ export function chatHost() {
     } else if (method === "ui/resource-teardown") {
       send({ id: mid, result: {} });
     } else if (mid !== undefined && method) {
-      send({ id: mid, error: { code: -32601, message: "method not found" } });
+      send({ id: mid, error: { code: -32_601, message: "method not found" } });
     }
   });
   // Commons links open through the host: a sandboxed frame can't open tabs itself.

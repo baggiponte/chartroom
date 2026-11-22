@@ -5,16 +5,18 @@ import http from "node:http";
 import { platform } from "node:os";
 import { text as readAll } from "node:stream/consumers";
 
-import { type ExitCode, errorMessage, printed } from "./api.ts";
+import { errorMessage, printed } from "./api.ts";
+import type { ExitCode } from "./api.ts";
 import { createHandler } from "./http.ts";
 import { createJobs } from "./jobs.ts";
 import { createModel } from "./model.ts";
 import { readPage } from "./page.ts";
-import { type Settings, outPath, readSettings } from "./settings.ts";
+import { outPath, readSettings } from "./settings.ts";
+import type { Settings } from "./settings.ts";
 
 const STATUS = { 0: "sent", 1: "error", 2: "cancelled", 3: "timeout" } as const satisfies Record<ExitCode, string>;
 
-const log = (...m: unknown[]): void => {
+const log = (...m: Array<unknown>): void => {
   console.error("[prompt-shaper]", ...m);
 };
 const argv = process.argv.slice(2);
@@ -28,8 +30,8 @@ function writeOut(out: string, code: ExitCode, prompt: string): void {
     // write then rename, so a poller never reads half a file
     writeFileSync(`${out}.tmp`, JSON.stringify({ status: STATUS[code], prompt }) + "\n");
     renameSync(`${out}.tmp`, out);
-  } catch (e) {
-    log(`could not write ${out}: ${errorMessage(e)}`);
+  } catch (error) {
+    log(`could not write ${out}: ${errorMessage(error)}`);
   }
 }
 
@@ -37,8 +39,8 @@ function writeOut(out: string, code: ExitCode, prompt: string): void {
 const settings = ((): Settings => {
   try {
     return readSettings(argv, env);
-  } catch (e) {
-    log(errorMessage(e));
+  } catch (error) {
+    log(errorMessage(error));
     writeOut(outPath(argv, env), 1, "");
     return process.exit(1);
   }
@@ -76,7 +78,7 @@ if (settings.timeoutMin > 0) {
   setTimeout(() => {
     log(`no answer after ${String(settings.timeoutMin)} min, giving up`);
     finish(3, "");
-  }, settings.timeoutMin * 60000).unref();
+  }, settings.timeoutMin * 60_000).unref();
 }
 
 server.listen(settings.port, "127.0.0.1", () => {

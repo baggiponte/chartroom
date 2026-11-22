@@ -1,4 +1,5 @@
-import { type Infer, check, isRecord } from "../skills/help-me/schema.ts";
+import { check, isRecord } from "../skills/help-me/schema.ts";
+import type { Infer } from "../skills/help-me/schema.ts";
 
 const STRING = { type: "string" } as const;
 const PAGE = {

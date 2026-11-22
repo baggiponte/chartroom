@@ -1,17 +1,19 @@
 // The backend points at a closed port, so model-backed routes fail with a 500, which is what the page would show.
 import assert from "node:assert/strict";
-import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
+import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, type TestContext, test } from "node:test";
+import { describe, test } from "node:test";
+import type { TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { z } from "zod";
 
 const SERVER = fileURLToPath(new URL("../mcp/server.ts", import.meta.url));
 
-function startMcp(args: string[] = [], env: NodeJS.ProcessEnv = {}): ChildProcessWithoutNullStreams {
+function startMcp(args: Array<string> = [], env: NodeJS.ProcessEnv = {}): ChildProcessWithoutNullStreams {
   const home = mkdtempSync(join(tmpdir(), "help-me-mcp-test-"));
   return spawn(process.execPath, [SERVER, ...args], {
     env: {

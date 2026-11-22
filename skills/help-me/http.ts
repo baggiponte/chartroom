@@ -1,7 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { text as readAll } from "node:stream/consumers";
 
-import { type Answer, type ApiDeps, type Failure, type Init, createApi, errorMessage, isRoute } from "./api.ts";
+import { createApi, errorMessage, isRoute } from "./api.ts";
+import type { Answer, ApiDeps, Failure, Init } from "./api.ts";
 
 export interface HandlerDeps extends ApiDeps {
   init: Init;
@@ -34,8 +35,8 @@ export function createHandler({ init, page, ...deps }: HandlerDeps) {
   }
 
   return (req: IncomingMessage, res: ServerResponse): void => {
-    route(req, res).catch((e: unknown) => {
-      send(res, { status: 400, body: { error: errorMessage(e) } satisfies Failure });
+    route(req, res).catch((error: unknown) => {
+      send(res, { status: 400, body: { error: errorMessage(error) } satisfies Failure });
     });
   };
 }

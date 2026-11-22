@@ -7,7 +7,8 @@ import { hideHint } from "./pointer.ts";
 import { journey, render } from "./render.ts";
 import { applyChoice, demote } from "./request.ts";
 import { backdrop, extrasEl, pop, ta } from "./dom.ts";
-import { byChoiceId, type Choice, type Decide, state } from "./state.ts";
+import { byChoiceId, state } from "./state.ts";
+import type { Choice, Decide } from "./state.ts";
 
 const KIND = { single: "pick one", multi: "pick any", slider: "slide, or drag the value in place" } as const;
 
@@ -92,7 +93,7 @@ function explainHTML(c: Choice): string {
   return c.explanation ? `<div class="explain"><p>${esc(c.explanation.intro)}</p></div>` : "";
 }
 
-function explainedOptions(ch: Choice): ExplainedOption[] {
+function explainedOptions(ch: Choice): Array<ExplainedOption> {
   const ex = ch.explanation?.options ?? [];
   const find = (label: string, i: number) => ex.find(x => x.label.toLowerCase() === label.toLowerCase()) ?? ex[i] ?? {};
   if (ch.kind !== "slider") {
@@ -388,11 +389,11 @@ async function runDecide(ch: Choice): Promise<void> {
     }
     d.qs.push(...r.questions.map(q => ({ question: q.question, options: q.options, answer: "" })));
     d.rec = answers.length ? (r.recommendation ?? d.rec) : null;
-  } catch (e) {
-    if (isSuperseded(e) || ch.decide !== d || my !== d.seq) {
+  } catch (error) {
+    if (isSuperseded(error) || ch.decide !== d || my !== d.seq) {
       return;
     }
-    d.err = errorMessage(e);
+    d.err = errorMessage(error);
   }
   d.busy = false;
   refreshChoice(ch);
@@ -413,9 +414,9 @@ async function toggleExplain(ch: Choice): Promise<void> {
         state.mode === "live"
           ? await post("/api/explain", { text: ta.value, question: ch.question, options })
           : await demoExplain(ch, options);
-    } catch (e) {
-      if (!isSuperseded(e)) {
-        ch.explainErr = errorMessage(e);
+    } catch (error) {
+      if (!isSuperseded(error)) {
+        ch.explainErr = errorMessage(error);
       }
     }
     ch.explainBusy = false;
@@ -587,7 +588,7 @@ export function positionPop(): void {
   }
   pop.style.maxHeight = "";
   const rs = a.getClientRects();
-  const r = rs[rs.length - 1] ?? a.getBoundingClientRect();
+  const r = rs.item(rs.length - 1) ?? a.getBoundingClientRect();
   const pw = pop.offsetWidth;
   const ph = pop.offsetHeight;
   let top = r.bottom + 10;

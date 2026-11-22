@@ -1,6 +1,8 @@
-import { type ChildProcess, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
 import { mkdtempSync } from "node:fs";
-import { createServer, type Server } from "node:http";
+import { createServer } from "node:http";
+import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -22,7 +24,7 @@ export type FakeModel = (req: ModelRequest) => unknown;
 
 export interface FakeApi {
   url: string;
-  calls: ModelRequest[];
+  calls: Array<ModelRequest>;
   close: () => Promise<void>;
 }
 
@@ -37,7 +39,7 @@ const ChatBody = z.object({
 });
 
 /** Answers like the Anthropic Messages API, or like OpenAI's chat completions on that path. */
-function reply(path: string, raw: string, answer: FakeModel, calls: ModelRequest[]): unknown {
+function reply(path: string, raw: string, answer: FakeModel, calls: Array<ModelRequest>) {
   if (path.endsWith("/chat/completions")) {
     const { model, messages } = ChatBody.parse(JSON.parse(raw));
     const call = { model, system: messages[0].content, input: messages[1].content };
@@ -52,14 +54,16 @@ function reply(path: string, raw: string, answer: FakeModel, calls: ModelRequest
 }
 
 export async function startFakeApi(answer: FakeModel): Promise<FakeApi> {
-  const calls: ModelRequest[] = [];
+  const calls: Array<ModelRequest> = [];
   const server: Server = createServer((req, res) => {
     void readAll(req).then(raw => {
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify(reply(req.url ?? "", raw, answer, calls)));
     });
   });
-  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>(resolve => {
+    server.listen(0, "127.0.0.1", resolve);
+  });
   const address: AddressInfo | string | null = server.address();
   if (address === null || typeof address === "string") {
     throw new Error("the fake API is not listening on a TCP port");
@@ -67,7 +71,10 @@ export async function startFakeApi(answer: FakeModel): Promise<FakeApi> {
   return {
     url: `http://127.0.0.1:${String(address.port)}`,
     calls,
-    close: () => new Promise(resolve => server.close(() => resolve())),
+    close: () =>
+      new Promise(resolve => {
+        server.close(() => resolve());
+      }),
   };
 }
 
@@ -83,7 +90,7 @@ export interface HelpMe {
 }
 
 export interface StartOptions {
-  args?: string[];
+  args?: Array<string>;
   env?: Record<string, string>;
   api?: FakeApi;
   /** Pass --backend anthropic on the command line (default), or leave the backend to env and config. */
@@ -164,7 +171,7 @@ export async function startHelpMe({
  * killed after `waitMs` and reported with code null.
  */
 export function runHelpMe(
-  args: string[],
+  args: Array<string>,
   env: Record<string, string> = {},
   waitMs = 3000,
 ): Promise<{ code: number | null; stderr: string }> {

@@ -3,20 +3,10 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { type Jobs, SupersededError } from "./jobs.ts";
-import {
-  ANY,
-  BOOLEAN,
-  NUMBER,
-  STRING,
-  type Schema,
-  check,
-  dropNulls,
-  isRecord,
-  parseFenced,
-  strict,
-  withSchema,
-} from "./schema.ts";
+import { SupersededError } from "./jobs.ts";
+import type { Jobs } from "./jobs.ts";
+import { ANY, BOOLEAN, NUMBER, STRING, check, dropNulls, isRecord, parseFenced, strict, withSchema } from "./schema.ts";
+import type { Schema } from "./schema.ts";
 
 export type BackendName = keyof typeof BACKENDS;
 
@@ -47,7 +37,7 @@ export interface RawReply {
 function runCli<T>(
   { slot, env, jobs }: BackendCall,
   cmd: string,
-  argv: string[],
+  argv: Array<string>,
   stdin: string,
   parse: (out: string) => T,
   cwd = tmpdir(),
@@ -75,9 +65,9 @@ function runCli<T>(
       }
       try {
         resolve(parse(out));
-      } catch (e) {
+      } catch (error) {
         // A bare JSON.parse failure ("Unexpected token…") says less than the CLI's own output does.
-        const why = e instanceof Error && !e.message.startsWith("Unexpected") ? `${e.message} ` : "";
+        const why = error instanceof Error && !error.message.startsWith("Unexpected") ? `${error.message} ` : "";
         reject(new Error(`${cmd} exited ${String(code)}: ${why}${(err || out).slice(0, 400)}`));
       }
     });
@@ -107,11 +97,11 @@ async function runHttp<T>(
       throw new Error(`${new URL(url).host} answered ${String(r.status)}: ${text.slice(0, 400)}`);
     }
     return parse(JSON.parse(text));
-  } catch (e) {
-    if (e instanceof Error && e.name === "AbortError") {
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
       throw new SupersededError();
     }
-    throw e;
+    throw error;
   } finally {
     jobs.release(slot, job);
   }

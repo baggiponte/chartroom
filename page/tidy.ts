@@ -16,10 +16,10 @@ interface Segment {
 }
 
 /** Sentences as [a, b) ranges, never cutting through an underline; bullets and our own headings are left out. */
-export function segments(text: string): Segment[] {
+export function segments(text: string): Array<Segment> {
   const marks = state.choices.filter(c => !c.extra && c.start >= 0);
   const inMark = (p: number): boolean => marks.some(c => p > c.start && p < c.end);
-  const segs: Segment[] = [];
+  const segs: Array<Segment> = [];
   let ls = 0;
   for (const line of text.split("\n")) {
     const le = ls + line.length;
@@ -74,14 +74,14 @@ async function runTidy(): Promise<void> {
   let blocks;
   try {
     blocks = (state.mode === "live" ? await post("/api/tidy", { sentences }) : await demoTidy(sentences)).blocks;
-  } catch (e) {
+  } catch (error) {
     if (my !== state.tidySeq) {
       return;
     }
     state.tidyBusy = false;
     render();
-    if (!isSuperseded(e)) {
-      setStatus("err", `couldn't tidy: ${esc(errorMessage(e))} · <button id="retry">retry</button>`);
+    if (!isSuperseded(error)) {
+      setStatus("err", `couldn't tidy: ${esc(errorMessage(error))} · <button id="retry">retry</button>`);
     }
     document.getElementById("retry")?.addEventListener("click", () => void runTidy());
     return;
@@ -100,10 +100,10 @@ async function runTidy(): Promise<void> {
   setStatus("", "");
 }
 
-function applyTidy(text: string, segs: Segment[], raw: { heading: string; items: number[] }[]): void {
+function applyTidy(text: string, segs: Array<Segment>, raw: Array<{ heading: string; items: Array<number> }>): void {
   // every sentence exactly once, whatever came back
   const used = new Set<number>();
-  const blocks: { heading: string; items: number[] }[] = [];
+  const blocks: Array<{ heading: string; items: Array<number> }> = [];
   for (const b of raw) {
     const items = b.items.filter(i => {
       const ok = Number.isInteger(i) && i >= 0 && i < segs.length && !used.has(i);
@@ -116,7 +116,7 @@ function applyTidy(text: string, segs: Segment[], raw: { heading: string; items:
       blocks.push({ heading: b.heading.trim().replace(/:$/, ""), items });
     }
   }
-  const missing = segs.map((_, i) => i).filter(i => !used.has(i));
+  const missing = segs.flatMap((_, i) => (used.has(i) ? [] : [i]));
   if (missing.length) {
     const first = blocks[0];
     if (first) {

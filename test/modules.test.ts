@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { describe, type TestContext, test } from "node:test";
+import { describe, test } from "node:test";
+import type { TestContext } from "node:test";
 
-import { type Api, type ExitCode, createApi } from "../skills/help-me/api.ts";
+import { createApi } from "../skills/help-me/api.ts";
+import type { Api, ExitCode } from "../skills/help-me/api.ts";
 import { createHandler } from "../skills/help-me/http.ts";
 import { SupersededError } from "../skills/help-me/jobs.ts";
 import type { ModelCall } from "../skills/help-me/model.ts";
@@ -79,7 +81,7 @@ describe("tasks", () => {
 });
 
 async function serve(t: TestContext, model: ModelCall) {
-  const finished: [ExitCode, string][] = [];
+  const finished: Array<[ExitCode, string]> = [];
   const server = createServer(
     createHandler({
       model,
@@ -89,7 +91,9 @@ async function serve(t: TestContext, model: ModelCall) {
       finish: (code, prompt) => finished.push([code, prompt]),
     }),
   );
-  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>(resolve => {
+    server.listen(0, "127.0.0.1", resolve);
+  });
   t.after(() => server.close());
   const address = server.address();
   const port = typeof address === "object" && address ? address.port : 0;
@@ -112,7 +116,7 @@ describe("createHandler", () => {
   });
 });
 
-const api = (model: ModelCall, finished: [ExitCode, string][] = []) =>
+const api = (model: ModelCall, finished: Array<[ExitCode, string]> = []) =>
   createApi({ model, log: () => {}, finish: (code, prompt) => finished.push([code, prompt]) });
 
 describe("createApi", () => {
@@ -133,7 +137,7 @@ describe("createApi", () => {
   });
 
   test("Cancel hands nothing to finish", async () => {
-    const finished: [ExitCode, string][] = [];
+    const finished: Array<[ExitCode, string]> = [];
     assert.equal((await api(answering({}), finished).call("/api/cancel", {})).status, 200);
     assert.deepEqual(finished, [[2, ""]]);
   });

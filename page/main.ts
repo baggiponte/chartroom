@@ -11,7 +11,8 @@ import { caretMove, renderGrips, undoMove } from "./rank.ts";
 import { openItems, render, setStatus } from "./render.ts";
 import { overlaps, promote, relocate, sentenceRange, withoutOpen } from "./request.ts";
 import { $, extrasEl, moreBtn, pop, sendBtn, ta, tidyBtn } from "./dom.ts";
-import { type Choice, state } from "./state.ts";
+import { state } from "./state.ts";
+import type { Choice } from "./state.ts";
 import { tidyOrUndo, undoTidy } from "./tidy.ts";
 
 const EXAMPLE = "Help me choose a home coffee machine for my small kitchen, something good for lattes.";
@@ -54,17 +55,17 @@ async function analyze({ more = false } = {}): Promise<void> {
   let data: Analysis;
   try {
     data = state.mode === "live" ? await post("/api/analyze", payload) : await demoAnalyze(text, more);
-  } catch (e) {
+  } catch (error) {
     if (more) {
       state.moreBusy = false;
       render();
     }
-    if (my !== state.analysisSeq || isSuperseded(e)) {
+    if (my !== state.analysisSeq || isSuperseded(error)) {
       return;
     }
     state.busy = false;
     render();
-    setStatus("err", `couldn't analyse: ${esc(errorMessage(e))} · <button id="retry">retry</button>`);
+    setStatus("err", `couldn't analyse: ${esc(errorMessage(error))} · <button id="retry">retry</button>`);
     $("retry").addEventListener("click", () => {
       state.lastAnalyzed = null;
       void analyze({ more });
@@ -116,7 +117,7 @@ function merge(text: string, data: Analysis, more: boolean): void {
   const taken = kept
     .filter(c => !c.extra)
     .map(c => (c.promo ? sentenceRange(c, text) : ([c.start, c.end] as [number, number])));
-  const fresh: Choice[] = [];
+  const fresh: Array<Choice> = [];
   for (const raw of data.choices) {
     const ch = makeChoice(raw);
     if (!ch) {
@@ -177,9 +178,9 @@ function compose(): string {
 
 const q = (s: string): string => `<b>${esc(s)}</b>`;
 
-function sentNotes(): string[] {
+function sentNotes(): Array<string> {
   const text = ta.value;
-  const n: string[] = [];
+  const n: Array<string> = [];
   const { choices, removed } = state;
   const open = choices.filter(c => c.promo && !c.settled && c.start >= 0);
   if (open.length) {
@@ -218,7 +219,7 @@ async function submit(): Promise<void> {
     // the shaped request goes into the conversation as the user's own message
     const failed = await chat.request("ui/message", { role: "user", content: [{ type: "text", text: prompt }] }).then(
       r => (isRecord(r) && r["isError"] ? "" : null),
-      (e: unknown) => `: ${esc(errorMessage(e))}`,
+      (error: unknown) => `: ${esc(errorMessage(error))}`,
     );
     if (failed !== null) {
       setStatus("err", `couldn't send it to the chat${failed}`);
@@ -230,8 +231,8 @@ async function submit(): Promise<void> {
     let sent;
     try {
       ({ sent } = await post("/api/submit", { prompt }));
-    } catch (e) {
-      setStatus("err", "couldn't reach the help-me server: " + esc(errorMessage(e)));
+    } catch (error) {
+      setStatus("err", "couldn't reach the help-me server: " + esc(errorMessage(error)));
       return;
     }
     end("sent", `Sent to ${state.agentName}`, LOOK_BACK, sent, notes);
@@ -262,7 +263,7 @@ async function cancel(): Promise<void> {
 }
 
 // The help-me server exits once you send, so from here on everything the page shows comes from what it already has.
-function end(kind: "sent" | "cancelled", title: string, sub: string, prompt: string, notes: string[] = []): void {
+function end(kind: "sent" | "cancelled", title: string, sub: string, prompt: string, notes: Array<string> = []): void {
   state.ended = kind;
   clearTimeout(state.timer);
   state.analysisSeq++;
@@ -393,9 +394,9 @@ async function start(): Promise<void> {
       throw new Error("no server behind a file");
     }
     const j = chat
-      ? await chat.init().catch((e: unknown) => {
-          chat.failed = errorMessage(e);
-          throw e;
+      ? await chat.init().catch((error: unknown) => {
+          chat.failed = errorMessage(error);
+          throw error;
         })
       : await getInit();
     state.modelName = j.model || "the model";

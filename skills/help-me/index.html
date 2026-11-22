@@ -439,8 +439,8 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			for (const branch of s.anyOf) {
 				try {
 					walk(structuredClone(v), branch, at);
-				} catch (e) {
-					errors.push(e instanceof Error ? e.message : String(e));
+				} catch (error) {
+					errors.push(error instanceof Error ? error.message : String(error));
 					continue;
 				}
 				walk(v, branch, at);
@@ -791,8 +791,8 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 	function fits(j, schema) {
 		try {
 			check(j, schema);
-		} catch (e) {
-			throw new Error(`the help-me server answered something this page can't read (${errorMessage$1(e)}). ${RESTART}`, { cause: e });
+		} catch (error) {
+			throw new Error(`the help-me server answered something this page can't read (${errorMessage$1(error)}). ${RESTART}`, { cause: error });
 		}
 		return j;
 	}
@@ -981,13 +981,13 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 	// page/format.ts
 	const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 	const fmtNum = (v) => (Number.isInteger(v) ? v : Math.round(v * 100) / 100).toLocaleString();
-	const ESCAPES = {
-		"&": "&amp;",
-		"<": "&lt;",
-		">": "&gt;",
-		"\"": "&quot;"
-	};
-	const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ESCAPES[c] ?? c);
+	const ESCAPES = /* @__PURE__ */ new Map([
+		["&", "&amp;"],
+		["<", "&lt;"],
+		[">", "&gt;"],
+		["\"", "&quot;"]
+	]);
+	const esc = (s) => String(s).replaceAll(/[&<>"]/g, (c) => ESCAPES.get(c) ?? c);
 	const cap = (s) => s.replace(/^./, (c) => c.toUpperCase());
 	const errorMessage = (e) => e instanceof Error ? e.message : String(e);
 	// page/choice.ts
@@ -1125,7 +1125,9 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 	}
 	const canDecide = (ch) => (ch.kind !== "slider" || (ch.slider.stops?.length ?? 0) > 1) && optionLabels(ch).length > 1;
 	// page/demo.ts
-	const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+	const pause = (ms) => new Promise((r) => {
+		setTimeout(r, ms);
+	});
 	async function demoAnalyze(text, more) {
 		await pause(600);
 		if (more) return {
@@ -1878,9 +1880,9 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		}
 		if (state.tidyHeads.size) {
 			const lines = text.split("\n").filter((l) => !/^[ \t]*[-*•][ \t]*$/.test(l));
-			text = lines.filter((l, i) => !(isHeading(l) && !(lines[i + 1] ?? "").trim())).join("\n").replace(/\n{3,}/g, "\n\n");
+			text = lines.filter((l, i) => !(isHeading(l) && !(lines[i + 1] ?? "").trim())).join("\n").replaceAll(/\n{3,}/g, "\n\n");
 		}
-		return text.replace(/[ \t]+$/gm, "").trim();
+		return text.replaceAll(/[ \t]+$/gm, "").trim();
 	}
 	// page/tidy.ts
 	/** Sentences as [a, b) ranges, never cutting through an underline; bullets and our own headings are left out. */
@@ -1933,11 +1935,11 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		let blocks;
 		try {
 			blocks = (state.mode === "live" ? await post("/api/tidy", { sentences }) : await demoTidy(sentences)).blocks;
-		} catch (e) {
+		} catch (error) {
 			if (my !== state.tidySeq) return;
 			state.tidyBusy = false;
 			render();
-			if (!isSuperseded(e)) setStatus("err", `couldn't tidy: ${esc(errorMessage(e))} · <button id="retry">retry</button>`);
+			if (!isSuperseded(error)) setStatus("err", `couldn't tidy: ${esc(errorMessage(error))} · <button id="retry">retry</button>`);
 			document.getElementById("retry")?.addEventListener("click", () => void runTidy());
 			return;
 		}
@@ -1966,7 +1968,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 				items
 			});
 		}
-		const missing = segs.map((_, i) => i).filter((i) => !used.has(i));
+		const missing = segs.flatMap((_, i) => used.has(i) ? [] : [i]);
 		if (missing.length) {
 			const first = blocks[0];
 			if (first) first.items.push(...missing);
@@ -2118,7 +2120,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			k,
 			n: L.items.length
 		})));
-		const lh = parseFloat(getComputedStyle(ta).lineHeight) || 35;
+		const lh = Number.parseFloat(getComputedStyle(ta).lineHeight) || 35;
 		if (gripsEl.children.length !== items.length) gripsEl.innerHTML = items.map(() => `<button class="grip" type="button" tabindex="0">${GRIP_SVG}</button>`).join("");
 		items.forEach((it, i) => {
 			const g = gripsEl.children[i];
@@ -2631,17 +2633,17 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		else if (d.id === state.openId) closePop();
 		else openPop(d.id);
 	}
-	const ARROWS = {
-		ArrowRight: 1,
-		ArrowUp: 1,
-		ArrowLeft: -1,
-		ArrowDown: -1
-	};
+	const ARROWS = /* @__PURE__ */ new Map([
+		["ArrowRight", 1],
+		["ArrowUp", 1],
+		["ArrowLeft", -1],
+		["ArrowDown", -1]
+	]);
 	function scrubKey(ch, e) {
 		if (state.ended) return false;
 		const s = ch.slider;
 		const big = e.shiftKey ? 10 : 1;
-		const d = ARROWS[e.key];
+		const d = ARROWS.get(e.key);
 		if (d) scrubTo(ch, ch.value + d * big * s.step);
 		else if (e.key === "Home") scrubTo(ch, s.min);
 		else if (e.key === "End") scrubTo(ch, s.max);
@@ -2995,9 +2997,9 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 				answer: ""
 			})));
 			d.rec = answers.length ? r.recommendation ?? d.rec : null;
-		} catch (e) {
-			if (isSuperseded(e) || ch.decide !== d || my !== d.seq) return;
-			d.err = errorMessage(e);
+		} catch (error) {
+			if (isSuperseded(error) || ch.decide !== d || my !== d.seq) return;
+			d.err = errorMessage(error);
 		}
 		d.busy = false;
 		refreshChoice(ch);
@@ -3018,8 +3020,8 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 					question: ch.question,
 					options
 				}) : await demoExplain(ch, options);
-			} catch (e) {
-				if (!isSuperseded(e)) ch.explainErr = errorMessage(e);
+			} catch (error) {
+				if (!isSuperseded(error)) ch.explainErr = errorMessage(error);
 			}
 			ch.explainBusy = false;
 		}
@@ -3131,7 +3133,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		}
 		pop.style.maxHeight = "";
 		const rs = a.getClientRects();
-		const r = rs[rs.length - 1] ?? a.getBoundingClientRect();
+		const r = rs.item(rs.length - 1) ?? a.getBoundingClientRect();
 		const pw = pop.offsetWidth;
 		const ph = pop.offsetHeight;
 		let top = r.bottom + 10;
@@ -3184,15 +3186,15 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		let data;
 		try {
 			data = state.mode === "live" ? await post("/api/analyze", payload) : await demoAnalyze(text, more);
-		} catch (e) {
+		} catch (error) {
 			if (more) {
 				state.moreBusy = false;
 				render();
 			}
-			if (my !== state.analysisSeq || isSuperseded(e)) return;
+			if (my !== state.analysisSeq || isSuperseded(error)) return;
 			state.busy = false;
 			render();
-			setStatus("err", `couldn't analyse: ${esc(errorMessage(e))} · <button id="retry">retry</button>`);
+			setStatus("err", `couldn't analyse: ${esc(errorMessage(error))} · <button id="retry">retry</button>`);
 			$("retry").addEventListener("click", () => {
 				state.lastAnalyzed = null;
 				analyze({ more });
@@ -3296,7 +3298,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 					type: "text",
 					text: prompt
 				}]
-			}).then((r) => isRecord(r) && r["isError"] ? "" : null, (e) => `: ${esc(errorMessage(e))}`);
+			}).then((r) => isRecord(r) && r["isError"] ? "" : null, (error) => `: ${esc(errorMessage(error))}`);
 			if (failed !== null) {
 				setStatus("err", `couldn't send it to the chat${failed}`);
 				return;
@@ -3307,8 +3309,8 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			let sent;
 			try {
 				({sent} = await post("/api/submit", { prompt }));
-			} catch (e) {
-				setStatus("err", "couldn't reach the help-me server: " + esc(errorMessage(e)));
+			} catch (error) {
+				setStatus("err", "couldn't reach the help-me server: " + esc(errorMessage(error)));
 				return;
 			}
 			end("sent", `Sent to ${state.agentName}`, LOOK_BACK, sent, notes);
@@ -3431,9 +3433,9 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		state.chat = chat;
 		try {
 			if (!chat && location.protocol === "file:") throw new Error("no server behind a file");
-			const j = chat ? await chat.init().catch((e) => {
-				chat.failed = errorMessage(e);
-				throw e;
+			const j = chat ? await chat.init().catch((error) => {
+				chat.failed = errorMessage(error);
+				throw error;
 			}) : await getInit();
 			state.modelName = j.model || "the model";
 			state.agentName = j.agent || "your agent";

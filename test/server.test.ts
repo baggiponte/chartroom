@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, type TestContext, test } from "node:test";
+import { describe, test } from "node:test";
+import type { TestContext } from "node:test";
 
 import { z } from "zod";
 
-import { type FakeModel, type HelpMe, runHelpMe, startFakeApi, startHelpMe } from "./support/help-me.ts";
+import { runHelpMe, startFakeApi, startHelpMe } from "./support/help-me.ts";
+import type { FakeModel, HelpMe } from "./support/help-me.ts";
 
 const scratch = mkdtempSync(join(tmpdir(), "help-me-files-"));
 
@@ -55,7 +57,7 @@ function outFile(path: string): z.infer<typeof OutFile> {
 }
 
 /** Starts a fake API and a server wired to it, and stops both when the test ends. */
-async function withModel(t: TestContext, answer: FakeModel, args: string[] = []) {
+async function withModel(t: TestContext, answer: FakeModel, args: Array<string> = []) {
   const api = await startFakeApi(answer);
   const helpMe = await startHelpMe({ api, args });
   t.after(async () => {
@@ -82,7 +84,7 @@ describe("/api/init", () => {
 
   test("a --model flag beats the env var, which beats the config file", async () => {
     const config = configFile({ backend: "anthropic", model: "from-file" });
-    const cases: [string[], Record<string, string>, string][] = [
+    const cases: Array<[Array<string>, Record<string, string>, string]> = [
       [[], { PROMPT_SHAPER_CONFIG: config }, "from-file"],
       [[], { PROMPT_SHAPER_CONFIG: config, PROMPT_SHAPER_MODEL: "from-env" }, "from-env"],
       [["--model", "from-flag"], { PROMPT_SHAPER_CONFIG: config, PROMPT_SHAPER_MODEL: "from-env" }, "from-flag"],

@@ -5,7 +5,8 @@ import { anchorFor, closePop, openPop } from "./popover.ts";
 import { render } from "./render.ts";
 import { applyChoice } from "./request.ts";
 import { backdrop, extrasEl, hintEl, ta } from "./dom.ts";
-import { byChoiceId, type Choice, state } from "./state.ts";
+import { byChoiceId, state } from "./state.ts";
+import type { Choice } from "./state.ts";
 
 type SliderChoice = Choice & { kind: "slider" };
 const isScrub = (ch: Choice | undefined): ch is SliderChoice => ch?.kind === "slider";
@@ -109,7 +110,12 @@ function endPress(e: PointerEvent, cancelled: boolean): void {
   }
 }
 
-const ARROWS: Partial<Record<string, number>> = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 };
+const ARROWS = new Map([
+  ["ArrowRight", 1],
+  ["ArrowUp", 1],
+  ["ArrowLeft", -1],
+  ["ArrowDown", -1],
+]);
 
 function scrubKey(ch: SliderChoice, e: KeyboardEvent): boolean {
   if (state.ended) {
@@ -117,7 +123,7 @@ function scrubKey(ch: SliderChoice, e: KeyboardEvent): boolean {
   }
   const s = ch.slider;
   const big = e.shiftKey ? 10 : 1;
-  const d = ARROWS[e.key];
+  const d = ARROWS.get(e.key);
   if (d) {
     scrubTo(ch, ch.value + d * big * s.step);
   } else if (e.key === "Home") {
