@@ -2,10 +2,11 @@
 // tests exercise the shipped code end to end without ever reaching a model.
 import { type ChildProcess, spawn } from "node:child_process";
 import { mkdtempSync } from "node:fs";
-import { createServer, type IncomingMessage, type Server } from "node:http";
+import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { text as readAll } from "node:stream/consumers";
 import { fileURLToPath } from "node:url";
 
 import { z } from "zod";
@@ -18,7 +19,7 @@ export interface ModelRequest {
   input: string;
 }
 
-/** What the fake model answers; the server receives it as the forced tool call's input. */
+/** What the fake model answers: the forced tool call's input, or the chat reply's JSON (null for a refusal). */
 export type FakeModel = (req: ModelRequest) => unknown;
 
 export interface FakeApi {
@@ -27,36 +28,37 @@ export interface FakeApi {
   close: () => Promise<void>;
 }
 
-function readBody(req: IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let body = "";
-    req.on("data", (chunk: Buffer) => {
-      body += chunk.toString();
-    });
-    req.on("end", () => {
-      resolve(body);
-    });
-    req.on("error", reject);
-  });
-}
-
 const MessagesBody = z.object({
   model: z.string(),
   system: z.string(),
   messages: z.tuple([z.object({ content: z.string() })]),
 });
+const ChatBody = z.object({
+  model: z.string(),
+  messages: z.tuple([z.object({ content: z.string() }), z.object({ content: z.string() })]),
+});
+
+/** Answers like the Anthropic Messages API, or like OpenAI's chat completions on that path. */
+function reply(path: string, raw: string, answer: FakeModel, calls: ModelRequest[]): unknown {
+  if (path.endsWith("/chat/completions")) {
+    const { model, messages } = ChatBody.parse(JSON.parse(raw));
+    const call = { model, system: messages[0].content, input: messages[1].content };
+    calls.push(call);
+    const content = answer(call);
+    return { model, choices: [{ message: { content: content === null ? null : JSON.stringify(content) } }] };
+  }
+  const { model, system, messages } = MessagesBody.parse(JSON.parse(raw));
+  const call = { model, system, input: messages[0].content };
+  calls.push(call);
+  return { model, content: [{ type: "tool_use", name: "answer", input: answer(call) }] };
+}
 
 export async function startFakeApi(answer: FakeModel): Promise<FakeApi> {
   const calls: ModelRequest[] = [];
   const server: Server = createServer((req, res) => {
-    void readBody(req).then(raw => {
-      const body = MessagesBody.parse(JSON.parse(raw));
-      const call = { model: body.model, system: body.system, input: body.messages[0].content };
-      calls.push(call);
+    void readAll(req).then(raw => {
       res.writeHead(200, { "content-type": "application/json" });
-      res.end(
-        JSON.stringify({ model: body.model, content: [{ type: "tool_use", name: "answer", input: answer(call) }] }),
-      );
+      res.end(JSON.stringify(reply(req.url ?? "", raw, answer, calls)));
     });
   });
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
@@ -111,6 +113,8 @@ export async function startHelpMe({
         XDG_CONFIG_HOME: join(home, ".config"),
         ANTHROPIC_API_KEY: "test",
         ANTHROPIC_BASE_URL: api?.url ?? "http://127.0.0.1:9",
+        OPENAI_API_KEY: "test",
+        OPENAI_BASE_URL: api?.url ?? "http://127.0.0.1:9",
         ...env,
       },
       stdio: ["pipe", "pipe", "pipe"],

@@ -13,7 +13,9 @@ import { readFileSync } from "node:fs";
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { buffer } from "node:stream/consumers";
 import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
 import * as z from "zod";
 
 const SKILL = join(dirname(fileURLToPath(import.meta.url)), "..", "skills", "help-me");
@@ -75,20 +77,16 @@ interface Session {
 const sessions = new Map<string, Session>();
 let nextId = 0;
 
-function start({ request, backend, model, effort, images }: z.infer<typeof HelpMeInput>): Promise<Session> {
-  const args = [join(SKILL, "server.ts"), "--stdin", "--no-open", "--agent", "Claude"];
-  if (backend) {
-    args.push("--backend", backend);
-  }
-  if (model) {
-    args.push("--model", model);
-  }
-  if (effort) {
-    args.push("--effort", effort);
-  }
-  if (images !== undefined) {
-    args.push(images ? "--images" : "--no-images");
-  }
+function start({ request, images, ...settings }: z.infer<typeof HelpMeInput>): Promise<Session> {
+  const args = [
+    join(SKILL, "server.ts"),
+    "--stdin",
+    "--no-open",
+    "--agent",
+    "Claude",
+    ...Object.entries(settings).flatMap(([name, value]) => (value ? [`--${name}`, value] : [])),
+    ...(images === undefined ? [] : [images ? "--images" : "--no-images"]),
+  ];
   const child = spawn(process.execPath, args, { env: { ...process.env, PATH }, stdio: ["pipe", "ignore", "pipe"] });
   child.stdin.end(request);
   return new Promise((resolve, reject) => {
@@ -226,12 +224,7 @@ function build(): McpServer {
   return server;
 }
 
-// Turns a Node request into a web Request for the MCP handler, and streams its web Response back.
 async function toWeb(req: IncomingMessage): Promise<Request> {
-  const chunks: Buffer[] = [];
-  for await (const c of req as AsyncIterable<Buffer>) {
-    chunks.push(c);
-  }
   const headers = new Headers();
   for (const [name, value] of Object.entries(req.headers)) {
     for (const v of Array.isArray(value) ? value : value === undefined ? [] : [value]) {
@@ -242,7 +235,7 @@ async function toWeb(req: IncomingMessage): Promise<Request> {
   return new Request(`http://${req.headers.host ?? "127.0.0.1"}${req.url ?? "/"}`, {
     method,
     headers,
-    ...(["GET", "HEAD"].includes(method) ? {} : { body: Buffer.concat(chunks) }),
+    ...(["GET", "HEAD"].includes(method) ? {} : { body: await buffer(req) }),
   });
 }
 
@@ -256,9 +249,9 @@ async function fromWeb(response: Response, res: ServerResponse): Promise<void> {
   res.end();
 }
 
-if (process.argv.includes("--http")) {
-  const i = process.argv.indexOf("--port");
-  const port = Number(i > 0 ? process.argv[i + 1] : (process.env["PORT"] ?? 3917));
+const flags = parseArgs({ options: { http: { type: "boolean" }, port: { type: "string" } } }).values;
+if (flags.http) {
+  const port = Number(flags.port ?? process.env["PORT"] ?? 3917);
   const handler = createMcpHandler(() => build());
   const server = http.createServer((req, res) => {
     if (!req.url?.startsWith("/mcp")) {
