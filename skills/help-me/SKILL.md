@@ -55,4 +55,6 @@ stderr lines starting with `[prompt-shaper]` are logs; one has the page URL to g
 - Exit 1 (`error`) before the page opened: help-me refuses to guess a backend, so stderr (and `error` in the
   `--out` file) says what is missing and which config file sets `backend`. Show the user that message and offer to
   fix it: install the missing CLI, or write `"backend"` into that JSON file. Don't pick another backend yourself.
+  If what they want to run on isn't a backend help-me has, follow `SKILL_DIR/PLUGINS.md` to write a plugin with
+  them.
 - Exit 3 (`timeout`) or any other error: say so briefly and offer to run it again.
