@@ -22,6 +22,9 @@ export const PROVIDERS = {
 
 export type ProviderName = keyof typeof PROVIDERS;
 
+// Object.hasOwn, not `in`: "constructor" is not a provider.
+export const isProvider = (name: string): name is ProviderName => Object.hasOwn(PROVIDERS, name);
+
 /** The first backend that says help-me is running inside its harness. */
 export function hostOf(
   env: NodeJS.ProcessEnv,
