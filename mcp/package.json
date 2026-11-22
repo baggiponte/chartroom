@@ -3,18 +3,18 @@
   "private": true,
   "description": "/help-me as an MCP App: the page shown inside the Claude chat.",
   "bin": {
-    "prompt-shaper-mcp": "server.mjs"
+    "prompt-shaper-mcp": "server.ts"
   },
   "type": "module",
   "scripts": {
-    "start": "node server.mjs",
-    "http": "node server.mjs --http"
+    "start": "node server.ts",
+    "http": "node server.ts --http"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.4.0",
     "zod": "^4.2.0"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.18.0"
   }
 }
