@@ -293,7 +293,7 @@ describe("bugs", () => {
     assert.equal((await helpMe.exited).stdout, "once\n");
   });
 
-  test("with no backend, --out still says what happened", { todo: "issue #10" }, async () => {
+  test("with no backend, --out still says what happened", async () => {
     const out = join(scratch, "no-backend.json");
     await runHelpMe(["--out", out]);
     assert.deepEqual(outFile(out), { status: "error", prompt: "" });
