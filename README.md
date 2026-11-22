@@ -170,6 +170,18 @@ For per-agent defaults, set the env vars in that agent's config (e.g. `"env"` in
 `auto` tries the calling agent's CLI, then `claude`, `codex`, `gemini` on your PATH, then `ANTHROPIC_API_KEY`,
 then `OPENAI_API_KEY`. Pick a small, fast model: every edit triggers a new read.
 
+## Development
+
+`skills/help-me/` is what ships: the server's modules and `index.html`, run with nothing to build or install. The page
+is written in `page/` (`index.html` for the markup and styles, `*.ts` for the code) and `pnpm build` bundles it with
+Rolldown into `skills/help-me/index.html`, which is committed. CI checks that the two match.
+
+```sh
+pnpm install
+pnpm build                 # after editing page/
+pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test
+```
+
 ## Notes
 
 - With `claude`, a read takes 4 to 9 s, mostly CLI start-up. API keys are faster.

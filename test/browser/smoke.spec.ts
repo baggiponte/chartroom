@@ -1,5 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 
+import { startFakeApi, startHelpMe } from "../support/help-me.ts";
+
 const PAGE = new URL("../../skills/help-me/index.html", import.meta.url).href;
 
 async function openDemo(page: Page): Promise<string[]> {
@@ -82,4 +84,42 @@ test("nothing overflows sideways on a phone", async ({ page }) => {
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
   expect(overflow).toBeLessThanOrEqual(0);
+});
+
+test("served by the help-me server, the page reads the request with the model and Send hands it back", async ({
+  page,
+}) => {
+  const api = await startFakeApi(() => ({
+    summary: "Let's pick a machine.",
+    asks: [],
+    underlines: [
+      {
+        span: "coffee machine",
+        question: "What kind?",
+        kind: "single",
+        options: [
+          { label: "Pod", text: "pod machine" },
+          { label: "Espresso", text: "espresso machine" },
+        ],
+      },
+    ],
+    extras: [],
+  }));
+  const helpMe = await startHelpMe({ api, args: ["--draft", "Help me choose a coffee machine"] });
+  try {
+    const errors: string[] = [];
+    page.on("pageerror", e => errors.push(e.message));
+    await page.goto(helpMe.url);
+    await expect(page.locator("#summaryText")).toHaveText("Let's pick a machine.");
+    await expect(page.locator("#hint")).not.toContainText("doesn't match");
+    await clickMark(page, "coffee machine");
+    await page.locator("#pop").getByRole("button", { name: "Pod" }).click();
+    await page.locator("#send").click();
+    await expect(page.locator("#endedTitle")).toHaveText("Sent to your agent");
+    expect((await helpMe.exited).stdout).toBe("Help me choose a pod machine\n");
+    expect(errors).toEqual([]);
+  } finally {
+    helpMe.stop();
+    await api.close();
+  }
 });
