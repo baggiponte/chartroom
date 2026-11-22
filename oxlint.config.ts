@@ -7,7 +7,6 @@ export default defineConfig({
   rules: {
     ...cloudflare.rules,
     // Temporary during migration: each rule below is enabled or explained in its own commit.
-    "@nkzw/no-instanceof": "off",
     "quality/no-unknown-returns": "off",
     "quality/no-unsafe-dictionary-type": "off",
     "quality/no-known-value-widening": "off",
@@ -26,6 +25,11 @@ export default defineConfig({
       // The page is bundled as a classic IIFE script, where top-level await is a syntax error.
       files: ["page/**"],
       rules: { "unicorn/prefer-top-level-await": "off" },
+    },
+    {
+      // Browser code: instanceof is how a DOM node or event target narrows to Element, HTMLElement or Text.
+      files: ["page/**", "docs/**"],
+      rules: { "@nkzw/no-instanceof": "off" },
     },
     {
       // node:test registers tests synchronously and reports their failures itself.
