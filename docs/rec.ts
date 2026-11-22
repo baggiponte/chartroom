@@ -3,7 +3,8 @@
 //   ffmpeg -ss 0.4 -i docs/vid/*.webm -vf "fps=12,scale=800:-1:flags=lanczos,tpad=stop_mode=clone:stop_duration=2,mpdecimate=hi=64*24:lo=64*8:frac=0.2,split[a][b];[a]palettegen=max_colors=64:stats_mode=diff[p];[b][p]paletteuse=dither=none:diff_mode=rectangle" -fps_mode vfr docs/demo.gif
 import { fileURLToPath } from "node:url";
 
-import { type Locator, chromium } from "@playwright/test";
+import { chromium } from "@playwright/test";
+import type { Locator } from "@playwright/test";
 
 const VIDEO = process.argv.includes("--video");
 const SHOTS = Boolean(process.env["SHOTS"]);

@@ -4,7 +4,8 @@ import { closePop } from "./popover.ts";
 import { render } from "./render.ts";
 import { isHeading, setText } from "./request.ts";
 import { $, backdrop, gripsEl, laneEl, ta } from "./dom.ts";
-import { type Snapshot, state } from "./state.ts";
+import { state } from "./state.ts";
+import type { Snapshot } from "./state.ts";
 import { undoTidy } from "./tidy.ts";
 
 const BULLET = /^[ \t]*[-*•][ \t]+\S/;

@@ -7,7 +7,8 @@ import { hideHint } from "./pointer.ts";
 import { journey, render } from "./render.ts";
 import { applyChoice, demote } from "./request.ts";
 import { backdrop, extrasEl, pop, ta } from "./dom.ts";
-import { byChoiceId, type Choice, type Decide, state } from "./state.ts";
+import { byChoiceId, state } from "./state.ts";
+import type { Choice, Decide } from "./state.ts";
 
 const KIND = { single: "pick one", multi: "pick any", slider: "slide, or drag the value in place" } as const;
 

@@ -3,20 +3,10 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { type Jobs, SupersededError } from "./jobs.ts";
-import {
-  ANY,
-  BOOLEAN,
-  NUMBER,
-  STRING,
-  type Schema,
-  check,
-  dropNulls,
-  isRecord,
-  parseFenced,
-  strict,
-  withSchema,
-} from "./schema.ts";
+import { SupersededError } from "./jobs.ts";
+import type { Jobs } from "./jobs.ts";
+import { ANY, BOOLEAN, NUMBER, STRING, check, dropNulls, isRecord, parseFenced, strict, withSchema } from "./schema.ts";
+import type { Schema } from "./schema.ts";
 
 export type BackendName = keyof typeof BACKENDS;
 

@@ -1,6 +1,7 @@
 import type { Choice as Sent } from "../skills/help-me/tasks.ts";
 import { clamp, fmtNum } from "./format.ts";
-import { type Choice, type Slider, state } from "./state.ts";
+import { state } from "./state.ts";
+import type { Choice, Slider } from "./state.ts";
 
 const WORDS = [
   "zero",

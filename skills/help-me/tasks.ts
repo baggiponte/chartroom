@@ -1,6 +1,7 @@
 import type { ModelCall } from "./model.ts";
 import { ANALYZE_SYSTEM, DECIDE_SYSTEM, EXPLAIN_SYSTEM, TIDY_SYSTEM } from "./prompts.ts";
-import { BOOLEAN, type Infer, NUMBER, STRING, STRINGS, type Schema } from "./schema.ts";
+import { BOOLEAN, NUMBER, STRING, STRINGS } from "./schema.ts";
+import type { Infer, Schema } from "./schema.ts";
 
 export type Choice = Infer<typeof CHOICE>;
 export type Analysis = Infer<typeof ANALYSIS>;

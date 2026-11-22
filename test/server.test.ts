@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, type TestContext, test } from "node:test";
+import { describe, test } from "node:test";
+import type { TestContext } from "node:test";
 
 import { z } from "zod";
 
-import { type FakeModel, type HelpMe, runHelpMe, startFakeApi, startHelpMe } from "./support/help-me.ts";
+import { runHelpMe, startFakeApi, startHelpMe } from "./support/help-me.ts";
+import type { FakeModel, HelpMe } from "./support/help-me.ts";
 
 const scratch = mkdtempSync(join(tmpdir(), "help-me-files-"));
 

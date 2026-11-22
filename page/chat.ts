@@ -1,7 +1,8 @@
 // The MCP Apps protocol (https://github.com/modelcontextprotocol/ext-apps, 2026-01-26), written by hand to keep the
 // page one file.
 
-import { type Api, INIT, type Init, REPLY, type Route } from "../skills/help-me/api.ts";
+import { INIT, REPLY } from "../skills/help-me/api.ts";
+import type { Api, Init, Route } from "../skills/help-me/api.ts";
 import { check, isRecord } from "../skills/help-me/schema.ts";
 import { fits, superseded } from "./client.ts";
 

@@ -1,6 +1,7 @@
 import { SupersededError } from "./jobs.ts";
 import type { ModelCall } from "./model.ts";
-import { BOOLEAN, type Infer, STRING, STRINGS, type Schema, check } from "./schema.ts";
+import { BOOLEAN, STRING, STRINGS, check } from "./schema.ts";
+import type { Infer, Schema } from "./schema.ts";
 import { ANALYSIS, DECISION, EXPLANATION, TIDIED, analyze, decide, explain, tidy } from "./tasks.ts";
 
 /** Every POST route, with the body it takes and what it answers with a 200. */

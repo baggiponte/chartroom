@@ -5,7 +5,8 @@ import { anchorFor, closePop, openPop } from "./popover.ts";
 import { render } from "./render.ts";
 import { applyChoice } from "./request.ts";
 import { backdrop, extrasEl, hintEl, ta } from "./dom.ts";
-import { byChoiceId, type Choice, state } from "./state.ts";
+import { byChoiceId, state } from "./state.ts";
+import type { Choice } from "./state.ts";
 
 type SliderChoice = Choice & { kind: "slider" };
 const isScrub = (ch: Choice | undefined): ch is SliderChoice => ch?.kind === "slider";

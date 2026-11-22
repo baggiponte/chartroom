@@ -3,7 +3,8 @@
 import { isSet, placeholderFor, sentenceParts, textFor } from "./choice.ts";
 import { render, renderExtras } from "./render.ts";
 import { pop, ta } from "./dom.ts";
-import { type Choice, state } from "./state.ts";
+import { state } from "./state.ts";
+import type { Choice } from "./state.ts";
 
 export const overlaps = (ranges: Array<[number, number]>, a: number, b: number): boolean =>
   ranges.some(([s, e]) => a < e && b > s);

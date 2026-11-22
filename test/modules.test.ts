@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { describe, type TestContext, test } from "node:test";
+import { describe, test } from "node:test";
+import type { TestContext } from "node:test";
 
-import { type Api, type ExitCode, createApi } from "../skills/help-me/api.ts";
+import { createApi } from "../skills/help-me/api.ts";
+import type { Api, ExitCode } from "../skills/help-me/api.ts";
 import { createHandler } from "../skills/help-me/http.ts";
 import { SupersededError } from "../skills/help-me/jobs.ts";
 import type { ModelCall } from "../skills/help-me/model.ts";

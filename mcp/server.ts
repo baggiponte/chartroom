@@ -1,8 +1,10 @@
 #!/usr/bin/env node
-import { type CallToolResult, McpServer, createMcpHandler } from "@modelcontextprotocol/server";
+import { McpServer, createMcpHandler } from "@modelcontextprotocol/server";
+import type { CallToolResult } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { readFileSync } from "node:fs";
-import http, { type IncomingMessage, type ServerResponse } from "node:http";
+import http from "node:http";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { buffer } from "node:stream/consumers";
@@ -10,7 +12,8 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import * as z from "zod";
 
-import { type Answer, type Init, ROUTES, createApi, errorMessage } from "../skills/help-me/api.ts";
+import { ROUTES, createApi, errorMessage } from "../skills/help-me/api.ts";
+import type { Answer, Init } from "../skills/help-me/api.ts";
 import { createJobs } from "../skills/help-me/jobs.ts";
 import { createModel } from "../skills/help-me/model.ts";
 import { readPage } from "../skills/help-me/page.ts";

@@ -1,6 +1,8 @@
-import { type ChildProcess, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
 import { mkdtempSync } from "node:fs";
-import { createServer, type Server } from "node:http";
+import { createServer } from "node:http";
+import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";

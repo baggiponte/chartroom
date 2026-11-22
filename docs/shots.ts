@@ -5,7 +5,8 @@ import { mkdirSync, readdirSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { type Locator, type Page, chromium } from "@playwright/test";
+import { chromium } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 const PAGE = new URL("../skills/help-me/index.html", import.meta.url).href;
 const OUT = fileURLToPath(new URL("img", import.meta.url));

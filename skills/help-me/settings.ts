@@ -1,9 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { delimiter, join } from "node:path";
-import { type ParseArgsOptionsConfig, parseArgs } from "node:util";
+import { parseArgs } from "node:util";
+import type { ParseArgsOptionsConfig } from "node:util";
 
-import { BACKENDS, type BackendName, isBackend } from "./backends.ts";
+import { BACKENDS, isBackend } from "./backends.ts";
+import type { BackendName } from "./backends.ts";
 import { isRecord } from "./schema.ts";
 
 export interface Settings {

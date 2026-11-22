@@ -11,7 +11,8 @@ import { caretMove, renderGrips, undoMove } from "./rank.ts";
 import { openItems, render, setStatus } from "./render.ts";
 import { overlaps, promote, relocate, sentenceRange, withoutOpen } from "./request.ts";
 import { $, extrasEl, moreBtn, pop, sendBtn, ta, tidyBtn } from "./dom.ts";
-import { type Choice, state } from "./state.ts";
+import { state } from "./state.ts";
+import type { Choice } from "./state.ts";
 import { tidyOrUndo, undoTidy } from "./tidy.ts";
 
 const EXAMPLE = "Help me choose a home coffee machine for my small kitchen, something good for lattes.";

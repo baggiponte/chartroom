@@ -1,7 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { text as readAll } from "node:stream/consumers";
 
-import { type Answer, type ApiDeps, type Failure, type Init, createApi, errorMessage, isRoute } from "./api.ts";
+import { createApi, errorMessage, isRoute } from "./api.ts";
+import type { Answer, ApiDeps, Failure, Init } from "./api.ts";
 
 export interface HandlerDeps extends ApiDeps {
   init: Init;
