@@ -21,10 +21,8 @@
     "erasableSyntaxOnly": true,
     "allowImportingTsExtensions": true,
     "noEmit": true,
-    "skipLibCheck": true,
-    // The shipped code is still JavaScript: the tests import it and get inferred types, but it is not checked yet.
-    "allowJs": true,
-    "checkJs": false
+    "skipLibCheck": true
   },
-  "include": ["test", "playwright.config.ts"]
+  "include": ["skills", "mcp", "docs", "test", "playwright.config.ts"],
+  "exclude": ["**/node_modules"]
 }

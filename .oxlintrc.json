@@ -40,30 +40,5 @@
     "typescript/no-unnecessary-type-assertion": "error",
     "typescript/restrict-template-expressions": "error"
   },
-  "overrides": [
-    {
-      "files": ["**/*.mjs", "**/*.js"],
-      "rules": {
-        "curly": "off",
-        "eqeqeq": "off",
-        "typescript/no-unsafe-argument": "off",
-        "typescript/no-unsafe-assignment": "off",
-        "typescript/no-unsafe-call": "off",
-        "typescript/no-unsafe-member-access": "off",
-        "typescript/no-unsafe-return": "off",
-        "typescript/restrict-template-expressions": "off",
-        "eslint/no-shadow": "warn",
-        "eslint/no-underscore-dangle": "warn",
-        "typescript/no-floating-promises": "warn",
-        "eslint/no-await-in-loop": "warn",
-        "eslint/no-eval": "warn",
-        "eslint/no-unused-vars": "warn",
-        "unicorn/consistent-function-scoping": "warn",
-        "eslint/no-unused-expressions": "warn",
-        "oxc/no-map-spread": "warn",
-        "typescript/consistent-return": "warn"
-      }
-    }
-  ],
   "ignorePatterns": ["node_modules", "docs/vid"]
 }
