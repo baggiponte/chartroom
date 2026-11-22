@@ -655,13 +655,34 @@ const PAGE_SRC = readFileSync(join(HERE, "index.html"), "utf8");
 const BUILD = createHash("sha256").update(PAGE_SRC).digest("hex").slice(0, 12);
 const PAGE = PAGE_SRC.replace('"%BUILD%"', JSON.stringify(BUILD));
 
-function body(req) {
+const STRING = { type: "string" };
+const STRINGS = { type: "array", items: STRING };
+const object = properties => ({ type: "object", properties });
+// Every field is optional, with its default where the handler reads it; a field that is there must have this shape.
+const BODY = {
+  analyze: object({ text: STRING, settled: STRINGS, answers: STRINGS, asked: STRINGS, more: { type: "boolean" } }),
+  explain: object({ text: STRING, question: STRING, options: STRINGS }),
+  decide: object({
+    text: STRING,
+    question: STRING,
+    options: STRINGS,
+    answers: { type: "array", items: { type: "object", required: ["q", "a"], properties: { q: STRING, a: STRING } } },
+    asked: STRINGS,
+  }),
+  tidy: object({ sentences: STRINGS }),
+  submit: object({ prompt: STRING }),
+};
+
+// Throws on a body that is not JSON or not shaped like `schema`, which the request handler answers with a 400.
+function body(req, schema) {
   return new Promise((resolve, reject) => {
     let b = "";
     req.on("data", d => (b += d));
     req.on("end", () => {
       try {
-        resolve(b ? JSON.parse(b) : {});
+        const data = b ? JSON.parse(b) : {};
+        check(data, schema, "body");
+        resolve(data);
       } catch (e) {
         reject(e);
       }
@@ -702,7 +723,7 @@ const server = http.createServer(async (req, res) => {
         build: BUILD,
       });
     if (req.method === "POST" && url.pathname === "/api/analyze") {
-      const { text = "", settled = [], answers = [], asked = [], more = false } = await body(req);
+      const { text = "", settled = [], answers = [], asked = [], more = false } = await body(req, BODY.analyze);
       if (text.trim().split(/\s+/).length < 2) return send(res, 200, { summary: "", choices: [] });
       try {
         const t0 = Date.now();
@@ -716,7 +737,7 @@ const server = http.createServer(async (req, res) => {
       }
     }
     if (req.method === "POST" && url.pathname === "/api/explain") {
-      const { text = "", question = "", options = [] } = await body(req);
+      const { text = "", question = "", options = [] } = await body(req, BODY.explain);
       try {
         const data = await explain(text, question, options);
         log(`explained "${question}" in ${data.ms} ms`);
@@ -727,7 +748,7 @@ const server = http.createServer(async (req, res) => {
       }
     }
     if (req.method === "POST" && url.pathname === "/api/decide") {
-      const { text = "", question = "", options = [], answers = [], asked = [] } = await body(req);
+      const { text = "", question = "", options = [], answers = [], asked = [] } = await body(req, BODY.decide);
       try {
         const data = await decide(text, question, options, answers, asked);
         log(
@@ -740,9 +761,9 @@ const server = http.createServer(async (req, res) => {
       }
     }
     if (req.method === "POST" && url.pathname === "/api/tidy") {
-      const { sentences = [] } = await body(req);
+      const { sentences = [] } = await body(req, BODY.tidy);
       try {
-        const data = await tidy(sentences.map(String));
+        const data = await tidy(sentences);
         log(`tidied ${sentences.length} sentences into ${data.blocks.length} blocks in ${data.ms} ms`);
         return send(res, 200, data);
       } catch (e) {
@@ -751,7 +772,7 @@ const server = http.createServer(async (req, res) => {
       }
     }
     if (req.method === "POST" && url.pathname === "/api/submit") {
-      const { prompt = "" } = await body(req);
+      const { prompt = "" } = await body(req, BODY.submit);
       send(res, 200, { ok: true, sent: printed(prompt) });
       return finish(0, prompt);
     }
