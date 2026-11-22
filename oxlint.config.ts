@@ -6,11 +6,13 @@ export default defineConfig({
   ignorePatterns: [...(cloudflare.ignorePatterns ?? []), "docs/vid"],
   rules: {
     ...cloudflare.rules,
+    // With exactOptionalPropertyTypes, a conditional spread is how a literal passed to a call leaves an optional
+    // key out; building the object in steps would need a mutable, wider-typed variable at each site.
+    "quality/no-conditional-empty-object-spread": "off",
     // Temporary during migration: each rule below is enabled or explained in its own commit.
     "quality/no-unknown-returns": "off",
     "quality/no-unsafe-dictionary-type": "off",
     "quality/no-known-value-widening": "off",
-    "quality/no-conditional-empty-object-spread": "off",
     "quality/no-object-parameters": "off",
   },
   overrides: [
