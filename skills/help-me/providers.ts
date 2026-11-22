@@ -32,7 +32,7 @@ export interface RawReply {
   ms?: number | undefined;
 }
 
-/** A backend that ships with help-me, and how `auto` finds it. */
+/** A backend that ships with help-me, and how `host` recognises it. */
 export interface Provider extends Backend {
   /** What it needs to run, for the error when that's missing: its CLI on PATH, or its API key. */
   needs: string;
