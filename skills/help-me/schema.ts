@@ -2,7 +2,7 @@
 // and the same plain object doubles as the JSON Schema the model is given.
 
 /** The part of JSON Schema the prompts use: the same object is sent to the model and checked against its reply. */
-export type Schema = AnySchema | StringSchema | NumberSchema | BooleanSchema | ArraySchema | ObjectSchema;
+export type Schema = AnySchema | StringSchema | NumberSchema | BooleanSchema | ArraySchema | ObjectSchema | AnyOfSchema;
 /** Anything goes: for the parts of a backend's envelope that are passed on unread. */
 type AnySchema = { readonly type?: never };
 type StringSchema = { readonly type: "string"; readonly enum?: readonly string[] };
@@ -14,23 +14,29 @@ export type ObjectSchema = {
   readonly properties: { readonly [key: string]: Schema };
   readonly required?: readonly string[];
 };
+/** The first branch that fits wins: the page's choices are told apart by their `type`. */
+type AnyOfSchema = { readonly type?: never; readonly anyOf: readonly ObjectSchema[] };
 
 /** The TypeScript type of a value that passes `check(value, S)`, so a schema is written once and never retyped. */
-export type Infer<S> = S extends { readonly type: "string"; readonly enum: readonly (infer E)[] }
-  ? E
-  : S extends StringSchema
-    ? string
-    : S extends NumberSchema
-      ? number
-      : S extends BooleanSchema
-        ? boolean
-        : S extends { readonly type: "array"; readonly items: infer I }
-          ? Infer<I>[]
-          : S extends { readonly type: "object"; readonly properties: infer P }
-            ? InferObject<P, S extends { readonly required: readonly (infer R)[] } ? R : never>
-            : unknown;
+export type Infer<S> = S extends { readonly anyOf: readonly (infer B)[] }
+  ? Infer<B>
+  : S extends { readonly type: "string"; readonly enum: readonly (infer E)[] }
+    ? E
+    : S extends StringSchema
+      ? string
+      : S extends NumberSchema
+        ? number
+        : S extends BooleanSchema
+          ? boolean
+          : S extends { readonly type: "array"; readonly items: infer I }
+            ? Infer<I>[]
+            : S extends { readonly type: "object"; readonly properties: infer P }
+              ? InferObject<P, S extends { readonly required: readonly (infer R)[] } ? R : never>
+              : unknown;
 type InferObject<P, Required> = Flatten<
-  { -readonly [K in keyof P & Required]: Infer<P[K]> } & { -readonly [K in Exclude<keyof P, Required>]?: Infer<P[K]> }
+  { -readonly [K in keyof P & Required]: Infer<P[K]> } & {
+    -readonly [K in Exclude<keyof P, Required>]?: Infer<P[K]> | undefined;
+  }
 >;
 type Flatten<T> = { [K in keyof T]: T[K] } & {};
 
@@ -62,6 +68,9 @@ export const isRecord = (v: unknown): v is Record<string, unknown> =>
 // Optional fields become nullable, and dropNulls() removes them again so the page sees the same shape as from the
 // other backends.
 export function strict(schema: Schema): StrictSchema {
+  if ("anyOf" in schema) {
+    return { anyOf: schema.anyOf.map(strict) };
+  }
   if (schema.type === "array") {
     return { ...schema, items: strict(schema.items) };
   }
@@ -92,7 +101,25 @@ const typeName = (v: unknown): string => (v === null ? "null" : Array.isArray(v)
 
 /** Keys the schema doesn't name are deleted, so what TypeScript knows afterwards is all there is. */
 export function check<S extends Schema>(v: unknown, schema: S, at = "reply"): asserts v is Infer<S> {
-  const s: Schema = schema;
+  walk(v, schema, at);
+}
+
+function walk(v: unknown, s: Schema, at: string): void {
+  if ("anyOf" in s) {
+    // each branch is tried on a copy, since a failed one would already have deleted the keys the next one names
+    const errors = [];
+    for (const branch of s.anyOf) {
+      try {
+        walk(structuredClone(v), branch, at);
+      } catch (e) {
+        errors.push(e instanceof Error ? e.message : String(e));
+        continue;
+      }
+      walk(v, branch, at);
+      return;
+    }
+    throw new Error(`${at} fits none of its shapes: ${errors.join("; ")}`);
+  }
   if (s.type === undefined) {
     return;
   }
@@ -122,7 +149,7 @@ export function check<S extends Schema>(v: unknown, schema: S, at = "reply"): as
         throw wrong;
       }
       v.forEach((x: unknown, i) => {
-        check(x, s.items, `${at}[${String(i)}]`);
+        walk(x, s.items, `${at}[${String(i)}]`);
       });
       return;
     case "object": {
@@ -138,7 +165,7 @@ export function check<S extends Schema>(v: unknown, schema: S, at = "reply"): as
         if (sub === undefined) {
           delete v[key];
         } else {
-          check(v[key], sub, `${at}.${key}`);
+          walk(v[key], sub, `${at}.${key}`);
         }
       }
     }

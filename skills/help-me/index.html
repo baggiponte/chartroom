@@ -420,11 +420,34 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 <script>
 (function() {
 	// skills/help-me/schema.ts
+	const STRING$2 = { type: "string" };
+	const STRINGS = {
+		type: "array",
+		items: STRING$2
+	};
+	const NUMBER = { type: "number" };
+	const BOOLEAN = { type: "boolean" };
 	const isRecord = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
 	const typeName = (v) => v === null ? "null" : Array.isArray(v) ? "array" : typeof v;
 	/** Keys the schema doesn't name are deleted, so what TypeScript knows afterwards is all there is. */
 	function check(v, schema, at = "reply") {
-		const s = schema;
+		walk(v, schema, at);
+	}
+	function walk(v, s, at) {
+		if ("anyOf" in s) {
+			const errors = [];
+			for (const branch of s.anyOf) {
+				try {
+					walk(structuredClone(v), branch, at);
+				} catch (e) {
+					errors.push(e instanceof Error ? e.message : String(e));
+					continue;
+				}
+				walk(v, branch, at);
+				return;
+			}
+			throw new Error(`${at} fits none of its shapes: ${errors.join("; ")}`);
+		}
 		if (s.type === void 0) return;
 		const wrong = /* @__PURE__ */ new Error(`${at} should be ${s.type}, got ${typeName(v)}`);
 		switch (s.type) {
@@ -442,7 +465,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			case "array":
 				if (!Array.isArray(v)) throw wrong;
 				v.forEach((x, i) => {
-					check(x, s.items, `${at}[${String(i)}]`);
+					walk(x, s.items, `${at}[${String(i)}]`);
 				});
 				return;
 			case "object": {
@@ -452,11 +475,277 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 				for (const key of Object.keys(v)) {
 					const sub = Object.hasOwn(s.properties, key) ? s.properties[key] : void 0;
 					if (sub === void 0) delete v[key];
-					else check(v[key], sub, `${at}.${key}`);
+					else walk(v[key], sub, `${at}.${key}`);
 				}
 			}
 		}
 	}
+	// skills/help-me/tasks.ts
+	const CHOICE_FIELDS = {
+		question: STRING$2,
+		kind: {
+			type: "string",
+			enum: [
+				"single",
+				"multi",
+				"slider"
+			]
+		},
+		explain: BOOLEAN,
+		options: {
+			type: "array",
+			items: {
+				type: "object",
+				required: ["label", "text"],
+				properties: {
+					label: STRING$2,
+					emoji: STRING$2,
+					text: STRING$2
+				}
+			}
+		},
+		current: STRINGS,
+		slider: {
+			type: "object",
+			properties: {
+				min: NUMBER,
+				max: NUMBER,
+				step: NUMBER,
+				value: NUMBER,
+				unit: STRING$2,
+				minLabel: STRING$2,
+				maxLabel: STRING$2,
+				template: STRING$2,
+				stops: STRINGS
+			}
+		}
+	};
+	const UNDERLINE = {
+		type: "object",
+		required: [
+			"span",
+			"question",
+			"kind"
+		],
+		properties: {
+			span: STRING$2,
+			...CHOICE_FIELDS
+		}
+	};
+	const EXTRA = {
+		type: "object",
+		required: [
+			"token",
+			"sentence",
+			"question",
+			"kind"
+		],
+		properties: {
+			token: STRING$2,
+			sentence: STRING$2,
+			...CHOICE_FIELDS
+		}
+	};
+	({ ...CHOICE_FIELDS });
+	/** A choice as the page gets it: `type` says where it goes in the request. */
+	const CHOICE = { anyOf: [
+		{
+			type: "object",
+			required: [
+				"type",
+				"span",
+				"statement",
+				"question",
+				"kind"
+			],
+			properties: {
+				type: {
+					type: "string",
+					enum: ["ask"]
+				},
+				span: STRING$2,
+				statement: STRING$2,
+				...CHOICE_FIELDS,
+				kind: {
+					type: "string",
+					enum: ["single", "multi"]
+				}
+			}
+		},
+		{
+			...UNDERLINE,
+			required: [...UNDERLINE.required, "type"],
+			properties: {
+				...UNDERLINE.properties,
+				type: {
+					type: "string",
+					enum: ["underline"]
+				}
+			}
+		},
+		{
+			...EXTRA,
+			required: [...EXTRA.required, "type"],
+			properties: {
+				...EXTRA.properties,
+				type: {
+					type: "string",
+					enum: ["extra"]
+				}
+			}
+		}
+	] };
+	const MODEL_INFO = {
+		model: STRING$2,
+		ms: NUMBER
+	};
+	const ANALYSIS = {
+		type: "object",
+		required: ["summary", "choices"],
+		properties: {
+			summary: STRING$2,
+			choices: {
+				type: "array",
+				items: CHOICE
+			},
+			...MODEL_INFO
+		}
+	};
+	const EXPLAIN_SCHEMA = {
+		type: "object",
+		required: ["intro", "options"],
+		properties: {
+			intro: STRING$2,
+			options: {
+				type: "array",
+				items: {
+					type: "object",
+					required: ["label", "what"],
+					properties: {
+						label: STRING$2,
+						what: STRING$2,
+						good_for: STRING$2,
+						image: STRING$2
+					}
+				}
+			}
+		}
+	};
+	const EXPLANATION = {
+		...EXPLAIN_SCHEMA,
+		properties: {
+			...EXPLAIN_SCHEMA.properties,
+			...MODEL_INFO
+		}
+	};
+	const DECIDE_SCHEMA = {
+		type: "object",
+		required: ["questions"],
+		properties: {
+			questions: {
+				type: "array",
+				items: {
+					type: "object",
+					required: ["question", "options"],
+					properties: {
+						question: STRING$2,
+						options: {
+							type: "array",
+							items: {
+								type: "object",
+								required: ["label"],
+								properties: {
+									label: STRING$2,
+									emoji: STRING$2
+								}
+							}
+						}
+					}
+				}
+			},
+			recommendation: {
+				type: "object",
+				required: ["label", "why"],
+				properties: {
+					label: STRING$2,
+					why: STRING$2
+				}
+			}
+		}
+	};
+	const DECISION = {
+		...DECIDE_SCHEMA,
+		properties: {
+			...DECIDE_SCHEMA.properties,
+			...MODEL_INFO
+		}
+	};
+	const TIDY_SCHEMA = {
+		type: "object",
+		required: ["blocks"],
+		properties: { blocks: {
+			type: "array",
+			items: {
+				type: "object",
+				required: ["heading", "items"],
+				properties: {
+					heading: STRING$2,
+					items: {
+						type: "array",
+						items: { type: "integer" }
+					}
+				}
+			}
+		} }
+	};
+	// skills/help-me/api.ts
+	/** What each route answers with a 200, which the page checks before it uses it. */
+	const REPLY = {
+		"/api/analyze": ANALYSIS,
+		"/api/explain": EXPLANATION,
+		"/api/decide": DECISION,
+		"/api/tidy": {
+			...TIDY_SCHEMA,
+			properties: {
+				...TIDY_SCHEMA.properties,
+				...MODEL_INFO
+			}
+		},
+		"/api/submit": {
+			type: "object",
+			required: ["ok", "sent"],
+			properties: {
+				ok: BOOLEAN,
+				sent: STRING$2
+			}
+		},
+		"/api/cancel": {
+			type: "object",
+			required: ["ok"],
+			properties: { ok: BOOLEAN }
+		}
+	};
+	/** What `GET /api/init` answers, and what the MCP App's help_me tool returns. */
+	const INIT = {
+		type: "object",
+		required: [
+			"draft",
+			"model",
+			"backend",
+			"agent",
+			"images",
+			"build"
+		],
+		properties: {
+			draft: STRING$2,
+			model: STRING$2,
+			backend: STRING$2,
+			agent: STRING$2,
+			images: BOOLEAN,
+			build: STRING$2
+		}
+	};
+	const errorMessage$1 = (e) => e instanceof Error ? e.message : String(e);
 	// page/state.ts
 	const state = {
 		mode: "live",
@@ -495,12 +784,22 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 	const superseded = () => Object.assign(/* @__PURE__ */ new Error("superseded"), { superseded: true });
 	const isSuperseded = (e) => e instanceof Error && "superseded" in e;
 	const BUILD = document.querySelector("meta[name=\"build\"]")?.content ?? "%";
-	const STALE = "this page doesn't match the running help-me server. Run /help-me again to restart it";
+	const RESTART = "Run /help-me again to restart it";
+	const STALE = `this page doesn't match the running help-me server. ${RESTART}`;
 	const staleFor = (init) => !BUILD.startsWith("%") && init.build !== BUILD;
+	/** Checked here, so a page and a server that drifted apart fail with this message instead of deep in rendering. */
+	function fits(j, schema) {
+		try {
+			check(j, schema);
+		} catch (e) {
+			throw new Error(`the help-me server answered something this page can't read (${errorMessage$1(e)}). ${RESTART}`, { cause: e });
+		}
+		return j;
+	}
 	async function getInit() {
 		const r = await fetch("/api/init");
 		if (!r.ok) throw new Error(r.statusText);
-		return await r.json();
+		return fits(await r.json(), INIT);
 	}
 	async function post(path, body) {
 		if (state.chat) return state.chat.post(path, body);
@@ -512,8 +811,11 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		const j = await r.json().catch(() => ({}));
 		if (r.status === 409) throw superseded();
 		if (r.status === 404 && await getInit().then(staleFor, () => false)) throw new Error(STALE);
-		if (!r.ok) throw new Error(j.error || r.statusText);
-		return j;
+		if (!r.ok) {
+			const error = isRecord(j) ? j["error"] : void 0;
+			throw new Error(typeof error === "string" && error ? error : r.statusText);
+		}
+		return fits(j, REPLY[path]);
 	}
 	// page/chat.ts
 	const inChat = () => document.querySelector("meta[name=\"host\"]")?.content === "chat";
@@ -532,25 +834,12 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			structuredContent: {}
 		}
 	};
-	const INIT = {
-		type: "object",
-		required: [
-			"session",
-			"draft",
-			"model",
-			"backend",
-			"agent",
-			"images",
-			"build"
-		],
+	const SESSION_INIT = {
+		...INIT,
+		required: [...INIT.required, "session"],
 		properties: {
-			session: STRING$1,
-			draft: STRING$1,
-			model: STRING$1,
-			backend: STRING$1,
-			agent: STRING$1,
-			images: { type: "boolean" },
-			build: STRING$1
+			...INIT.properties,
+			session: STRING$1
 		}
 	};
 	const API_RESULT = {
@@ -602,7 +891,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			const content = r.structuredContent;
 			try {
 				if (r.isError) throw new Error("tool error");
-				check(content, INIT);
+				check(content, SESSION_INIT);
 				result.resolve(content);
 			} catch {
 				result.reject(new Error(r.content?.[0]?.text || "the help-me tool failed"));
@@ -685,7 +974,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 					const error = isRecord(j) ? j["error"] : void 0;
 					throw new Error(typeof error === "string" && error ? error : `error ${String(status)}`);
 				}
-				return j;
+				return fits(j, REPLY[path]);
 			}
 		};
 	}

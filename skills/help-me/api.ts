@@ -1,39 +1,45 @@
 import { SupersededError } from "./jobs.ts";
 import type { ModelCall } from "./model.ts";
 import { BOOLEAN, type Infer, STRING, STRINGS, type Schema, check } from "./schema.ts";
-import {
-  type Analysis,
-  type Decision,
-  type Explanation,
-  type Tidied,
-  analyze,
-  decide,
-  explain,
-  tidy,
-} from "./tasks.ts";
+import { ANALYSIS, DECISION, EXPLANATION, TIDIED, analyze, decide, explain, tidy } from "./tasks.ts";
 
 /** Every POST route, with the body it takes and what it answers with a 200. */
 export interface Api {
-  "/api/analyze": { body: Infer<typeof BODY.analyze>; reply: Analysis };
-  "/api/explain": { body: Infer<typeof BODY.explain>; reply: Explanation };
-  "/api/decide": { body: Infer<typeof BODY.decide>; reply: Decision };
-  "/api/tidy": { body: Infer<typeof BODY.tidy>; reply: Tidied };
-  /** `sent` is exactly what the server printed for the agent. */
-  "/api/submit": { body: Infer<typeof BODY.submit>; reply: { ok: true; sent: string } };
-  "/api/cancel": { body: Record<string, never>; reply: { ok: true } };
+  "/api/analyze": { body: Infer<typeof BODY.analyze>; reply: Infer<(typeof REPLY)["/api/analyze"]> };
+  "/api/explain": { body: Infer<typeof BODY.explain>; reply: Infer<(typeof REPLY)["/api/explain"]> };
+  "/api/decide": { body: Infer<typeof BODY.decide>; reply: Infer<(typeof REPLY)["/api/decide"]> };
+  "/api/tidy": { body: Infer<typeof BODY.tidy>; reply: Infer<(typeof REPLY)["/api/tidy"]> };
+  "/api/submit": { body: Infer<typeof BODY.submit>; reply: Infer<(typeof REPLY)["/api/submit"]> };
+  "/api/cancel": { body: Record<string, never>; reply: Infer<(typeof REPLY)["/api/cancel"]> };
 }
 export type Route = keyof Api;
 
+/** What each route answers with a 200, which the page checks before it uses it. */
+export const REPLY = {
+  "/api/analyze": ANALYSIS,
+  "/api/explain": EXPLANATION,
+  "/api/decide": DECISION,
+  "/api/tidy": TIDIED,
+  // `sent` is exactly what the server printed for the agent.
+  "/api/submit": { type: "object", required: ["ok", "sent"], properties: { ok: BOOLEAN, sent: STRING } },
+  "/api/cancel": { type: "object", required: ["ok"], properties: { ok: BOOLEAN } },
+} as const satisfies Record<Route, Schema>;
+
 /** What `GET /api/init` answers, and what the MCP App's help_me tool returns. */
-export interface Init {
-  draft: string;
-  model: string;
-  backend: string;
-  agent: string;
-  images: boolean;
-  /** The hash of the page this process serves, so a page that outlived its server can tell. */
-  build: string;
-}
+export const INIT = {
+  type: "object",
+  required: ["draft", "model", "backend", "agent", "images", "build"],
+  properties: {
+    draft: STRING,
+    model: STRING,
+    backend: STRING,
+    agent: STRING,
+    images: BOOLEAN,
+    // the hash of the page this process serves, so a page that outlived its server can tell
+    build: STRING,
+  },
+} as const satisfies Schema;
+export type Init = Infer<typeof INIT>;
 
 /** What a route answers, whichever way the page reached it. */
 export interface Answer {
