@@ -11,6 +11,7 @@ import { createHandler } from "./http.ts";
 import { createJobs } from "./jobs.ts";
 import { createModel } from "./model.ts";
 import { readPage } from "./page.ts";
+import { PROVIDERS } from "./providers.ts";
 import { outPath, readSettings } from "./settings.ts";
 import type { Settings } from "./settings.ts";
 
@@ -63,10 +64,11 @@ function finish(code: ExitCode, prompt: string): void {
   setTimeout(() => process.exit(code), 150);
 }
 
-const { backend, model, effort, images, agent } = settings;
+const { backend, effort, images, agent } = settings;
+const model = settings.model || PROVIDERS[backend].model;
 const server = http.createServer(
   createHandler({
-    model: createModel({ backend, model, effort, env, jobs }),
+    model: createModel({ name: backend, backend: PROVIDERS[backend], model, effort, env, jobs }),
     init: { draft, model: model || backend, backend, agent, images, build: page.build },
     page: page.html,
     log,
