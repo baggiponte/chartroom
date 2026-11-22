@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 // /help-me as an MCP App: the same page, shown inside the chat (Claude web and desktop) instead of a browser tab.
-// The help_me tool starts skills/help-me/server.ts without a browser and proxies the page's /api calls to it,
-// so the backends, prompts and config stay in one place. The page hands the shaped request back with ui/message.
+// It runs the help-me skill's own modules in this process (settings, backends, prompts), so a call to help_me opens a
+// session here rather than starting a second server. The page hands the shaped request back with ui/message.
 //
 //   node mcp/server.ts            stdio, for Claude Desktop's config
 //   node mcp/server.ts --http     streamable HTTP on 127.0.0.1:3917/mcp, to put behind a tunnel for claude.ai
 import { type CallToolResult, McpServer, createMcpHandler } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
-import { type ChildProcess, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
@@ -17,6 +16,10 @@ import { buffer } from "node:stream/consumers";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import * as z from "zod";
+
+import { type Answer, type Init, type Route, createApi } from "../skills/help-me/api.ts";
+import { createJobs, createModel } from "../skills/help-me/model.ts";
+import { readSettings } from "../skills/help-me/settings.ts";
 
 const SKILL = join(dirname(fileURLToPath(import.meta.url)), "..", "skills", "help-me");
 const VERSION = z
@@ -29,25 +32,28 @@ const log = (...m: unknown[]): void => {
 };
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
-// The page decides "in the chat" from this flag, so the same file still works as the browser page.
-// The build hash is the one skills/help-me/server.ts puts in its /api/init, so a cached or outdated page can tell.
-const page = (): string => {
-  const src = readFileSync(join(SKILL, "index.html"), "utf8");
-  return src
-    .replace('"%BUILD%"', JSON.stringify(createHash("sha256").update(src).digest("hex").slice(0, 12)))
-    .replace("<script>", "<script>window.__HELP_ME_MCP__ = true;</script>\n<script>");
-};
+// Read once, like the browser server does, so the page and /api/init carry the same build hash: a page cached by the
+// host from an older run can tell. The page decides "in the chat" from the flag, so the same file still works in a tab.
+const SOURCE = readFileSync(join(SKILL, "index.html"), "utf8");
+const BUILD = createHash("sha256").update(SOURCE).digest("hex").slice(0, 12);
+const PAGE = SOURCE.replace('"%BUILD%"', JSON.stringify(BUILD)).replace(
+  "<script>",
+  "<script>window.__HELP_ME_MCP__ = true;</script>\n<script>",
+);
 
 // Desktop apps start MCP servers with a bare PATH, so the claude/codex/gemini CLIs wouldn't be found.
-const PATH = [
-  process.env["PATH"],
-  join(homedir(), ".local", "bin"),
-  join(homedir(), ".claude", "local"),
-  "/opt/homebrew/bin",
-  "/usr/local/bin",
-]
-  .filter(Boolean)
-  .join(":");
+const ENV: NodeJS.ProcessEnv = {
+  ...process.env,
+  PATH: [
+    process.env["PATH"],
+    join(homedir(), ".local", "bin"),
+    join(homedir(), ".claude", "local"),
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+  ]
+    .filter(Boolean)
+    .join(":"),
+};
 
 const HelpMeInput = z.object({
   request: z.string().describe("The user's request, verbatim"),
@@ -60,69 +66,63 @@ const HelpMeInput = z.object({
   images: z.boolean().optional().describe("Only if the user asked for or against pictures"),
 });
 
-// What the help-me server's /api/init answers; checked, because it is passed on to the page as the tool's result.
-const Init = z.object({
-  draft: z.string(),
-  model: z.string(),
-  backend: z.string(),
-  agent: z.string(),
-  images: z.boolean(),
-  build: z.string(),
-});
-
+/** One open page: its API, and how to end it once it sends, cancels or times out. */
 interface Session {
-  port: number;
-  child: ChildProcess;
+  api: ReturnType<typeof createApi>;
+  end: () => void;
 }
 const sessions = new Map<string, Session>();
 let nextId = 0;
 
-function start({ request, images, ...settings }: z.infer<typeof HelpMeInput>): Promise<Session> {
-  const args = [
-    join(SKILL, "server.ts"),
-    "--stdin",
-    "--no-open",
-    "--agent",
-    "Claude",
-    ...Object.entries(settings).flatMap(([name, value]) => (value ? [`--${name}`, value] : [])),
-    ...(images === undefined ? [] : [images ? "--images" : "--no-images"]),
-  ];
-  const child = spawn(process.execPath, args, { env: { ...process.env, PATH }, stdio: ["pipe", "ignore", "pipe"] });
-  child.stdin.end(request);
-  return new Promise((resolve, reject) => {
-    let err = "";
-    const fail = (why: string): void => {
-      child.kill();
-      reject(new Error(why));
-    };
-    const t = setTimeout(() => fail("the help-me server didn't start within 20 s"), 20000);
-    child.stderr.on("data", (d: Buffer) => {
-      err += d.toString();
-      const m = err.match(/open http:\/\/127\.0\.0\.1:(\d+)\//);
-      if (m) {
-        clearTimeout(t);
-        resolve({ port: Number(m[1]), child });
-      }
-    });
-    child.on("exit", code => {
-      clearTimeout(t);
-      reject(new Error(err.replace(/\[prompt-shaper\] /g, "").trim() || `exited with ${String(code)}`));
-    });
-    child.on("error", e => {
-      clearTimeout(t);
-      reject(e);
-    });
+/**
+ * Opens a session with the same settings the browser server would read (flags, env, config file), the tool's
+ * arguments standing in for flags. Throws, with a message for the user, when they can't be used.
+ */
+function open({ request, images, ...flags }: z.infer<typeof HelpMeInput>): Init & { session: string } {
+  const settings = readSettings(
+    [
+      "--agent",
+      "Claude",
+      ...Object.entries(flags).flatMap(([name, value]) => (value ? [`--${name}`, value] : [])),
+      ...(images === undefined ? [] : [images ? "--images" : "--no-images"]),
+    ],
+    ENV,
+  );
+  const { backend, model, effort, agent } = settings;
+  const id = String(++nextId);
+  const jobs = createJobs();
+  let timer: NodeJS.Timeout | undefined;
+  const end = (): void => {
+    jobs.abortAll();
+    clearTimeout(timer);
+    sessions.delete(id);
+  };
+  if (settings.timeoutMin > 0) {
+    timer = setTimeout(() => {
+      log(`session ${id}: no answer after ${String(settings.timeoutMin)} min, closing it`);
+      end();
+    }, settings.timeoutMin * 60000).unref();
+  }
+  const api = createApi({
+    model: createModel({ backend, model, effort, env: ENV, jobs }),
+    log: m => log(`session ${id}: ${m}`),
+    finish: end,
   });
+  sessions.set(id, { api, end });
+  log(`session ${id}, backend ${backend}${model ? ` (${model})` : ""}`);
+  return {
+    session: id,
+    draft: request.trim(),
+    model: model || backend,
+    backend,
+    agent,
+    images: settings.images,
+    build: BUILD,
+  };
 }
 
-process.on("exit", () => {
-  for (const s of sessions.values()) {
-    s.child.kill();
-  }
-});
-
-// The page reads the HTTP status and body from structuredContent, as if it had called the help-me server itself.
-const apiReply = (status: number, body: unknown): CallToolResult => ({
+// The page reads the status and body from structuredContent, the same answer the browser server sends over HTTP.
+const apiReply = ({ status, body }: Answer): CallToolResult => ({
   content: [{ type: "text", text: JSON.stringify(body) }],
   structuredContent: { status, body },
 });
@@ -135,7 +135,7 @@ function build(): McpServer {
       {
         uri: URI,
         mimeType: MIME,
-        text: page(),
+        text: PAGE,
         // pictures in Explain me come from Wikimedia Commons
         _meta: {
           ui: {
@@ -163,9 +163,16 @@ function build(): McpServer {
       _meta: { ui: { resourceUri: URI }, "ui/resourceUri": URI },
     },
     async (input): Promise<CallToolResult> => {
-      let s: Session;
       try {
-        s = await start(input);
+        return {
+          content: [
+            {
+              type: "text",
+              text: "The help-me page is open in the chat. Wait for the user: their shaped request arrives as their next message.",
+            },
+          ],
+          structuredContent: { ...open(input) },
+        };
       } catch (e) {
         log(errorMessage(e));
         return {
@@ -173,20 +180,6 @@ function build(): McpServer {
           content: [{ type: "text", text: `The help-me page couldn't start: ${errorMessage(e)}` }],
         };
       }
-      const id = String(++nextId);
-      sessions.set(id, s);
-      s.child.on("exit", () => sessions.delete(id));
-      const init = Init.parse(await (await fetch(`http://127.0.0.1:${String(s.port)}/api/init`)).json());
-      log(`session ${id} on port ${String(s.port)}, backend ${init.backend}`);
-      return {
-        content: [
-          {
-            type: "text",
-            text: "The help-me page is open in the chat. Wait for the user: their shaped request arrives as their next message.",
-          },
-        ],
-        structuredContent: { session: id, ...init },
-      };
     },
   );
 
@@ -198,26 +191,25 @@ function build(): McpServer {
       description: "Used by the help-me page itself.",
       inputSchema: z.object({
         session: z.string(),
-        path: z.enum(["/api/analyze", "/api/explain", "/api/decide", "/api/tidy", "/api/submit", "/api/cancel"]),
+        path: z.enum([
+          "/api/analyze",
+          "/api/explain",
+          "/api/decide",
+          "/api/tidy",
+          "/api/submit",
+          "/api/cancel",
+        ] satisfies Route[]),
         body: z.record(z.string(), z.unknown()).optional(),
       }),
       _meta: { ui: { visibility: ["app"] } },
     },
     async ({ session, path, body = {} }): Promise<CallToolResult> => {
       const s = sessions.get(session);
-      if (!s) {
-        return apiReply(410, { error: "this help-me page has ended. Run /help-me again" });
-      }
-      try {
-        const r = await fetch(`http://127.0.0.1:${String(s.port)}${path}`, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        return apiReply(r.status, await r.json().catch((): unknown => ({})));
-      } catch (e) {
-        return apiReply(502, { error: errorMessage(e) });
-      }
+      return apiReply(
+        s
+          ? await s.api.call(path, body)
+          : { status: 410, body: { error: "this help-me page has ended. Run /help-me again" } },
+      );
     },
   );
 

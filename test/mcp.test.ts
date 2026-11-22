@@ -1,5 +1,5 @@
-// The MCP App server (mcp/server.ts), driven over stdio and HTTP the way Claude does. No model is reached: the help-me
-// page it starts points at a closed port, and the tests only open and cancel it.
+// The MCP App server (mcp/server.ts), driven over stdio and HTTP the way Claude does. No model answers: the backend
+// points at a closed port, so model-backed routes fail with a 500, which is what the page would show.
 import assert from "node:assert/strict";
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { mkdtempSync } from "node:fs";
@@ -12,7 +12,7 @@ import { z } from "zod";
 
 const SERVER = fileURLToPath(new URL("../mcp/server.ts", import.meta.url));
 
-function startMcp(args: string[] = []): ChildProcessWithoutNullStreams {
+function startMcp(args: string[] = [], env: NodeJS.ProcessEnv = {}): ChildProcessWithoutNullStreams {
   const home = mkdtempSync(join(tmpdir(), "help-me-mcp-test-"));
   return spawn(process.execPath, [SERVER, ...args], {
     env: {
@@ -21,6 +21,7 @@ function startMcp(args: string[] = []): ChildProcessWithoutNullStreams {
       XDG_CONFIG_HOME: join(home, ".config"),
       ANTHROPIC_API_KEY: "test",
       ANTHROPIC_BASE_URL: "http://127.0.0.1:9",
+      ...env,
     },
   });
 }
@@ -64,8 +65,8 @@ const INITIALIZE = {
   clientInfo: { name: "test", version: "1" },
 };
 
-async function connect(t: TestContext) {
-  const child = startMcp();
+async function connect(t: TestContext, env: NodeJS.ProcessEnv = {}) {
+  const child = startMcp([], env);
   t.after(() => child.kill());
   const client = stdioClient(child);
   await client.request("initialize", INITIALIZE);
@@ -87,7 +88,7 @@ describe("MCP App over stdio", () => {
     assert.deepEqual(tools.map(tool => tool.name).toSorted(), ["help_me", "help_me_api"]);
   });
 
-  test("help_me starts a page with the request, and the page's API reaches it until it ends", async t => {
+  test("help_me opens a session with the request, and the page's API reaches it until it ends", async t => {
     const client = await connect(t);
     const call = (name: string, args: object): Promise<unknown> =>
       client.request("tools/call", { name, arguments: args });
@@ -102,10 +103,31 @@ describe("MCP App over stdio", () => {
     const cancelled = ApiReply.parse(await call("help_me_api", cancel));
     assert.deepEqual(cancelled.structuredContent, { status: 200, body: { ok: true } });
 
-    // the page's server exits after Cancel, so the session is gone shortly after
-    await new Promise(resolve => setTimeout(resolve, 500));
     const ended = ApiReply.parse(await call("help_me_api", cancel));
     assert.equal(ended.structuredContent.status, 410);
+  });
+
+  test("a model that can't be reached is a 500 for the page, and the server keeps running", async t => {
+    const client = await connect(t);
+    const call = (name: string, args: object): Promise<unknown> =>
+      client.request("tools/call", { name, arguments: args });
+    const { structuredContent } = Started.parse(await call("help_me", { request: "a bike", backend: "anthropic" }));
+    const tidy = { session: structuredContent.session, path: "/api/tidy", body: { sentences: ["a.", "b."] } };
+    assert.equal(ApiReply.parse(await call("help_me_api", tidy)).structuredContent.status, 500);
+    assert.equal(
+      ApiReply.parse(await call("help_me_api", { ...tidy, body: { sentences: 1 } })).structuredContent.status,
+      400,
+    );
+    const { tools } = ToolList.parse(await client.request("tools/list", {}));
+    assert.equal(tools.length, 2);
+  });
+
+  test("a setting it can't use is a tool error, not a crash", async t => {
+    const client = await connect(t, { PROMPT_SHAPER_TIMEOUT_MIN: "soon" });
+    const r = z
+      .object({ isError: z.literal(true), content: z.tuple([z.object({ text: z.string() })]) })
+      .parse(await client.request("tools/call", { name: "help_me", arguments: { request: "x" } }));
+    assert.match(r.content[0].text, /couldn't start: --timeout-min should be a number/);
   });
 
   test("serves the page marked as shown inside the chat", async t => {
