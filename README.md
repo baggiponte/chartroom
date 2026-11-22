@@ -19,7 +19,7 @@ Help me choose a bean-to-cup machine for my small kitchen, something good for la
 ```
 
 The model is the agent you're already using, on your own subscription: Claude Code, Codex, Gemini CLI, Antigravity,
-Qwen Code, OpenCode or Pi. An API key works too. See [Backends](#backends).
+OpenCode or Pi. An API key works too. See [Backends](#backends).
 
 ## Install
 
@@ -144,16 +144,16 @@ For per-agent defaults, set the env vars in that agent's config (e.g. `"env"` in
 | `codex`       | `codex exec` with your Codex / ChatGPT login, JSON enforced by `--output-schema`       | your Codex default    |
 | `gemini`      | `gemini -p` with your Google login                                                     | `gemini-2.5-flash`    |
 | `antigravity` | `agy -p` with your Antigravity login, JSON enforced by `--json-schema`                 | your agy default      |
-| `qwen`        | `qwen -p` with your Qwen Code login                                                    | your Qwen default     |
 | `opencode`    | `opencode run --pure` with whatever OpenCode is set up to use                          | your OpenCode default |
 | `pi`          | `pi -p --no-tools --no-session` with whatever Pi is set up to use                      | your Pi default       |
 | `anthropic`   | `ANTHROPIC_API_KEY` (and optional `ANTHROPIC_BASE_URL`)                                | `claude-haiku-5-5`    |
 | `openai`      | `OPENAI_API_KEY` and/or `OPENAI_BASE_URL`, so OpenRouter, Ollama or LM Studio work too | `gpt-5-mini`          |
 
-`auto` first tries the agent you're calling it from, so it runs on the subscription you're already using. Then it
-tries the CLIs above in order on your PATH, then `ANTHROPIC_API_KEY`, then `OPENAI_API_KEY`. No API key is needed if
-you have any of the CLIs. Pick a small, fast model: every edit triggers a new read. For OpenCode and Pi, `--model`
-takes their own `provider/model` form.
+`auto` uses the agent you're calling it from, so it runs on the subscription you're already using, with no API
+key. It never picks anything else for you: outside a known agent, or when that agent's CLI or key isn't there,
+help-me stops with an error that says what's missing and where to set `backend`, and your agent can offer to fix the
+config. Pick a small, fast model: every edit triggers a new read. For OpenCode and Pi, `--model` takes their own
+`provider/model` form.
 
 ## Development
 
@@ -161,7 +161,7 @@ The skill runs straight from `skills/help-me/` with nothing to install; the dev 
 
 - `skills/help-me/server.ts` is what `/help-me` runs: it serves the page, waits for Send and prints the request on
   stdout. `api.ts` lists the routes the page calls, `tasks.ts` and `prompts.ts` what each one asks the model,
-  `providers.ts` every backend and how `auto` picks one.
+  `providers.ts` every backend and which one `auto` means.
 - `mcp/server.ts` serves the same page as an MCP App: `node mcp/server.ts` for stdio, `--http` for `127.0.0.1:3917/mcp`.
 - `page/` is the page's source. `pnpm build` bundles it into `skills/help-me/index.html`, which is committed.
 - `docs/shots.ts` and `docs/rec.ts` record the README's images and GIF from demo mode.
