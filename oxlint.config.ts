@@ -9,8 +9,10 @@ export default defineConfig({
     // With exactOptionalPropertyTypes, a conditional spread is how a literal passed to a call leaves an optional
     // key out; building the object in steps would need a mutable, wider-typed variable at each site.
     "quality/no-conditional-empty-object-spread": "off",
-    // Temporary during migration: each rule below is enabled or explained in its own commit.
+    // JSON.parse, JSON-RPC replies and the fake model's answers really are unknown; every caller parses them with
+    // check() or zod straight away, which is the boundary this rule asks for.
     "quality/no-unknown-returns": "off",
+    // Temporary during migration: each rule below is enabled or explained in its own commit.
     "quality/no-unsafe-dictionary-type": "off",
     "quality/no-object-parameters": "off",
   },
