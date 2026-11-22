@@ -15,8 +15,6 @@ export default defineConfig({
     // Record<string, unknown> is a parsed JSON object before check() narrows it, and a JSON Schema's properties
     // map any key the model may fill to a schema: neither has a narrower value type to give.
     "quality/no-unsafe-dictionary-type": "off",
-    // Temporary during migration: each rule below is enabled or explained in its own commit.
-    "quality/no-object-parameters": "off",
   },
   overrides: [
     ...(cloudflare.overrides ?? []),
@@ -34,6 +32,11 @@ export default defineConfig({
       // Browser code: instanceof is how a DOM node or event target narrows to Element, HTMLElement or Text.
       files: ["page/**", "docs/**"],
       rules: { "@nkzw/no-instanceof": "off" },
+    },
+    {
+      // The MCP test client forwards whatever JSON-RPC params a test sends; the server under test validates them.
+      files: ["test/**"],
+      rules: { "quality/no-object-parameters": "off" },
     },
     {
       // node:test registers tests synchronously and reports their failures itself.
