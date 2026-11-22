@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { type Schema, check, checkedReply, dropNulls, strict, withSchema } from "../skills/help-me/schema.ts";
+import { type Schema, check, dropNulls, parseFenced, strict, withSchema } from "../skills/help-me/schema.ts";
 
 const choice = {
   type: "object",
@@ -66,19 +66,27 @@ test("check rejects a value outside an enum", () => {
   });
 });
 
-test("checkedReply reads JSON wrapped in a code fence", () => {
-  assert.deepEqual(checkedReply('Here you go:\n```json\n{"span":"a","kind":"multi"}\n```', choice), {
+test("check deletes the keys the schema doesn't name, at any depth", () => {
+  const reply = { span: "a", kind: "single", stray: 1, options: [{ label: "Tiny", text: "tiny" }] };
+  check(reply, choice);
+  assert.deepEqual(reply, { span: "a", kind: "single", options: [{ label: "Tiny" }] });
+});
+
+test("an empty schema accepts anything and leaves it as it is", () => {
+  const value = { any: ["thing"] };
+  check(value, {});
+  assert.deepEqual(value, { any: ["thing"] });
+});
+
+test("parseFenced reads JSON wrapped in a code fence", () => {
+  assert.deepEqual(parseFenced('Here you go:\n```json\n{"span":"a","kind":"multi"}\n```'), {
     span: "a",
     kind: "multi",
   });
 });
 
-test("checkedReply refuses prose that is not JSON", () => {
-  assert.throws(() => checkedReply("Sure! The span is small.", choice), { message: "reply is not JSON" });
-});
-
-test("checkedReply refuses JSON that misses a required field", () => {
-  assert.throws(() => checkedReply('{"span":"a"}', choice), { message: "reply.kind is missing" });
+test("parseFenced refuses prose that is not JSON", () => {
+  assert.throws(() => parseFenced("Sure! The span is small."), { message: "reply is not JSON" });
 });
 
 test("withSchema appends the schema to the system prompt", () => {

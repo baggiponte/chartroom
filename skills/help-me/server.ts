@@ -8,32 +8,56 @@ import { existsSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSyn
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import { homedir, platform, tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
+import { text as readAll } from "node:stream/consumers";
 import { fileURLToPath } from "node:url";
+import { type ParseArgsOptionsConfig, parseArgs } from "node:util";
 
-import { type Infer, type Schema, check, checkedReply, dropNulls, isRecord, strict, withSchema } from "./schema.ts";
+import {
+  type Infer,
+  type ObjectSchema,
+  type Schema,
+  check,
+  dropNulls,
+  isRecord,
+  parseFenced,
+  strict,
+  withSchema,
+} from "./schema.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const args = process.argv.slice(2);
-const flag = (name: string): boolean => args.includes(name);
-// null when the flag is there but has no value: what follows it is another flag, or nothing.
-const valueOf = (name: string): string | null | undefined => {
-  const i = args.indexOf(name);
-  if (i < 0) {
-    return undefined;
-  }
-  const v = args[i + 1];
-  return v === undefined || v.startsWith("--") ? null : v;
-};
 
 const log = (...m: unknown[]): void => {
   console.error("[prompt-shaper]", ...m);
 };
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
+const FLAGS = {
+  out: { type: "string" },
+  stdin: { type: "boolean" },
+  draft: { type: "string" },
+  agent: { type: "string" },
+  backend: { type: "string" },
+  model: { type: "string" },
+  effort: { type: "string" },
+  images: { type: "boolean" },
+  open: { type: "boolean" },
+  browser: { type: "string" },
+  port: { type: "string" },
+  "timeout-min": { type: "string" },
+} as const satisfies ParseArgsOptionsConfig;
+type Flag = keyof typeof FLAGS;
+const ARGS = { options: FLAGS, allowNegative: true } as const;
+
 type ExitCode = 0 | 1 | 2 | 3;
 const STATUS = { 0: "sent", 1: "error", 2: "cancelled", 3: "timeout" } as const satisfies Record<ExitCode, string>;
 
-const OUT = valueOf("--out") || process.env["PROMPT_SHAPER_OUT"] || "";
+// Read leniently before the real parse, so a command line that parse refuses still reaches --out. A value that
+// starts with "-" is the next flag, which the lenient parse would take as the file name.
+const lenientOut = parseArgs({ ...ARGS, strict: false }).values.out;
+const OUT =
+  (typeof lenientOut === "string" && !lenientOut.startsWith("-") ? lenientOut : "") ||
+  process.env["PROMPT_SHAPER_OUT"] ||
+  "";
 function writeOut(code: ExitCode, text: string): void {
   if (!OUT) {
     return;
@@ -52,16 +76,14 @@ function fail(message: string): never {
   writeOut(1, "");
   process.exit(1);
 }
-const opt = (name: string, fallback: string | undefined): string | undefined => {
-  const v = valueOf(name);
-  if (v === null) {
-    fail(`${name} needs a value`);
+
+const flags = (() => {
+  try {
+    return parseArgs(ARGS).values;
+  } catch (e) {
+    return fail(errorMessage(e));
   }
-  return v ?? fallback;
-};
-if (valueOf("--out") === null) {
-  fail("--out needs a value");
-}
+})();
 
 const CONFIG_FILE =
   process.env["PROMPT_SHAPER_CONFIG"] ||
@@ -80,36 +102,35 @@ const CONFIG = ((): Readonly<Record<string, unknown>> => {
     return fail(`${CONFIG_FILE} is not a valid config: ${errorMessage(e)}`);
   }
 })();
-// Config values are read as text, like flags and env vars: `"port": 8080` and `"port": "8080"` mean the same.
-const fromConfig = (key: string): string | undefined => {
-  const v = CONFIG[key];
-  return typeof v === "string" || typeof v === "number" || typeof v === "boolean" ? String(v) : undefined;
+
+/** Each setting is read from its flag, then `PROMPT_SHAPER_<FLAG>`, then the config file's camelCase key. */
+const SOURCES = [
+  (f: Flag) => flags[f],
+  // An empty variable counts as unset, so `PROMPT_SHAPER_MODEL=` falls through to the config file like no variable does.
+  (f: Flag) => process.env["PROMPT_SHAPER_" + f.replaceAll("-", "_").toUpperCase()] || undefined,
+  // Config values are read as text, like flags and env vars: `"port": 8080` and `"port": "8080"` mean the same.
+  (f: Flag) => {
+    const v = CONFIG[f.replace(/-(\w)/g, (_, c: string) => c.toUpperCase())];
+    return typeof v === "string" || typeof v === "number" || typeof v === "boolean" ? String(v) : undefined;
+  },
+] as const;
+/** The index in SOURCES of the first one that sets `f`, or SOURCES.length when none does. */
+const sourceOf = (f: Flag): number => {
+  const i = SOURCES.findIndex(get => get(f) !== undefined);
+  return i < 0 ? SOURCES.length : i;
 };
-const ENV_NAME = (key: string): string => "PROMPT_SHAPER_" + key.replace(/[A-Z]/g, c => "_" + c).toUpperCase();
-// An empty variable counts as unset, so `PROMPT_SHAPER_MODEL=` falls through to the config file like no variable does.
-const fromEnv = (key: string): string | undefined => process.env[ENV_NAME(key)] || undefined;
-const setting = (key: string, flagName: string, fallback: string): string =>
-  opt(flagName, fromEnv(key) ?? fromConfig(key)) || fallback;
-const onOff = (key: string, fallback: boolean): boolean => {
-  if (flag(`--${key}`)) {
-    return true;
-  }
-  if (flag(`--no-${key}`)) {
-    return false;
-  }
-  const v = fromEnv(key) ?? fromConfig(key);
-  if (v === undefined || v === "") {
-    return fallback;
-  }
-  return !["0", "false", "no", "off"].includes(v.toLowerCase());
+const valueOf = (f: Flag): string | boolean | undefined => SOURCES[sourceOf(f)]?.(f);
+const setting = (f: Flag, fallback: string): string => String(valueOf(f) ?? "") || fallback;
+const onOff = (f: Flag, fallback: boolean): boolean => {
+  const v = valueOf(f);
+  return typeof v === "boolean" ? v : !v ? fallback : !["0", "false", "no", "off"].includes(v.toLowerCase());
 };
 
 const isCodex = (): boolean => Object.keys(process.env).some(k => k.startsWith("CODEX_"));
-const PORT = Number(setting("port", "--port", "0"));
+const PORT = Number(setting("port", "0"));
 const IMAGES = onOff("images", true);
 const AGENT = setting(
   "agent",
-  "--agent",
   process.env["CLAUDECODE"]
     ? "Claude Code"
     : process.env["GEMINI_CLI"]
@@ -119,15 +140,7 @@ const AGENT = setting(
         : "your agent",
 );
 
-async function readStdin(): Promise<string> {
-  const chunks: Buffer[] = [];
-  for await (const c of process.stdin as AsyncIterable<Buffer>) {
-    chunks.push(c);
-  }
-  return Buffer.concat(chunks).toString("utf8");
-}
-
-const draft = flag("--stdin") ? (await readStdin()).trim() : (opt("--draft", "") ?? "");
+const draft = flags.stdin ? (await readAll(process.stdin)).trim() : (flags.draft ?? "");
 
 const SYSTEM = `You help someone sharpen a request before an AI assistant works on it. The request might be a decision
 ("help me choose a coffee machine"), a task ("plan a weekend in Lisbon") or a prompt ("make two posters for our lab").
@@ -353,8 +366,34 @@ async function runHttp<T>(
   }
 }
 
-const textOf = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
-const numberOf = (v: unknown): number | undefined => (typeof v === "number" ? v : undefined);
+const ANY = {} as const satisfies Schema;
+const CLAUDE_OUTPUT = {
+  type: "object",
+  properties: { is_error: BOOLEAN, result: STRING, structured_output: ANY, modelUsage: ANY, duration_ms: NUMBER },
+} as const satisfies Schema;
+const GEMINI_OUTPUT = {
+  type: "object",
+  properties: { response: STRING, error: { type: "object", properties: { message: STRING } } },
+} as const satisfies Schema;
+const ANTHROPIC_REPLY = {
+  type: "object",
+  required: ["content"],
+  properties: {
+    model: STRING,
+    content: { type: "array", items: { type: "object", required: ["type"], properties: { type: STRING, input: ANY } } },
+  },
+} as const satisfies Schema;
+const OPENAI_REPLY = {
+  type: "object",
+  required: ["choices"],
+  properties: {
+    model: STRING,
+    choices: {
+      type: "array",
+      items: { type: "object", properties: { message: { type: "object", properties: { content: STRING } } } },
+    },
+  },
+} as const satisfies Schema;
 
 const BACKENDS = {
   claude: {
@@ -384,17 +423,14 @@ const BACKENDS = {
         input,
         out => {
           const res: unknown = JSON.parse(out);
-          if (!isRecord(res)) {
-            throw new Error("claude did not answer with a JSON object");
+          check(res, CLAUDE_OUTPUT, "claude output");
+          if (res.is_error) {
+            throw new Error(res.result || "claude returned an error");
           }
-          if (res["is_error"]) {
-            throw new Error(textOf(res["result"]) || "claude returned an error");
-          }
-          const usage = res["modelUsage"];
           return {
-            data: res["structured_output"] ?? (JSON.parse(textOf(res["result"]) ?? "") as unknown),
-            model: isRecord(usage) ? Object.keys(usage)[0] : undefined,
-            ms: numberOf(res["duration_ms"]),
+            data: res.structured_output ?? (JSON.parse(res.result ?? "") as unknown),
+            model: isRecord(res.modelUsage) ? Object.keys(res.modelUsage)[0] : undefined,
+            ms: res.duration_ms,
           };
         },
       ),
@@ -446,14 +482,11 @@ const BACKENDS = {
         input,
         out => {
           const res: unknown = JSON.parse(out);
-          if (!isRecord(res)) {
-            throw new Error("gemini did not answer with a JSON object");
+          check(res, GEMINI_OUTPUT, "gemini output");
+          if (res.error) {
+            throw new Error(res.error.message ?? "gemini returned an error");
           }
-          const error = res["error"];
-          if (error) {
-            throw new Error((isRecord(error) && textOf(error["message"])) || JSON.stringify(error));
-          }
-          return { data: checkedReply(textOf(res["response"]) ?? "", schema), ms: Date.now() - t0 };
+          return { data: parseFenced(res.response ?? ""), ms: Date.now() - t0 };
         },
       );
     },
@@ -479,14 +512,13 @@ const BACKENDS = {
           tool_choice: { type: "tool", name: "answer" },
         },
         res => {
-          const content = isRecord(res) ? res["content"] : undefined;
-          const call: unknown = Array.isArray(content)
-            ? content.find((c: unknown) => isRecord(c) && c["type"] === "tool_use")
-            : undefined;
-          if (!isRecord(call)) {
+          check(res, ANTHROPIC_REPLY, "anthropic reply");
+          const { model, content } = res;
+          const call = content.find(c => c.type === "tool_use");
+          if (!call) {
             throw new Error("no structured answer in reply");
           }
-          return { data: call["input"], model: isRecord(res) ? textOf(res["model"]) : undefined, ms: Date.now() - t0 };
+          return { data: call.input, model, ms: Date.now() - t0 };
         },
       );
     },
@@ -513,18 +545,15 @@ const BACKENDS = {
           },
         },
         res => {
-          const choices = isRecord(res) ? res["choices"] : undefined;
-          const first: unknown = Array.isArray(choices) ? choices[0] : undefined;
-          const message = isRecord(first) ? first["message"] : undefined;
-          const text = isRecord(message) ? textOf(message["content"]) : undefined;
+          // content is null when the model refuses
+          const reply = dropNulls(res);
+          check(reply, OPENAI_REPLY, "openai reply");
+          const { model, choices } = reply;
+          const text = choices[0]?.message?.content;
           if (!text) {
             throw new Error("empty reply");
           }
-          return {
-            data: JSON.parse(text) as unknown,
-            model: isRecord(res) ? textOf(res["model"]) : undefined,
-            ms: Date.now() - t0,
-          };
+          return { data: JSON.parse(text) as unknown, model, ms: Date.now() - t0 };
         },
       );
     },
@@ -540,7 +569,7 @@ function onPath(cmd: string): boolean {
 }
 
 function pickBackend(): BackendName {
-  const asked = setting("backend", "--backend", "auto").toLowerCase();
+  const asked = setting("backend", "auto").toLowerCase();
   if (asked !== "auto") {
     if (!isBackend(asked)) {
       fail(`unknown backend "${asked}", use one of: auto, ${Object.keys(BACKENDS).join(", ")}`);
@@ -569,18 +598,19 @@ function pickBackend(): BackendName {
 const BACKEND = pickBackend();
 // A config-file model is dropped when the backend comes from a flag or env var, so `--backend gemini`
 // doesn't run gemini with "haiku".
-const rank = (key: string, flagName: string): number =>
-  flag(flagName) ? 0 : fromEnv(key) !== undefined ? 1 : fromConfig(key) !== undefined ? 2 : 3;
 const MODEL: string =
-  rank("model", "--model") <= rank("backend", "--backend")
-    ? setting("model", "--model", BACKENDS[BACKEND].model)
-    : BACKENDS[BACKEND].model;
-const EFFORT: string = setting("effort", "--effort", "low");
+  sourceOf("model") <= sourceOf("backend") ? setting("model", BACKENDS[BACKEND].model) : BACKENDS[BACKEND].model;
+const EFFORT: string = setting("effort", "low");
 
-type Reply<S extends Schema> = Infer<S> & { model: string; ms: number | undefined };
+type Reply<S extends ObjectSchema> = Infer<S> & { model: string; ms: number | undefined };
 
 /** Every model call goes through here, and every reply is checked against the schema it was asked for. */
-async function runModel<S extends Schema>(slot: string, system: string, schema: S, input: string): Promise<Reply<S>> {
+async function runModel<S extends ObjectSchema>(
+  slot: string,
+  system: string,
+  schema: S,
+  input: string,
+): Promise<Reply<S>> {
   const backend: Backend = BACKENDS[BACKEND];
   const { data, model, ms } = await backend.run(slot, system, schema, input);
   const reply = dropNulls(data);
@@ -625,11 +655,7 @@ async function analyze(text: string, settled: string[], answers: string[], asked
   const underlines = data.underlines
     .filter(u => inText(u) && !inAsk(u))
     .map(u => Object.assign(u, { type: "underline" as const }));
-  // An extra has no place in the request, so a span the model added anyway is dropped.
-  const extras = data.extras.map((e: (typeof data.extras)[number] & { span?: unknown }) => {
-    const { span: _span, ...rest } = e;
-    return Object.assign(rest, { type: "extra" as const });
-  });
+  const extras = data.extras.map(e => Object.assign(e, { type: "extra" as const }));
   return {
     summary: data.summary,
     choices: more ? extras : [...asks, ...underlines, ...extras],
@@ -817,22 +843,11 @@ const BODY = {
 } as const satisfies Record<string, Schema>;
 
 // Rejects a body that is not JSON or not shaped like `schema`, which the request handler answers with a 400.
-function body<S extends Schema>(req: IncomingMessage, schema: S): Promise<Infer<S>> {
-  return new Promise((resolve, reject) => {
-    let b = "";
-    req.on("data", (d: Buffer) => {
-      b += d.toString();
-    });
-    req.on("end", () => {
-      try {
-        const data: unknown = b ? JSON.parse(b) : {};
-        check(data, schema, "body");
-        resolve(data);
-      } catch (e) {
-        reject(e instanceof Error ? e : new Error(String(e)));
-      }
-    });
-  });
+async function body<S extends Schema>(req: IncomingMessage, schema: S): Promise<Infer<S>> {
+  const raw = await readAll(req);
+  const data: unknown = raw ? JSON.parse(raw) : {};
+  check(data, schema, "body");
+  return data;
 }
 
 function send(res: ServerResponse, status: number, obj: unknown): void {
@@ -950,7 +965,7 @@ const server = http.createServer((req, res) => {
   });
 });
 
-const TIMEOUT_SETTING = setting("timeoutMin", "--timeout-min", "30");
+const TIMEOUT_SETTING = setting("timeout-min", "30");
 const TIMEOUT_MIN = Number(TIMEOUT_SETTING);
 if (!Number.isFinite(TIMEOUT_MIN)) {
   fail(`--timeout-min should be a number of minutes, got "${TIMEOUT_SETTING}"`);
@@ -973,8 +988,7 @@ server.listen(PORT, "127.0.0.1", () => {
     return;
   }
   const cmd =
-    setting("browser", "--browser", "") ||
-    (platform() === "darwin" ? "open" : platform() === "win32" ? "explorer" : "xdg-open");
+    setting("browser", "") || (platform() === "darwin" ? "open" : platform() === "win32" ? "explorer" : "xdg-open");
   try {
     spawn(cmd, [url], { stdio: "ignore", detached: true })
       .on("error", () => {})

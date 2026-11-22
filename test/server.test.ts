@@ -56,9 +56,9 @@ function outFile(path: string): z.infer<typeof OutFile> {
 }
 
 /** Starts a fake API and a server wired to it, and stops both when the test ends. */
-async function withModel(t: TestContext, answer: FakeModel) {
+async function withModel(t: TestContext, answer: FakeModel, args: string[] = []) {
   const api = await startFakeApi(answer);
-  const helpMe = await startHelpMe({ api });
+  const helpMe = await startHelpMe({ api, args });
   t.after(async () => {
     helpMe.stop();
     await api.close();
@@ -182,6 +182,29 @@ describe("/api/analyze", () => {
   });
 });
 
+describe("the openai backend", () => {
+  const tidied = { blocks: [{ heading: "", items: [1] }] };
+  const openai = ["--backend", "openai"];
+
+  test("reads the reply from the first choice", async t => {
+    const { helpMe } = await withModel(t, () => tidied, openai);
+    const { blocks, model } = await helpMe.ask(
+      "/api/tidy",
+      { sentences: ["a."] },
+      Tidied.extend({ model: z.string() }),
+    );
+    assert.deepEqual(blocks, [{ heading: "", items: [0] }]);
+    assert.equal(model, "gpt-5-mini");
+  });
+
+  test("a refusal, with no content, is an error the page can show", async t => {
+    const { helpMe } = await withModel(t, () => null, openai);
+    const res = await helpMe.post("/api/tidy", { sentences: ["a."] });
+    assert.equal(res.status, 500);
+    assert.deepEqual(Failure.parse(await res.json()), { error: "empty reply" });
+  });
+});
+
 describe("/api/tidy", () => {
   test("turns 1-based numbers into indexes, uses each sentence once and keeps the ones the model forgot", async t => {
     const { helpMe } = await withModel(t, () => ({
@@ -277,6 +300,14 @@ describe("choosing a backend", () => {
     assert.match(stderr, /unknown backend "nope", use one of: auto, claude, codex, gemini, anthropic, openai/);
   });
 
+  test("an unknown flag exits 1, and --out still says so", async () => {
+    const out = join(scratch, "unknown-flag.json");
+    const { code, stderr } = await runHelpMe(["--out", out, "--bogus"]);
+    assert.equal(code, 1);
+    assert.match(stderr, /Unknown option '--bogus'/);
+    assert.deepEqual(outFile(out), { status: "error", prompt: "" });
+  });
+
   test("a config file that is not a JSON object exits 1 instead of being ignored", async () => {
     const config = join(scratch, "broken-config.json");
     writeFileSync(config, "{ backend: anthropic");
@@ -294,8 +325,7 @@ describe("choosing a backend", () => {
   });
 });
 
-// Bugs found while writing these tests, one issue each. A test still marked `todo` asserts the behaviour we want before
-// the fix lands, so the suite stays green and the runner still reports whether it passes.
+// Bugs found while writing these tests, one issue each (#9-#14).
 describe("bugs", () => {
   test("a second Send is ignored instead of printing the prompt twice", async () => {
     const helpMe = await startHelpMe();
@@ -329,7 +359,7 @@ describe("bugs", () => {
   test("a flag with no value does not swallow the next flag", async () => {
     const { code, stderr } = await runHelpMe(["--backend", "--no-open"]);
     assert.equal(code, 1);
-    assert.match(stderr, /--backend needs a value/);
+    assert.match(stderr, /Did you forget to specify the option argument for '--backend'\?/);
   });
 
   test("a body with the wrong shape is a 400, not a 500", async t => {
