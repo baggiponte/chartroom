@@ -21,6 +21,25 @@ const opt = (name, fallback) => {
 
 const log = (...m) => console.error("[prompt-shaper]", ...m);
 
+const OUT = opt("--out", process.env.PROMPT_SHAPER_OUT || "");
+const STATUS = { 0: "sent", 2: "cancelled", 3: "timeout" };
+function writeOut(code, text) {
+  if (!OUT) return;
+  try {
+    // write then rename, so a poller never reads half a file
+    writeFileSync(OUT + ".tmp", JSON.stringify({ status: STATUS[code] || "error", prompt: text || "" }) + "\n");
+    renameSync(OUT + ".tmp", OUT);
+  } catch (e) {
+    log(`could not write ${OUT}: ${e.message}`);
+  }
+}
+// Refusing to start still writes --out, so an agent polling it learns at once instead of at its own timeout.
+function fail(message) {
+  log(message);
+  writeOut(1, "");
+  process.exit(1);
+}
+
 const CONFIG_FILE =
   process.env.PROMPT_SHAPER_CONFIG ||
   join(process.env.XDG_CONFIG_HOME || join(homedir(), ".config"), "prompt-shaper", "config.json");
@@ -31,8 +50,7 @@ const CONFIG = (() => {
     if (!c || typeof c !== "object" || Array.isArray(c)) throw new Error("not a JSON object");
     return c;
   } catch (e) {
-    log(`ignoring ${CONFIG_FILE}: ${e.message}`);
-    return {};
+    return fail(`${CONFIG_FILE} is not a valid config: ${e.message}`);
   }
 })();
 const ENV_NAME = key => "PROMPT_SHAPER_" + key.replace(/[A-Z]/g, c => "_" + c).toUpperCase();
@@ -392,8 +410,7 @@ function pickBackend() {
   const asked = String(setting("backend", "--backend", "auto")).toLowerCase();
   if (asked !== "auto") {
     if (!BACKENDS[asked]) {
-      log(`unknown backend "${asked}", use one of: auto, ${Object.keys(BACKENDS).join(", ")}`);
-      process.exit(1);
+      fail(`unknown backend "${asked}", use one of: auto, ${Object.keys(BACKENDS).join(", ")}`);
     }
     return asked;
   }
@@ -409,8 +426,7 @@ function pickBackend() {
   for (const cli of ["claude", "codex", "gemini"]) if (onPath(cli)) return cli;
   if (env.ANTHROPIC_API_KEY) return "anthropic";
   if (env.OPENAI_API_KEY || env.OPENAI_BASE_URL) return "openai";
-  log("no backend found: install the claude, codex or gemini CLI, or set ANTHROPIC_API_KEY or OPENAI_API_KEY");
-  process.exit(1);
+  fail("no backend found: install the claude, codex or gemini CLI, or set ANTHROPIC_API_KEY or OPENAI_API_KEY");
 }
 
 const BACKEND = pickBackend();
@@ -647,9 +663,6 @@ function send(res, status, obj) {
   res.end(JSON.stringify(obj));
 }
 
-const OUT = opt("--out", process.env.PROMPT_SHAPER_OUT || "");
-const STATUS = { 0: "sent", 2: "cancelled", 3: "timeout" };
-
 const printed = text => (text ? (text.endsWith("\n") ? text : text + "\n") : "");
 let finished = false;
 function finish(code, text) {
@@ -657,15 +670,7 @@ function finish(code, text) {
   finished = true;
   for (const j of Object.values(running)) j.abort();
   if (text) process.stdout.write(printed(text));
-  if (OUT) {
-    try {
-      // write then rename, so a poller never reads half a file
-      writeFileSync(OUT + ".tmp", JSON.stringify({ status: STATUS[code] || "error", prompt: text || "" }) + "\n");
-      renameSync(OUT + ".tmp", OUT);
-    } catch (e) {
-      log(`could not write ${OUT}: ${e.message}`);
-    }
-  }
+  writeOut(code, text);
   setTimeout(() => process.exit(code), 150);
 }
 
