@@ -16,7 +16,6 @@ import type { Answer, Init } from "../skills/help-me/api.ts";
 import { createJobs } from "../skills/help-me/jobs.ts";
 import { createModel } from "../skills/help-me/model.ts";
 import { readPage } from "../skills/help-me/page.ts";
-import { loadBackend } from "../skills/help-me/plugins.ts";
 import { PROVIDERS } from "../skills/help-me/providers.ts";
 import { readSettings } from "../skills/help-me/settings.ts";
 
@@ -73,7 +72,7 @@ let nextId = 0;
  * arguments standing in for flags. Throws, with a message for the user, when they can't be used.
  */
 async function open({ request, images, ...flags }: z.infer<typeof HelpMeInput>): Promise<Init & { session: string }> {
-  const settings = readSettings(
+  const settings = await readSettings(
     [
       "--agent",
       "Claude",
@@ -84,8 +83,8 @@ async function open({ request, images, ...flags }: z.infer<typeof HelpMeInput>):
   );
   const { effort, agent } = settings;
   const backend = settings.backend.name;
-  const chosen = await loadBackend(settings.backend);
-  const model = settings.model || chosen.model;
+  const chosen = settings.backend.plugin;
+  const model = settings.model || chosen.model || "";
   const id = String(++nextId);
   const jobs = createJobs();
   let timer: NodeJS.Timeout | undefined;

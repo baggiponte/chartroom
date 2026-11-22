@@ -4,8 +4,9 @@ import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import type { ParseArgsOptionsConfig } from "node:util";
 
-import type { BackendChoice } from "./plugins.ts";
-import { PROVIDERS, hostOf, isProvider } from "./providers.ts";
+import { loadPlugin } from "./plugins.ts";
+import type { Plugin } from "./plugins.ts";
+import { PROVIDERS, hostOf } from "./providers.ts";
 import { isRecord } from "./schema.ts";
 
 export interface Settings {
@@ -14,7 +15,7 @@ export interface Settings {
   stdin: boolean;
   draft: string;
   agent: string;
-  backend: BackendChoice;
+  backend: { name: string; plugin: Plugin };
   /** "" for the backend's own default. */
   model: string;
   effort: string;
@@ -95,45 +96,56 @@ function readPlugins(config: Readonly<Record<string, unknown>>, configFile: stri
 /**
  * The backend asked for, or with `host` the agent help-me is running in. Never another one: when that can't run, the
  * error says why and where to set `backend`, so the agent can offer to fix the config instead of us choosing for them.
+ * Plugins come before the built-ins, so one can replace a built-in or claim to be the host. `host` imports every
+ * configured plugin to ask it, so a broken one stops help-me even when it isn't the host.
  */
-function pickBackend(
+async function pickBackend(
   asked: string,
   plugins: ReadonlyMap<string, string>,
   env: NodeJS.ProcessEnv,
   configFile: string,
-): BackendChoice {
-  const file = plugins.get(asked);
-  if (file) {
-    return { kind: "plugin", name: asked, file };
-  }
-  const names = ["host", ...Object.keys(PROVIDERS), ...plugins.keys()].join(", ");
+): Promise<{ backend: Settings["backend"]; host: string | undefined }> {
+  const names = ["host", ...new Set([...Object.keys(PROVIDERS), ...plugins.keys()])].join(", ");
   const fix = `Set "backend" in ${configFile} (or pass --backend) to one of: ${names}.`;
+  const backends = new Map<string, Plugin>();
+  for (const [name, file] of plugins) {
+    if (asked === "host" || asked === name) {
+      backends.set(name, await loadPlugin(file));
+    }
+  }
+  for (const [name, plugin] of Object.entries(PROVIDERS)) {
+    if (!plugins.has(name)) {
+      backends.set(name, plugin);
+    }
+  }
+  const host = hostOf(env, backends);
+  let name = asked;
   if (asked === "host") {
-    const host = hostOf(env);
     if (!host) {
       throw new Error(`backend is "host", but help-me can't tell which agent is running it. ${fix}`);
     }
-    if (!PROVIDERS[host.name].available(env)) {
-      throw new Error(
-        `backend is "host" and ${host.agent} is running help-me, but ${PROVIDERS[host.name].needs} isn't there. ${fix}`,
-      );
-    }
-    return { kind: "provider", name: host.name };
+    name = host.name;
   }
-  if (!isProvider(asked)) {
+  const plugin = backends.get(name);
+  if (!plugin) {
     throw new Error(`unknown backend "${asked}". ${fix}`);
   }
-  if (!PROVIDERS[asked].available(env)) {
-    throw new Error(`backend "${asked}" needs ${PROVIDERS[asked].needs}, which isn't there. Install it, or: ${fix}`);
+  if (plugin.available && !plugin.available(env)) {
+    const needs = plugin.needs ?? "something its available() checks for";
+    throw new Error(
+      asked === "host"
+        ? `backend is "host" and ${plugin.host?.agent ?? name} is running help-me, but ${needs} isn't there. ${fix}`
+        : `backend "${name}" needs ${needs}, which isn't there. Install it, or: ${fix}`,
+    );
   }
-  return { kind: "provider", name: asked };
+  return { backend: { name, plugin }, host: host?.agent };
 }
 
 /**
  * Each setting comes from its flag, then `PROMPT_SHAPER_<FLAG>`, then the config file, then a default. Throws, with a
  * message for the user, when one can't be used.
  */
-export function readSettings(argv: Array<string>, env: NodeJS.ProcessEnv): Settings {
+export async function readSettings(argv: Array<string>, env: NodeJS.ProcessEnv): Promise<Settings> {
   const flags = parseArgs({ ...ARGS, args: argv }).values;
   const configFile =
     env["PROMPT_SHAPER_CONFIG"] ||
@@ -163,7 +175,7 @@ export function readSettings(argv: Array<string>, env: NodeJS.ProcessEnv): Setti
 
   const plugins = readPlugins(config, configFile);
   const asked = setting("backend", "host").toLowerCase();
-  const backend = pickBackend(asked, plugins, env, configFile);
+  const { backend, host } = await pickBackend(asked, plugins, env, configFile);
 
   const timeout = setting("timeout-min", "30");
   const timeoutMin = Number(timeout);
@@ -175,7 +187,7 @@ export function readSettings(argv: Array<string>, env: NodeJS.ProcessEnv): Setti
     out: outPath(argv, env),
     stdin: flags.stdin ?? false,
     draft: flags.draft ?? "",
-    agent: setting("agent", hostOf(env)?.agent ?? "your agent"),
+    agent: setting("agent", host ?? "your agent"),
     backend,
     // A config-file model is dropped when the backend comes from a flag or env var, so `--backend gemini`
     // doesn't run gemini with "haiku".
