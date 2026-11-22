@@ -422,10 +422,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 	// skills/help-me/schema.ts
 	const isRecord = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
 	const typeName = (v) => v === null ? "null" : Array.isArray(v) ? "array" : typeof v;
-	/**
-	* Throws, naming the path, unless `v` has the shape of `schema`. Keys the schema doesn't name are deleted, so what
-	* TypeScript knows afterwards is all there is.
-	*/
+	/** Keys the schema doesn't name are deleted, so what TypeScript knows afterwards is all there is. */
 	function check(v, schema, at = "reply") {
 		const s = schema;
 		if (s.type === void 0) return;

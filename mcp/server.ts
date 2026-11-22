@@ -1,13 +1,6 @@
 #!/usr/bin/env node
-// /help-me as an MCP App: the same page, shown inside the chat (Claude web and desktop) instead of a browser tab.
-// It runs the help-me skill's own modules in this process (settings, backends, prompts), so a call to help_me opens a
-// session here rather than starting a second server. The page hands the shaped request back with ui/message.
-//
-//   node mcp/server.ts            stdio, for Claude Desktop's config
-//   node mcp/server.ts --http     streamable HTTP on 127.0.0.1:3917/mcp, to put behind a tunnel for claude.ai
 import { type CallToolResult, McpServer, createMcpHandler } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import { homedir } from "node:os";
@@ -17,29 +10,31 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import * as z from "zod";
 
-import { type Answer, type Init, type Route, createApi } from "../skills/help-me/api.ts";
-import { createJobs, createModel } from "../skills/help-me/model.ts";
+import { type Answer, type Init, ROUTES, createApi, errorMessage } from "../skills/help-me/api.ts";
+import { createJobs } from "../skills/help-me/jobs.ts";
+import { createModel } from "../skills/help-me/model.ts";
+import { readPage } from "../skills/help-me/page.ts";
 import { readSettings } from "../skills/help-me/settings.ts";
 
-const SKILL = join(dirname(fileURLToPath(import.meta.url)), "..", "skills", "help-me");
+/** One open page: its API, and how to end it once it sends, cancels or times out. */
+interface Session {
+  api: ReturnType<typeof createApi>;
+  end: () => void;
+}
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const VERSION = z
   .object({ version: z.string() })
-  .parse(JSON.parse(readFileSync(join(SKILL, "..", "..", ".claude-plugin", "plugin.json"), "utf8"))).version;
+  .parse(JSON.parse(readFileSync(join(ROOT, ".claude-plugin", "plugin.json"), "utf8"))).version;
 const URI = "ui://help-me/page.html";
 const MIME = "text/html;profile=mcp-app";
 const log = (...m: unknown[]): void => {
   console.error("[help-me mcp]", ...m);
 };
-const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
-// Read once, like the browser server does, so the page and /api/init carry the same build hash: a page cached by the
-// host from an older run can tell. The page decides "in the chat" from the flag, so the same file still works in a tab.
-const SOURCE = readFileSync(join(SKILL, "index.html"), "utf8");
-const BUILD = createHash("sha256").update(SOURCE).digest("hex").slice(0, 12);
-const PAGE = SOURCE.replace('"%BUILD%"', JSON.stringify(BUILD)).replace(
-  "<script>",
-  "<script>window.__HELP_ME_MCP__ = true;</script>\n<script>",
-);
+// The page decides "in the chat" from this flag, so the same file still works in a tab.
+const { html, build: BUILD } = readPage();
+const PAGE = html.replace("<script>", "<script>window.__HELP_ME_MCP__ = true;</script>\n<script>");
 
 // Desktop apps start MCP servers with a bare PATH, so the claude/codex/gemini CLIs wouldn't be found.
 const ENV: NodeJS.ProcessEnv = {
@@ -66,11 +61,6 @@ const HelpMeInput = z.object({
   images: z.boolean().optional().describe("Only if the user asked for or against pictures"),
 });
 
-/** One open page: its API, and how to end it once it sends, cancels or times out. */
-interface Session {
-  api: ReturnType<typeof createApi>;
-  end: () => void;
-}
 const sessions = new Map<string, Session>();
 let nextId = 0;
 
@@ -121,7 +111,7 @@ function open({ request, images, ...flags }: z.infer<typeof HelpMeInput>): Init 
   };
 }
 
-// The page reads the status and body from structuredContent, the same answer the browser server sends over HTTP.
+// The page reads structuredContent, the same answer the browser server sends over HTTP.
 const apiReply = ({ status, body }: Answer): CallToolResult => ({
   content: [{ type: "text", text: JSON.stringify(body) }],
   structuredContent: { status, body },
@@ -183,7 +173,6 @@ function build(): McpServer {
     },
   );
 
-  // Only the page calls this: it is the page's /api, carried through the host.
   server.registerTool(
     "help_me_api",
     {
@@ -191,14 +180,7 @@ function build(): McpServer {
       description: "Used by the help-me page itself.",
       inputSchema: z.object({
         session: z.string(),
-        path: z.enum([
-          "/api/analyze",
-          "/api/explain",
-          "/api/decide",
-          "/api/tidy",
-          "/api/submit",
-          "/api/cancel",
-        ] satisfies Route[]),
+        path: z.enum(ROUTES),
         body: z.record(z.string(), z.unknown()).optional(),
       }),
       _meta: { ui: { visibility: ["app"] } },
@@ -261,7 +243,6 @@ if (flags.http) {
       });
   });
   server.listen(port, "127.0.0.1", () => {
-    // the port actually bound, which differs from the one asked for with --port 0
     const address = server.address();
     log(`MCP on http://127.0.0.1:${String(typeof address === "object" && address ? address.port : port)}/mcp`);
   });

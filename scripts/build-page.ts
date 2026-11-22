@@ -1,6 +1,4 @@
-// Bundles page/*.ts into one script inside page/index.html and writes the skill's skills/help-me/index.html,
-// which is committed: the skill and the MCP app serve that one file and never build anything.
-// --check exits 1 instead when the committed file is out of date, for CI.
+// The bundle is committed so the skill and the MCP app serve one file and never build anything.
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { build } from "rolldown";
