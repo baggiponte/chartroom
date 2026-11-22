@@ -3,7 +3,7 @@
   "printWidth": 120,
   "arrowParens": "avoid",
   "proseWrap": "preserve",
-  // The page is one hand-written file whose inline script is split into modules in phase 3 of the cleanup plan;
-  // reformatting 1,800 lines of HTML, CSS and JS before then would bury every other change in its diff.
-  "ignorePatterns": ["skills/help-me/index.html", "pnpm-lock.yaml"],
+  // The page's HTML and CSS are still hand-formatted, and reformatting them would bury every other change in the diff.
+  // skills/help-me/index.html is generated from them by `pnpm build`.
+  "ignorePatterns": ["page/index.html", "skills/help-me/index.html", "pnpm-lock.yaml"],
 }

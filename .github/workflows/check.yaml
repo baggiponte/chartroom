@@ -41,6 +41,8 @@ jobs:
         run: pnpm lint
       - name: Type-check
         run: pnpm typecheck
+      - name: Check the committed page is built from page/
+        run: pnpm build --check
       # No test may reach a model: the server under test talks to a fake API on localhost (test/support/help-me.ts).
       - name: Run unit tests
         run: pnpm test:unit
