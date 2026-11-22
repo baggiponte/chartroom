@@ -588,7 +588,7 @@ export function positionPop(): void {
   }
   pop.style.maxHeight = "";
   const rs = a.getClientRects();
-  const r = rs[rs.length - 1] ?? a.getBoundingClientRect();
+  const r = rs.item(rs.length - 1) ?? a.getBoundingClientRect();
   const pw = pop.offsetWidth;
   const ph = pop.offsetHeight;
   let top = r.bottom + 10;
