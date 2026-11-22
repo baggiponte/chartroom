@@ -22,7 +22,7 @@ The model is whichever you already have: the `claude`, `codex` or `gemini` CLI, 
 
 ## Install
 
-Needs Node 18+ and one [backend](#backends).
+Needs Node 22.18+ (it runs the TypeScript source directly, with nothing to build or install) and one [backend](#backends).
 
 ```bash
 npx skills add baggiponte/prompt-shaper -g
@@ -40,7 +40,7 @@ server and opens a browser: approve it.
 
 The same page can show up inline in a Claude conversation (desktop and claude.ai) instead of a browser tab, as an
 [MCP App](https://modelcontextprotocol.io/extensions/apps). Pressing Send posts the shaped request into the chat as your
-message. Clone the repo and install the server's two dependencies (Node 20+):
+message. Clone the repo and install the server's two dependencies (Node 22.18+):
 
 ```bash
 git clone https://github.com/baggiponte/prompt-shaper && cd prompt-shaper/mcp && npm install
@@ -49,7 +49,7 @@ git clone https://github.com/baggiponte/prompt-shaper && cd prompt-shaper/mcp &&
 **Claude Desktop**: add it to `~/Library/Application Support/Claude/claude_desktop_config.json`, then restart the app.
 
 ```json
-{ "mcpServers": { "prompt-shaper": { "command": "node", "args": ["/full/path/to/prompt-shaper/mcp/server.mjs"] } } }
+{ "mcpServers": { "prompt-shaper": { "command": "node", "args": ["/full/path/to/prompt-shaper/mcp/server.ts"] } } }
 ```
 
 **claude.ai**: custom connectors are reached from the internet, so run `npm run http` (it listens on
@@ -106,18 +106,18 @@ was left out.
 
 <img src="docs/img/sent.png" alt="The sent text in a box, with notes on unanswered questions that were left out" width="640">
 
-The images are recorded from demo mode by [`docs/shots.js`](docs/shots.js).
+The images are recorded from demo mode by [`docs/shots.ts`](docs/shots.ts).
 
 ## How it works
 
 ```mermaid
 sequenceDiagram
     participant A as Agent
-    participant S as server.mjs
+    participant S as server.ts
     participant B as Browser
     participant M as Backend<br/>(claude / codex / gemini CLI, or an API key)
     participant W as Wikimedia Commons
-    A->>S: /help-me runs node skills/help-me/server.mjs --stdin (blocks)
+    A->>S: /help-me runs node skills/help-me/server.ts --stdin (blocks)
     S->>B: serve index.html on 127.0.0.1, open browser
     B->>S: POST /api/analyze, /api/explain, /api/decide
     S->>M: prompt
