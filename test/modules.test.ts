@@ -15,7 +15,7 @@ import { check } from "../skills/help-me/schema.ts";
 import { readSettings } from "../skills/help-me/settings.ts";
 import { analyze, tidy } from "../skills/help-me/tasks.ts";
 
-const NO_CONFIG = { PROMPT_SHAPER_CONFIG: "/nonexistent/config.json", PATH: "" };
+const NO_CONFIG = { PROMPT_SHAPER_CONFIG: "/nonexistent/config.json", PATH: "", OPENAI_API_KEY: "x" };
 
 /** A model that always answers `data`, checked against the schema it was asked for like a real reply. */
 const answering =
@@ -33,8 +33,8 @@ describe("readSettings", () => {
     assert.equal(s.model, "flag");
   });
 
-  test("an API key picks its backend, leaving the model to that backend", () => {
-    const s = readSettings([], { ...NO_CONFIG, ANTHROPIC_API_KEY: "x" });
+  test("a backend that can run is taken as asked, leaving the model to it", () => {
+    const s = readSettings(["--backend", "anthropic"], { ...NO_CONFIG, ANTHROPIC_API_KEY: "x" });
     assert.deepEqual([s.backend, s.model], ["anthropic", ""]);
   });
 
@@ -50,7 +50,10 @@ describe("readSettings", () => {
 
   test("refuses what it can't use with a message for the user", () => {
     assert.throws(() => readSettings(["--backend", "nope"], NO_CONFIG), /unknown backend "nope"/);
-    assert.throws(() => readSettings([], NO_CONFIG), /no backend found/);
+    assert.throws(
+      () => readSettings(["--backend", "anthropic"], NO_CONFIG),
+      /backend "anthropic" needs ANTHROPIC_API_KEY, which isn't there. .*Set "backend" in \/nonexistent\/config.json/,
+    );
     assert.throws(() => readSettings(["--backend", "openai", "--timeout-min", "x"], NO_CONFIG), /--timeout-min/);
   });
 });
