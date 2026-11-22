@@ -17,11 +17,12 @@ defaults:
   run:
     shell: bash
 
+# Three jobs side by side, so the wall time is the slowest one (the browser smokes), not the sum.
 jobs:
-  check:
-    name: Lint, type-check and test
+  static:
+    name: Lint, type-check and build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
@@ -29,24 +30,45 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Setup Node
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: .node-version
-      - name: Install dependencies
-        run: |
-          corepack enable
-          pnpm install --frozen-lockfile
+      - uses: ./.github/actions/setup
       - name: Check formatting and lint
         run: pnpm lint
       - name: Type-check
         run: pnpm typecheck
       - name: Check the committed page is built from page/
         run: pnpm build --check
+
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
       # No test may reach a model: the server under test talks to a fake API on localhost (test/support/help-me.ts).
       - name: Run unit tests
         run: pnpm test:unit
-      - name: Install Chromium
-        run: pnpm exec playwright install chromium
+
+  browser:
+    name: Browser smoke tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      # The runner image already ships Google Chrome, so nothing is downloaded; the smokes only check the page loads
+      # and reacts, which doesn't depend on Playwright's own Chromium build.
       - name: Run browser smoke tests
+        env:
+          PLAYWRIGHT_CHROMIUM_PATH: /usr/bin/google-chrome
         run: pnpm test
