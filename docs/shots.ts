@@ -48,8 +48,8 @@ function annotate({ notes, accent }: { notes: Array<Note>; accent: string }): vo
   svg.setAttribute("height", "100%");
   svg.style.cssText = "position:absolute;inset:0;overflow:visible";
   svg.innerHTML = `<defs><marker id="__ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="${accent}"/></marker></defs>`;
-  root.appendChild(svg);
-  document.body.appendChild(root);
+  root.append(svg);
+  document.body.append(root);
   const box = (el: Note["el"]): Box => {
     if (Array.isArray(el)) {
       return { x: el[0], y: el[1] + scrollY, w: el[2], h: el[3] };
@@ -74,7 +74,7 @@ function annotate({ notes, accent }: { notes: Array<Note>; accent: string }): vo
     const lab = document.createElement("div");
     lab.textContent = n.text;
     lab.style.cssText = `position:absolute;white-space:nowrap;background:${accent};color:#fff;font:600 14px/1 system-ui,-apple-system,"Segoe UI",sans-serif;padding:7px 11px;border-radius:999px;box-shadow:0 2px 6px rgba(0,0,0,.18)`;
-    root.appendChild(lab);
+    root.append(lab);
     const lw = lab.offsetWidth,
       lh = lab.offsetHeight,
       lx = (n.at ? n.at[0] : cx + (n.dx ?? 0)) - lw / 2,
@@ -95,7 +95,7 @@ function annotate({ notes, accent }: { notes: Array<Note>; accent: string }): vo
         "stroke-width": 2.5,
         "stroke-dasharray": "6 4",
       });
-      svg.appendChild(r);
+      svg.append(r);
     }
     if (n.arrow === false) {
       continue;
@@ -122,7 +122,7 @@ function annotate({ notes, accent }: { notes: Array<Note>; accent: string }): vo
       "stroke-linecap": "round",
       "marker-end": "url(#__ah)",
     });
-    svg.appendChild(p);
+    svg.append(p);
   }
 }
 
@@ -219,7 +219,7 @@ async function main(): Promise<void> {
             "position:fixed;left:0;top:0;width:18px;height:18px;z-index:99999;pointer-events:none;transform:translate(-3px,-2px)";
           c.innerHTML =
             '<svg width="18" height="22" viewBox="0 0 18 22"><path d="M1 1 L1 17 L5.5 13 L8.5 20 L11 19 L8 12 L14 12 Z" fill="#111" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>';
-          document.body.appendChild(c);
+          document.body.append(c);
           addEventListener(
             "mousemove",
             e => {
