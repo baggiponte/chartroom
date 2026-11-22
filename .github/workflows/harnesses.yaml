@@ -1,14 +1,19 @@
 name: Harness CLIs
 
 # Installs the real harness CLIs and checks that help-me still finds them and calls them with flags they know.
-# No model is called and nothing is logged in, so it needs no secrets. Too slow and too dependent on other people's
-# releases to gate every commit: it runs weekly, by hand, or on a PR that carries the "harnesses" label.
+# No model is called and nothing is logged in, so it needs no secrets. It runs on a PR only when the code it covers
+# changes (test/boundaries.test.ts fails if providers.ts starts importing a file missing from `paths`), weekly to
+# catch a new CLI release, and by hand from the Actions tab for any branch.
 on:
   schedule:
     - cron: "17 6 * * 1"
   workflow_dispatch:
   pull_request:
-    types: [labeled, synchronize]
+    paths:
+      - skills/help-me/providers.ts
+      - skills/help-me/schema.ts
+      - test/harnesses/**
+      - .github/workflows/harnesses.yaml
 
 permissions: {}
 
@@ -23,7 +28,6 @@ defaults:
 jobs:
   detect:
     name: ${{ matrix.harness }}
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'harnesses')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
