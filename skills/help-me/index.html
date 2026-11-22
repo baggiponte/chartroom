@@ -1125,7 +1125,9 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 	}
 	const canDecide = (ch) => (ch.kind !== "slider" || (ch.slider.stops?.length ?? 0) > 1) && optionLabels(ch).length > 1;
 	// page/demo.ts
-	const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+	const pause = (ms) => new Promise((r) => {
+		setTimeout(r, ms);
+	});
 	async function demoAnalyze(text, more) {
 		await pause(600);
 		if (more) return {

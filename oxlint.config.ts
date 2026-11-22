@@ -14,7 +14,6 @@ export default defineConfig({
     "quality/no-conditional-empty-object-spread": "off",
     "no-console": "off",
     "quality/no-object-parameters": "off",
-    "no-promise-executor-return": "off",
     "quality/no-array-filter-map": "off",
     "unicorn/prefer-top-level-await": "off",
   },

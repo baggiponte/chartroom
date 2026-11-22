@@ -61,7 +61,9 @@ export async function startFakeApi(answer: FakeModel): Promise<FakeApi> {
       res.end(JSON.stringify(reply(req.url ?? "", raw, answer, calls)));
     });
   });
-  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>(resolve => {
+    server.listen(0, "127.0.0.1", resolve);
+  });
   const address: AddressInfo | string | null = server.address();
   if (address === null || typeof address === "string") {
     throw new Error("the fake API is not listening on a TCP port");
@@ -69,7 +71,10 @@ export async function startFakeApi(answer: FakeModel): Promise<FakeApi> {
   return {
     url: `http://127.0.0.1:${String(address.port)}`,
     calls,
-    close: () => new Promise(resolve => server.close(() => resolve())),
+    close: () =>
+      new Promise(resolve => {
+        server.close(() => resolve());
+      }),
   };
 }
 

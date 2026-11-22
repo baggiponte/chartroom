@@ -3,7 +3,10 @@ import type { Api } from "../skills/help-me/api.ts";
 import type { Choice, Explanation } from "./state.ts";
 
 type Reply<R extends keyof Api> = Promise<Api[R]["reply"]>;
-const pause = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
+const pause = (ms: number): Promise<void> =>
+  new Promise(r => {
+    setTimeout(r, ms);
+  });
 
 export async function demoAnalyze(text: string, more: boolean): Promise<Analysis> {
   await pause(600);
