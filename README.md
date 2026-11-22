@@ -154,7 +154,7 @@ The skill runs straight from `skills/help-me/` with nothing to install; the dev 
 
 - `skills/help-me/server.ts` is what `/help-me` runs: it serves the page, waits for Send and prints the request on
   stdout. `api.ts` lists the routes the page calls, `tasks.ts` and `prompts.ts` what each one asks the model,
-  `backends.ts` the five backends.
+  `providers.ts` every backend and how `auto` picks one.
 - `mcp/server.ts` serves the same page as an MCP App: `node mcp/server.ts` for stdio, `--http` for `127.0.0.1:3917/mcp`.
 - `page/` is the page's source. `pnpm build` bundles it into `skills/help-me/index.html`, which is committed.
 - `docs/shots.ts` and `docs/rec.ts` record the README's images and GIF from demo mode.
