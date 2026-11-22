@@ -50,8 +50,7 @@ const CONFIG = (() => {
     if (!c || typeof c !== "object" || Array.isArray(c)) throw new Error("not a JSON object");
     return c;
   } catch (e) {
-    log(`ignoring ${CONFIG_FILE}: ${e.message}`);
-    return {};
+    return fail(`${CONFIG_FILE} is not a valid config: ${e.message}`);
   }
 })();
 const ENV_NAME = key => "PROMPT_SHAPER_" + key.replace(/[A-Z]/g, c => "_" + c).toUpperCase();

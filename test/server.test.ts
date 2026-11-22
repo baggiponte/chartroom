@@ -277,6 +277,16 @@ describe("choosing a backend", () => {
     assert.match(stderr, /unknown backend "nope", use one of: auto, claude, codex, gemini, anthropic, openai/);
   });
 
+  test("a config file that is not a JSON object exits 1 instead of being ignored", async () => {
+    const config = join(scratch, "broken-config.json");
+    writeFileSync(config, "{ backend: anthropic");
+    const out = join(scratch, "broken-config-out.json");
+    const { code, stderr } = await runHelpMe(["--out", out], { PROMPT_SHAPER_CONFIG: config, ANTHROPIC_API_KEY: "x" });
+    assert.equal(code, 1);
+    assert.match(stderr, /broken-config\.json is not a valid config/);
+    assert.deepEqual(outFile(out), { status: "error", prompt: "" });
+  });
+
   test("with no CLI on PATH and no API key there is no backend, and it exits 1", async () => {
     const { code, stderr } = await runHelpMe([]);
     assert.equal(code, 1);
