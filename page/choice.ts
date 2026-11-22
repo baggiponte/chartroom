@@ -32,7 +32,13 @@ export function numberIn(t: string): number | null {
   return null;
 }
 
-function sliderFrom(raw: Sent["slider"], span: string): { slider: Slider; value: number } {
+/** A slider read from the model's reply, and where it starts. */
+interface SliderStart {
+  slider: Slider;
+  value: number;
+}
+
+function sliderFrom(raw: Sent["slider"], span: string): SliderStart {
   const s = raw ?? {};
   const stops = s.stops?.length ? s.stops : undefined;
   const slider: Slider = {
@@ -148,7 +154,13 @@ export function tokenValue(ch: Choice): string {
     .join(", ");
 }
 
-export function sentenceParts(ch: Choice): { pre: string; post: string } {
+/** A choice's sentence split around where its value goes. */
+interface SentenceParts {
+  pre: string;
+  post: string;
+}
+
+export function sentenceParts(ch: Choice): SentenceParts {
   let t = ch.sentence.trim();
   if (!t.includes("{value}")) {
     t = `${ch.token || "Also"}: {value}.`;

@@ -120,7 +120,7 @@ export function createApi({ model, log, finish }: ApiDeps) {
     }
   }
 
-  const routes: { [R in Route]: (data: unknown) => Answer | Promise<Answer> } = {
+  const routes = {
     "/api/analyze": data => {
       const { text = "", settled = [], answers = [], asked = [], more = false } = read(data, BODY.analyze);
       return answer(
@@ -158,7 +158,7 @@ export function createApi({ model, log, finish }: ApiDeps) {
       finish(2, "");
       return { status: 200, body: { ok: true } satisfies Api["/api/cancel"]["reply"] };
     },
-  };
+  } satisfies { [R in Route]: (data: unknown) => Answer | Promise<Answer> };
 
   return {
     async call(path: Route, data: unknown): Promise<Answer> {

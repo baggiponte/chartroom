@@ -981,13 +981,13 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 	// page/format.ts
 	const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 	const fmtNum = (v) => (Number.isInteger(v) ? v : Math.round(v * 100) / 100).toLocaleString();
-	const ESCAPES = {
-		"&": "&amp;",
-		"<": "&lt;",
-		">": "&gt;",
-		"\"": "&quot;"
-	};
-	const esc = (s) => String(s).replaceAll(/[&<>"]/g, (c) => ESCAPES[c] ?? c);
+	const ESCAPES = /* @__PURE__ */ new Map([
+		["&", "&amp;"],
+		["<", "&lt;"],
+		[">", "&gt;"],
+		["\"", "&quot;"]
+	]);
+	const esc = (s) => String(s).replaceAll(/[&<>"]/g, (c) => ESCAPES.get(c) ?? c);
 	const cap = (s) => s.replace(/^./, (c) => c.toUpperCase());
 	const errorMessage = (e) => e instanceof Error ? e.message : String(e);
 	// page/choice.ts
@@ -2633,17 +2633,17 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		else if (d.id === state.openId) closePop();
 		else openPop(d.id);
 	}
-	const ARROWS = {
-		ArrowRight: 1,
-		ArrowUp: 1,
-		ArrowLeft: -1,
-		ArrowDown: -1
-	};
+	const ARROWS = /* @__PURE__ */ new Map([
+		["ArrowRight", 1],
+		["ArrowUp", 1],
+		["ArrowLeft", -1],
+		["ArrowDown", -1]
+	]);
 	function scrubKey(ch, e) {
 		if (state.ended) return false;
 		const s = ch.slider;
 		const big = e.shiftKey ? 10 : 1;
-		const d = ARROWS[e.key];
+		const d = ARROWS.get(e.key);
 		if (d) scrubTo(ch, ch.value + d * big * s.step);
 		else if (e.key === "Home") scrubTo(ch, s.min);
 		else if (e.key === "End") scrubTo(ch, s.max);

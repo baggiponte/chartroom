@@ -12,7 +12,6 @@ export default defineConfig({
     // Temporary during migration: each rule below is enabled or explained in its own commit.
     "quality/no-unknown-returns": "off",
     "quality/no-unsafe-dictionary-type": "off",
-    "quality/no-known-value-widening": "off",
     "quality/no-object-parameters": "off",
   },
   overrides: [

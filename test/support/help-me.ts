@@ -39,7 +39,7 @@ const ChatBody = z.object({
 });
 
 /** Answers like the Anthropic Messages API, or like OpenAI's chat completions on that path. */
-function reply(path: string, raw: string, answer: FakeModel, calls: Array<ModelRequest>): unknown {
+function reply(path: string, raw: string, answer: FakeModel, calls: Array<ModelRequest>) {
   if (path.endsWith("/chat/completions")) {
     const { model, messages } = ChatBody.parse(JSON.parse(raw));
     const call = { model, system: messages[0].content, input: messages[1].content };
