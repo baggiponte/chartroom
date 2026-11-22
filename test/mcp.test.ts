@@ -1,5 +1,4 @@
-// The MCP App server (mcp/server.ts), driven over stdio and HTTP the way Claude does. No model answers: the backend
-// points at a closed port, so model-backed routes fail with a 500, which is what the page would show.
+// The backend points at a closed port, so model-backed routes fail with a 500, which is what the page would show.
 import assert from "node:assert/strict";
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { mkdtempSync } from "node:fs";

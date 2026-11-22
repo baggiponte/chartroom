@@ -1,4 +1,3 @@
-// The help-me server's HTTP contract, driven through the real process with a fake model API (test/support).
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -325,7 +324,6 @@ describe("choosing a backend", () => {
   });
 });
 
-// Bugs found while writing these tests, one issue each (#9-#14).
 describe("bugs", () => {
   test("a second Send is ignored instead of printing the prompt twice", async () => {
     const helpMe = await startHelpMe();

@@ -106,28 +106,6 @@ was left out.
 
 <img src="docs/img/sent.png" alt="The sent text in a box, with notes on unanswered questions that were left out" width="640">
 
-The images are recorded from demo mode by [`docs/shots.ts`](docs/shots.ts).
-
-## How it works
-
-```mermaid
-sequenceDiagram
-    participant A as Agent
-    participant S as server.ts
-    participant B as Browser
-    participant M as Backend<br/>(claude / codex / gemini CLI, or an API key)
-    participant W as Wikimedia Commons
-    A->>S: /help-me runs node skills/help-me/server.ts --stdin (blocks)
-    S->>B: serve index.html on 127.0.0.1, open browser
-    B->>S: POST /api/analyze, /api/explain, /api/decide
-    S->>M: prompt
-    M-->>S: JSON
-    S-->>B: underlines, extras, options
-    B->>W: picture search (optional)
-    B->>S: POST /api/submit
-    S-->>A: request on stdout, exit 0 (cancel: exit 2, --out FILE also gets JSON)
-```
-
 ## Configuration
 
 **Defaults** go in `~/.config/prompt-shaper/config.json` (or under `$XDG_CONFIG_HOME`; `PROMPT_SHAPER_CONFIG`
@@ -172,9 +150,14 @@ then `OPENAI_API_KEY`. Pick a small, fast model: every edit triggers a new read.
 
 ## Development
 
-`skills/help-me/` is what ships: the server's modules and `index.html`, run with nothing to build or install. The page
-is written in `page/` (`index.html` for the markup and styles, `*.ts` for the code) and `pnpm build` bundles it with
-Rolldown into `skills/help-me/index.html`, which is committed. CI checks that the two match.
+The skill runs straight from `skills/help-me/` with nothing to install; the dev tooling is for working on it.
+
+- `skills/help-me/server.ts` is what `/help-me` runs: it serves the page, waits for Send and prints the request on
+  stdout. `api.ts` lists the routes the page calls, `tasks.ts` and `prompts.ts` what each one asks the model,
+  `backends.ts` the five backends.
+- `mcp/server.ts` serves the same page as an MCP App: `node mcp/server.ts` for stdio, `--http` for `127.0.0.1:3917/mcp`.
+- `page/` is the page's source. `pnpm build` bundles it into `skills/help-me/index.html`, which is committed.
+- `docs/shots.ts` and `docs/rec.ts` record the README's images and GIF from demo mode.
 
 ```sh
 pnpm install

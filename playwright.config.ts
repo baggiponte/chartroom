@@ -2,7 +2,6 @@ import { defineConfig } from "@playwright/test";
 
 const chromium = process.env["PLAYWRIGHT_CHROMIUM_PATH"];
 
-// Smoke tests only: the page opens from file:// in demo mode, or from the help-me server wired to a fake model API.
 export default defineConfig({
   testDir: "test/browser",
   fullyParallel: true,

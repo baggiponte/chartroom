@@ -1,4 +1,3 @@
-// The server's modules in process: settings from argv and env, and the handler with a model that is a plain function.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { describe, type TestContext, test } from "node:test";

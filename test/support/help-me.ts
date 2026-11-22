@@ -1,5 +1,3 @@
-// Runs the real help-me server as a child process with the anthropic backend pointed at a local fake API, so the
-// tests exercise the shipped code end to end without ever reaching a model.
 import { type ChildProcess, spawn } from "node:child_process";
 import { mkdtempSync } from "node:fs";
 import { createServer, type Server } from "node:http";
