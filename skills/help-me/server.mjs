@@ -14,14 +14,17 @@ import { strict, dropNulls, check, checkedReply, withSchema } from "./schema.mjs
 const HERE = dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
 const flag = name => args.includes(name);
-const opt = (name, fallback) => {
+// null when the flag is there but has no value: what follows it is another flag, or nothing.
+const valueOf = name => {
   const i = args.indexOf(name);
-  return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : fallback;
+  if (i < 0) return undefined;
+  const v = args[i + 1];
+  return v === undefined || v.startsWith("--") ? null : v;
 };
 
 const log = (...m) => console.error("[prompt-shaper]", ...m);
 
-const OUT = opt("--out", process.env.PROMPT_SHAPER_OUT || "");
+const OUT = valueOf("--out") || process.env.PROMPT_SHAPER_OUT || "";
 const STATUS = { 0: "sent", 2: "cancelled", 3: "timeout" };
 function writeOut(code, text) {
   if (!OUT) return;
@@ -39,6 +42,12 @@ function fail(message) {
   writeOut(1, "");
   process.exit(1);
 }
+const opt = (name, fallback) => {
+  const v = valueOf(name);
+  if (v === null) fail(`${name} needs a value`);
+  return v ?? fallback;
+};
+if (valueOf("--out") === null) fail("--out needs a value");
 
 const CONFIG_FILE =
   process.env.PROMPT_SHAPER_CONFIG ||
