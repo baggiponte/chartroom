@@ -1,11 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
-import { homedir, platform } from "node:os";
-import { delimiter, join } from "node:path";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { parseArgs } from "node:util";
 import type { ParseArgsOptionsConfig } from "node:util";
 
-import { BACKENDS, isBackend } from "./backends.ts";
-import type { BackendName } from "./backends.ts";
+import { PROVIDERS, autoProvider, hostOf, isProvider } from "./providers.ts";
+import type { ProviderName } from "./providers.ts";
 import { isRecord } from "./schema.ts";
 
 export interface Settings {
@@ -14,7 +14,8 @@ export interface Settings {
   stdin: boolean;
   draft: string;
   agent: string;
-  backend: BackendName;
+  backend: ProviderName;
+  /** "" for the backend's own default. */
   model: string;
   effort: string;
   images: boolean;
@@ -72,34 +73,6 @@ function readConfig(file: string): Readonly<Record<string, unknown>> {
   }
 }
 
-const isCodex = (env: NodeJS.ProcessEnv): boolean => Object.keys(env).some(k => k.startsWith("CODEX_"));
-
-function onPath(cmd: string, env: NodeJS.ProcessEnv): boolean {
-  const exts = platform() === "win32" ? ["", ".cmd", ".exe"] : [""];
-  return (env["PATH"] ?? "").split(delimiter).some(d => d && exts.some(e => existsSync(join(d, cmd + e))));
-}
-
-function autoBackend(env: NodeJS.ProcessEnv): BackendName {
-  const host = env["CLAUDECODE"] ? "claude" : env["GEMINI_CLI"] ? "gemini" : isCodex(env) ? "codex" : null;
-  if (host && onPath(host, env)) {
-    return host;
-  }
-  for (const cli of ["claude", "codex", "gemini"] as const) {
-    if (onPath(cli, env)) {
-      return cli;
-    }
-  }
-  if (env["ANTHROPIC_API_KEY"]) {
-    return "anthropic";
-  }
-  if (env["OPENAI_API_KEY"] || env["OPENAI_BASE_URL"]) {
-    return "openai";
-  }
-  throw new Error(
-    "no backend found: install the claude, codex or gemini CLI, or set ANTHROPIC_API_KEY or OPENAI_API_KEY",
-  );
-}
-
 /**
  * Each setting comes from its flag, then `PROMPT_SHAPER_<FLAG>`, then the config file, then a default. Throws, with a
  * message for the user, when one can't be used.
@@ -133,11 +106,15 @@ export function readSettings(argv: Array<string>, env: NodeJS.ProcessEnv): Setti
   };
 
   const asked = setting("backend", "auto").toLowerCase();
-  if (asked !== "auto" && !isBackend(asked)) {
-    throw new Error(`unknown backend "${asked}", use one of: auto, ${Object.keys(BACKENDS).join(", ")}`);
+  if (asked !== "auto" && !isProvider(asked)) {
+    throw new Error(`unknown backend "${asked}", use one of: auto, ${Object.keys(PROVIDERS).join(", ")}`);
   }
-  const backend = asked === "auto" ? autoBackend(env) : asked;
-  const fallbackModel = BACKENDS[backend].model;
+  const backend = asked === "auto" ? autoProvider(env) : asked;
+  if (!backend) {
+    throw new Error(
+      "no backend found: install the claude, codex or gemini CLI, or set ANTHROPIC_API_KEY or OPENAI_API_KEY",
+    );
+  }
 
   const timeout = setting("timeout-min", "30");
   const timeoutMin = Number(timeout);
@@ -149,14 +126,11 @@ export function readSettings(argv: Array<string>, env: NodeJS.ProcessEnv): Setti
     out: outPath(argv, env),
     stdin: flags.stdin ?? false,
     draft: flags.draft ?? "",
-    agent: setting(
-      "agent",
-      env["CLAUDECODE"] ? "Claude Code" : env["GEMINI_CLI"] ? "Gemini CLI" : isCodex(env) ? "Codex" : "your agent",
-    ),
+    agent: setting("agent", hostOf(env)?.agent ?? "your agent"),
     backend,
     // A config-file model is dropped when the backend comes from a flag or env var, so `--backend gemini`
     // doesn't run gemini with "haiku".
-    model: sourceOf("model") <= sourceOf("backend") ? setting("model", fallbackModel) : fallbackModel,
+    model: sourceOf("model") <= sourceOf("backend") ? setting("model", "") : "",
     effort: setting("effort", "low"),
     images: onOff("images", true),
     open: onOff("open", true),

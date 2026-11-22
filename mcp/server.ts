@@ -16,6 +16,7 @@ import type { Answer, Init } from "../skills/help-me/api.ts";
 import { createJobs } from "../skills/help-me/jobs.ts";
 import { createModel } from "../skills/help-me/model.ts";
 import { readPage } from "../skills/help-me/page.ts";
+import { PROVIDERS, isProvider } from "../skills/help-me/providers.ts";
 import { readSettings } from "../skills/help-me/settings.ts";
 
 /** One open page: its API, and how to end it once it sends, cancels or times out. */
@@ -54,10 +55,7 @@ const ENV: NodeJS.ProcessEnv = {
 
 const HelpMeInput = z.object({
   request: z.string().describe("The user's request, verbatim"),
-  backend: z
-    .enum(["claude", "codex", "gemini", "anthropic", "openai"])
-    .optional()
-    .describe("Only if the user asked for one"),
+  backend: z.enum(Object.keys(PROVIDERS).filter(isProvider)).optional().describe("Only if the user asked for one"),
   model: z.string().optional().describe("Only if the user asked for one"),
   effort: z.enum(["low", "medium", "high"]).optional().describe("Only if the user asked for one"),
   images: z.boolean().optional().describe("Only if the user asked for or against pictures"),
@@ -80,7 +78,8 @@ function open({ request, images, ...flags }: z.infer<typeof HelpMeInput>): Init 
     ],
     ENV,
   );
-  const { backend, model, effort, agent } = settings;
+  const { backend, effort, agent } = settings;
+  const model = settings.model || PROVIDERS[backend].model;
   const id = String(++nextId);
   const jobs = createJobs();
   let timer: NodeJS.Timeout | undefined;
@@ -96,7 +95,7 @@ function open({ request, images, ...flags }: z.infer<typeof HelpMeInput>): Init 
     }, settings.timeoutMin * 60_000).unref();
   }
   const api = createApi({
-    model: createModel({ backend, model, effort, env: ENV, jobs }),
+    model: createModel({ name: backend, backend: PROVIDERS[backend], model, effort, env: ENV, jobs }),
     log: m => log(`session ${id}: ${m}`),
     finish: end,
   });

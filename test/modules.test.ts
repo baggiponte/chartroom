@@ -7,7 +7,10 @@ import { createApi } from "../skills/help-me/api.ts";
 import type { Api, ExitCode } from "../skills/help-me/api.ts";
 import { createHandler } from "../skills/help-me/http.ts";
 import { SupersededError } from "../skills/help-me/jobs.ts";
+import { createJobs } from "../skills/help-me/jobs.ts";
+import { createModel } from "../skills/help-me/model.ts";
 import type { ModelCall } from "../skills/help-me/model.ts";
+import type { Backend } from "../skills/help-me/providers.ts";
 import { check } from "../skills/help-me/schema.ts";
 import { readSettings } from "../skills/help-me/settings.ts";
 import { analyze, tidy } from "../skills/help-me/tasks.ts";
@@ -30,9 +33,14 @@ describe("readSettings", () => {
     assert.equal(s.model, "flag");
   });
 
-  test("an API key picks its backend, with that backend's default model", () => {
+  test("an API key picks its backend, leaving the model to that backend", () => {
     const s = readSettings([], { ...NO_CONFIG, ANTHROPIC_API_KEY: "x" });
-    assert.deepEqual([s.backend, s.model], ["anthropic", "claude-haiku-5-5"]);
+    assert.deepEqual([s.backend, s.model], ["anthropic", ""]);
+  });
+
+  test("inside a known harness, the page names it", () => {
+    const s = readSettings(["--backend", "openai"], { ...NO_CONFIG, CLAUDECODE: "1" });
+    assert.equal(s.agent, "Claude Code");
   });
 
   test("--no-open and --no-images turn those off", () => {
@@ -44,6 +52,34 @@ describe("readSettings", () => {
     assert.throws(() => readSettings(["--backend", "nope"], NO_CONFIG), /unknown backend "nope"/);
     assert.throws(() => readSettings([], NO_CONFIG), /no backend found/);
     assert.throws(() => readSettings(["--backend", "openai", "--timeout-min", "x"], NO_CONFIG), /--timeout-min/);
+  });
+});
+
+describe("createModel", () => {
+  const SCHEMA = { type: "object", required: ["n"], properties: { n: { type: "number" } } } as const;
+  const options = { name: "fake", model: "", effort: "low", env: {}, jobs: createJobs() };
+
+  test("asks with the backend's default model and checks the reply", async () => {
+    const backend: Backend = { model: "small", run: async ({ model }) => ({ data: { n: 1, extra: model } }) };
+    const reply = await createModel({ ...options, backend })("s", "sys", SCHEMA, "in");
+    assert.deepEqual(reply, { n: 1, model: "small", ms: undefined });
+  });
+
+  test("a newer call in the same slot aborts the backend's signal and rejects the older one as superseded", async () => {
+    const backend: Backend = {
+      model: "",
+      run: ({ signal, input }) =>
+        input === "old"
+          ? new Promise((_, reject) => {
+              signal.addEventListener("abort", () => reject(new Error("killed")));
+            })
+          : Promise.resolve({ data: { n: 2 } }),
+    };
+    const model = createModel({ ...options, backend, jobs: createJobs() });
+    const older = model("s", "sys", SCHEMA, "old");
+    const newer = await model("s", "sys", SCHEMA, "new");
+    await assert.rejects(older, SupersededError);
+    assert.equal(newer.n, 2);
   });
 });
 
