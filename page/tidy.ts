@@ -1,14 +1,14 @@
-// Tidy up: the model reorders whole sentences into a paragraph (goal and context) plus headed lists (must-haves,
-// nice to have). It never rewords, so every underline and blank moves with its sentence and stays clickable,
-// and what you see is exactly what gets sent. Undo works until the text changes again.
+// Tidy up only reorders whole sentences, never rewords, so every underline and blank moves with its sentence and
+// stays clickable.
 
-import { esc } from "./choice.ts";
-import { post } from "./client.ts";
+import { errorMessage, esc } from "./format.ts";
+import { isSuperseded, post } from "./client.ts";
 import { demoTidy } from "./demo.ts";
 import { closePop } from "./popover.ts";
 import { render, setStatus } from "./render.ts";
 import { isHeading, relocate, setText } from "./request.ts";
-import { $, state, ta } from "./state.ts";
+import { $, ta } from "./dom.ts";
+import { state } from "./state.ts";
 
 interface Segment {
   a: number;
@@ -56,8 +56,6 @@ export function tidyOrUndo(): void {
   }
 }
 
-const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
-
 async function runTidy(): Promise<void> {
   if (state.ended || state.tidyBusy || state.busy || state.moreBusy) {
     return;
@@ -82,7 +80,7 @@ async function runTidy(): Promise<void> {
     }
     state.tidyBusy = false;
     render();
-    if (!(e instanceof Error && "superseded" in e)) {
+    if (!isSuperseded(e)) {
       setStatus("err", `couldn't tidy: ${esc(errorMessage(e))} · <button id="retry">retry</button>`);
     }
     document.getElementById("retry")?.addEventListener("click", () => void runTidy());

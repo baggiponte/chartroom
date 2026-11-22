@@ -1,5 +1,3 @@
-// Pictures for Explain me, from Wikimedia Commons: no key needed.
-
 import { type Infer, check, isRecord } from "../skills/help-me/schema.ts";
 
 const STRING = { type: "string" } as const;

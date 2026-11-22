@@ -1,23 +1,20 @@
-// The page's entry point: reading the request with the model, Send and Cancel, and starting up.
-
 import { isRecord } from "../skills/help-me/schema.ts";
 import type { Analysis } from "../skills/help-me/tasks.ts";
-import { chatHost } from "./chat.ts";
-import { cap, esc, isAsk, isSet, makeChoice, textFor } from "./choice.ts";
-import { STALE, getInit, post, staleFor } from "./client.ts";
+import { chatHost, inChat } from "./chat.ts";
+import { isAsk, isSet, makeChoice, textFor } from "./choice.ts";
+import { cap, errorMessage, esc } from "./format.ts";
+import { STALE, getInit, isSuperseded, post, staleFor } from "./client.ts";
 import { demoAnalyze } from "./demo.ts";
 import { closePop, openPop, positionPop } from "./popover.ts";
 import { hideHint } from "./pointer.ts";
 import { caretMove, renderGrips, undoMove } from "./rank.ts";
 import { openItems, render, setStatus } from "./render.ts";
 import { overlaps, promote, relocate, sentenceRange, withoutOpen } from "./request.ts";
-import { $, type Choice, extrasEl, moreBtn, pop, sendBtn, state, ta, tidyBtn } from "./state.ts";
+import { $, extrasEl, moreBtn, pop, sendBtn, ta, tidyBtn } from "./dom.ts";
+import { type Choice, state } from "./state.ts";
 import { tidyOrUndo, undoTidy } from "./tidy.ts";
 
 const EXAMPLE = "Help me choose a home coffee machine for my small kitchen, something good for lattes.";
-
-const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
-const isSuperseded = (e: unknown): boolean => e instanceof Error && "superseded" in e;
 
 function schedule(ms = 700): void {
   clearTimeout(state.timer);
@@ -36,7 +33,7 @@ async function analyze({ more = false } = {}): Promise<void> {
     setStatus("", "waiting for a request");
     return;
   }
-  const my = more ? state.seq : ++state.seq;
+  const my = more ? state.analysisSeq : ++state.analysisSeq;
   if (more) {
     state.moreBusy = true;
   } else {
@@ -62,7 +59,7 @@ async function analyze({ more = false } = {}): Promise<void> {
       state.moreBusy = false;
       render();
     }
-    if (my !== state.seq || isSuperseded(e)) {
+    if (my !== state.analysisSeq || isSuperseded(e)) {
       return;
     }
     state.busy = false;
@@ -79,7 +76,7 @@ async function analyze({ more = false } = {}): Promise<void> {
   } else {
     state.busy = false;
   }
-  if (my !== state.seq || ta.value !== text) {
+  if (my !== state.analysisSeq || ta.value !== text) {
     render();
     return;
   }
@@ -268,7 +265,7 @@ async function cancel(): Promise<void> {
 function end(kind: "sent" | "cancelled", title: string, sub: string, prompt: string, notes: string[] = []): void {
   state.ended = kind;
   clearTimeout(state.timer);
-  state.seq++;
+  state.analysisSeq++;
   state.tidySeq++;
   state.busy = state.moreBusy = state.tidyBusy = false;
   for (const c of state.choices) {
@@ -389,8 +386,7 @@ addEventListener(
 );
 
 async function start(): Promise<void> {
-  // oxlint-disable-next-line no-underscore-dangle -- the name mcp/server.ts gives it
-  const chat = window.__HELP_ME_MCP__ ? chatHost() : null;
+  const chat = inChat() ? chatHost() : null;
   state.chat = chat;
   try {
     if (!chat && location.protocol === "file:") {

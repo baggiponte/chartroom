@@ -1,13 +1,13 @@
-// The popover a choice opens: its options, Explain me with a card per option, and Help me decide.
-
-import { canDecide, clamp, esc, fmtNum, isAsk, optionLabels, textFor } from "./choice.ts";
-import { type Superseded, post } from "./client.ts";
+import { canDecide, isAsk, optionLabels, textFor } from "./choice.ts";
+import { clamp, errorMessage, esc, fmtNum } from "./format.ts";
+import { isSuperseded, post } from "./client.ts";
 import { commonsImage } from "./commons.ts";
 import { demoDecide, demoExplain } from "./demo.ts";
 import { hideHint } from "./pointer.ts";
 import { journey, render } from "./render.ts";
 import { applyChoice, demote } from "./request.ts";
-import { type Choice, type Decide, byChoiceId, backdrop, extrasEl, pop, state, ta } from "./state.ts";
+import { backdrop, extrasEl, pop, ta } from "./dom.ts";
+import { byChoiceId, type Choice, type Decide, state } from "./state.ts";
 
 const KIND = { single: "pick one", multi: "pick any", slider: "slide, or drag the value in place" } as const;
 
@@ -21,8 +21,6 @@ interface ExplainedOption {
   i: number;
 }
 
-const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
-const isSuperseded = (e: unknown): e is Superseded => e instanceof Error && "superseded" in e;
 const newDecide = (): Decide => ({ qs: [], rec: null, busy: false, err: "", seq: 0 });
 
 function query<T extends Element>(selector: string, type: new () => T, root: ParentNode = pop): T | null {
@@ -116,7 +114,7 @@ function isPicked(ch: Choice, o: ExplainedOption): boolean {
 const isRecommended = (ch: Choice, o: ExplainedOption): boolean =>
   Boolean(ch.decide?.rec) && o.i >= 0 && ch.decide?.rec?.label.toLowerCase() === o.label.toLowerCase();
 
-// Pictures come from Wikimedia Commons (no key needed) and are quietly left out when a lookup fails.
+// A picture whose lookup fails is left out quietly.
 type Picture = { status: "loading" | "none" } | { status: "ok"; src: string; page: string; title: string };
 const images = new Map<string, Picture>();
 const imgState = (q: string): Picture => images.get(q) ?? { status: "loading" };

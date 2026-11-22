@@ -1,13 +1,6 @@
-// One choice on its own: made from what the server sent, and the text it puts in the request.
-
 import type { Choice as Sent } from "../skills/help-me/tasks.ts";
+import { clamp, fmtNum } from "./format.ts";
 import { type Choice, type Slider, state } from "./state.ts";
-
-export const clamp = (v: number, a: number, b: number): number => Math.min(b, Math.max(a, v));
-export const fmtNum = (v: number): string => (Number.isInteger(v) ? v : Math.round(v * 100) / 100).toLocaleString();
-const ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" };
-export const esc = (s: string | number): string => String(s).replace(/[&<>"]/g, c => ESCAPES[c] ?? c);
-export const cap = (s: string): string => s.replace(/^./, c => c.toUpperCase());
 
 const WORDS = [
   "zero",
@@ -61,7 +54,7 @@ export function makeChoice(c: Sent): Choice | null {
   const span = c.type === "extra" ? "" : c.span;
   const options = (c.options ?? []).filter(o => o.label && o.text);
   const base = {
-    id: "c" + String(++state.uid),
+    id: "c" + String(++state.lastChoiceId),
     type: c.type,
     span,
     question: c.question || "Choose",
@@ -154,8 +147,6 @@ export function tokenValue(ch: Choice): string {
     .join(", ");
 }
 
-// Open questions are written into the request as sentences with a placeholder ("My budget is [budget].").
-// Sentences still holding a placeholder are left out when you send.
 export function sentenceParts(ch: Choice): { pre: string; post: string } {
   let t = ch.sentence.trim();
   if (!t.includes("{value}")) {

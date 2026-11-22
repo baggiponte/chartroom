@@ -1,16 +1,13 @@
-// MCP Apps: the host (Claude web or desktop) talks to this page over postMessage JSON-RPC.
-// https://github.com/modelcontextprotocol/ext-apps (protocol 2026-01-26), written by hand to keep the page one file.
+// The MCP Apps protocol (https://github.com/modelcontextprotocol/ext-apps, 2026-01-26), written by hand to keep the
+// page one file.
 
 import type { Api, Init, Route } from "../skills/help-me/api.ts";
 import { check, isRecord } from "../skills/help-me/schema.ts";
 import { superseded } from "./client.ts";
 
-declare global {
-  interface Window {
-    /** Set by mcp/server.ts when the page is shown inside the chat. */
-    __HELP_ME_MCP__?: true;
-  }
-}
+export type ChatHost = ReturnType<typeof chatHost>;
+
+export const inChat = (): boolean => document.querySelector<HTMLMetaElement>('meta[name="host"]')?.content === "chat";
 
 const STRING = { type: "string" } as const;
 const TEXT = { type: "array", items: { type: "object", properties: { text: STRING } } } as const;
@@ -51,8 +48,6 @@ const theme = (ctx: unknown): void => {
     document.documentElement.dataset["theme"] = ctx["theme"];
   }
 };
-
-export type ChatHost = ReturnType<typeof chatHost>;
 
 export function chatHost() {
   document.documentElement.classList.add("in-chat");

@@ -458,22 +458,6 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		}
 	}
 	// page/state.ts
-	function byId(id, type) {
-		const el = document.getElementById(id);
-		if (!(el instanceof type)) throw new Error(`#${id} is missing`);
-		return el;
-	}
-	const $ = (id) => byId(id, HTMLElement);
-	const ta = byId("ta", HTMLTextAreaElement);
-	const backdrop = $("backdrop");
-	const pop = $("pop");
-	const extrasEl = $("extras");
-	const gripsEl = $("grips");
-	const laneEl = $("lane");
-	const hintEl = $("scrubHint");
-	const moreBtn = byId("more", HTMLButtonElement);
-	const tidyBtn = byId("tidy", HTMLButtonElement);
-	const sendBtn = byId("send", HTMLButtonElement);
 	const state = {
 		mode: "live",
 		modelName: "the model",
@@ -482,19 +466,16 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		chat: null,
 		choices: [],
 		summary: "",
-		seq: 0,
+		analysisSeq: 0,
 		timer: void 0,
 		lastAnalyzed: null,
 		busy: false,
 		moreBusy: false,
 		openId: null,
 		hoverId: null,
-		/** The choice the open popover was last drawn for, so a redraw of the same one keeps its scroll. */
 		openedFor: null,
-		uid: 0,
-		/** Once sent or cancelled the page stays open to look back at, but nothing changes or is sent again. */
+		lastChoiceId: 0,
 		ended: null,
-		/** Each written-in question whose sentence you removed. */
 		removed: [],
 		skipNextAnalysisFor: null,
 		statusKind: "",
@@ -504,14 +485,15 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		tidyBusy: false,
 		tidyUndo: null,
 		tidySeq: 0,
-		moves: [],
-		rank: null,
-		laneLn: -1,
-		drag: null
+		moveUndo: [],
+		ranking: null,
+		laneLine: -1,
+		press: null
 	};
 	const byChoiceId = (id) => id ? state.choices.find((c) => c.id === id) : void 0;
 	// page/client.ts
 	const superseded = () => Object.assign(/* @__PURE__ */ new Error("superseded"), { superseded: true });
+	const isSuperseded = (e) => e instanceof Error && "superseded" in e;
 	const BUILD = document.querySelector("meta[name=\"build\"]")?.content ?? "%";
 	const STALE = "this page doesn't match the running help-me server. Run /help-me again to restart it";
 	const staleFor = (init) => !BUILD.startsWith("%") && init.build !== BUILD;
@@ -534,6 +516,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		return j;
 	}
 	// page/chat.ts
+	const inChat = () => document.querySelector("meta[name=\"host\"]")?.content === "chat";
 	const STRING$1 = { type: "string" };
 	const TOOL_RESULT = {
 		type: "object",
@@ -706,7 +689,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			}
 		};
 	}
-	// page/choice.ts
+	// page/format.ts
 	const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 	const fmtNum = (v) => (Number.isInteger(v) ? v : Math.round(v * 100) / 100).toLocaleString();
 	const ESCAPES = {
@@ -717,6 +700,8 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 	};
 	const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ESCAPES[c] ?? c);
 	const cap = (s) => s.replace(/^./, (c) => c.toUpperCase());
+	const errorMessage = (e) => e instanceof Error ? e.message : String(e);
+	// page/choice.ts
 	const WORDS = [
 		"zero",
 		"one",
@@ -764,7 +749,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		const span = c.type === "extra" ? "" : c.span;
 		const options = (c.options ?? []).filter((o) => o.label && o.text);
 		const base = {
-			id: "c" + String(++state.uid),
+			id: "c" + String(++state.lastChoiceId),
 			type: c.type,
 			span,
 			question: c.question || "Choose",
@@ -1436,6 +1421,23 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		}
 		return null;
 	}
+	// page/dom.ts
+	function byId(id, type) {
+		const el = document.getElementById(id);
+		if (!(el instanceof type)) throw new Error(`#${id} is missing`);
+		return el;
+	}
+	const $ = (id) => byId(id, HTMLElement);
+	const ta = byId("ta", HTMLTextAreaElement);
+	const backdrop = $("backdrop");
+	const pop = $("pop");
+	const extrasEl = $("extras");
+	const gripsEl = $("grips");
+	const laneEl = $("lane");
+	const hintEl = $("scrubHint");
+	const moreBtn = byId("more", HTMLButtonElement);
+	const tidyBtn = byId("tidy", HTMLButtonElement);
+	const sendBtn = byId("send", HTMLButtonElement);
 	// page/request.ts
 	const overlaps = (ranges, a, b) => ranges.some(([s, e]) => a < e && b > s);
 	const isHeading = (line) => {
@@ -1628,7 +1630,6 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		if (state.tidyUndo && ta.value === state.tidyUndo.after) undoTidy();
 		else runTidy();
 	}
-	const errorMessage$2 = (e) => e instanceof Error ? e.message : String(e);
 	async function runTidy() {
 		if (state.ended || state.tidyBusy || state.busy || state.moreBusy) return;
 		const text = ta.value;
@@ -1647,7 +1648,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			if (my !== state.tidySeq) return;
 			state.tidyBusy = false;
 			render();
-			if (!(e instanceof Error && "superseded" in e)) setStatus("err", `couldn't tidy: ${esc(errorMessage$2(e))} · <button id="retry">retry</button>`);
+			if (!isSuperseded(e)) setStatus("err", `couldn't tidy: ${esc(errorMessage(e))} · <button id="retry">retry</button>`);
 			document.getElementById("retry")?.addEventListener("click", () => void runTidy());
 			return;
 		}
@@ -1840,11 +1841,11 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			g.style.height = `${String(lh)}px`;
 			g.title = "Drag to rank, or focus and use ↑/↓";
 			g.setAttribute("aria-label", `Move “${words}”: item ${String(it.k + 1)} of ${String(it.n)} in ${lists[it.li]?.title ?? ""}. Use up and down arrows to move it.`);
-			g.classList.toggle("dragging", Boolean(state.rank) && state.rank?.ln === it.ln);
+			g.classList.toggle("dragging", Boolean(state.ranking) && state.ranking?.ln === it.ln);
 		});
 		const fg = document.activeElement;
-		if (fg instanceof HTMLElement && gripsEl.contains(fg)) state.laneLn = Number(fg.dataset["ln"]);
-		const show = state.rank ? state.rank.ln : state.laneLn;
+		if (fg instanceof HTMLElement && gripsEl.contains(fg)) state.laneLine = Number(fg.dataset["ln"]);
+		const show = state.ranking ? state.ranking.ln : state.laneLine;
 		const box = show >= 0 && items.some((it) => it.ln === show) ? lineBox(show, text) : null;
 		laneEl.hidden = !box;
 		if (box) {
@@ -1907,8 +1908,8 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 	});
 	function recordMove(snap) {
 		if (ta.value === snap.text) return;
-		if (state.moves.length && state.moves.at(-1)?.after !== snap.text) state.moves = [];
-		state.moves.push({
+		if (state.moveUndo.length && state.moveUndo.at(-1)?.after !== snap.text) state.moveUndo = [];
+		state.moveUndo.push({
 			...snap,
 			after: ta.value
 		});
@@ -1922,13 +1923,13 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		setText(snap.text);
 	}
 	function undoMove() {
-		const m = state.moves.at(-1);
+		const m = state.moveUndo.at(-1);
 		if (!m || state.ended) return false;
 		if (m.after !== ta.value) {
-			state.moves = [];
+			state.moveUndo = [];
 			return false;
 		}
-		state.moves.pop();
+		state.moveUndo.pop();
 		restore(m, m.after);
 		render();
 		say("Move undone.");
@@ -2010,24 +2011,24 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 	gripsEl.addEventListener("focusin", (e) => {
 		const g = gripOf(e);
 		if (g) {
-			state.laneLn = Number(g.dataset["ln"]);
+			state.laneLine = Number(g.dataset["ln"]);
 			renderGrips();
 		}
 	});
 	gripsEl.addEventListener("focusout", () => {
-		state.laneLn = -1;
+		state.laneLine = -1;
 		renderGrips();
 	});
 	gripsEl.addEventListener("pointerover", (e) => {
 		const g = gripOf(e);
-		if (g && !state.rank) {
-			state.laneLn = Number(g.dataset["ln"]);
+		if (g && !state.ranking) {
+			state.laneLine = Number(g.dataset["ln"]);
 			renderGrips();
 		}
 	});
 	gripsEl.addEventListener("pointerout", () => {
-		if (!state.rank && !gripsEl.contains(document.activeElement)) {
-			state.laneLn = -1;
+		if (!state.ranking && !gripsEl.contains(document.activeElement)) {
+			state.laneLine = -1;
 			renderGrips();
 		}
 	});
@@ -2037,7 +2038,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		e.preventDefault();
 		closePop();
 		g.setPointerCapture(e.pointerId);
-		state.rank = {
+		state.ranking = {
 			ln: Number(g.dataset["ln"]),
 			id: e.pointerId,
 			snap: snapshot(),
@@ -2047,7 +2048,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		render();
 	});
 	gripsEl.addEventListener("pointermove", (e) => {
-		const { rank } = state;
+		const { ranking: rank } = state;
 		if (!rank || e.pointerId !== rank.id) return;
 		if (!rank.live) {
 			if (Math.abs(e.clientY - rank.y0) < 4) return;
@@ -2077,13 +2078,13 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		}
 	});
 	function endRank(e, cancel) {
-		const r = state.rank;
+		const r = state.ranking;
 		if (!r || e && e.pointerId !== r.id) return;
-		state.rank = null;
+		state.ranking = null;
 		document.body.classList.remove("ranking");
 		if (cancel) restore(r.snap, ta.value);
 		else recordMove(r.snap);
-		state.laneLn = -1;
+		state.laneLine = -1;
 		render();
 		if (!cancel && r.snap.text !== ta.value) sayWhere(r.ln);
 	}
@@ -2094,7 +2095,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		endRank(e, true);
 	});
 	document.addEventListener("keydown", (e) => {
-		if (e.key === "Escape" && state.rank) {
+		if (e.key === "Escape" && state.ranking) {
 			e.preventDefault();
 			endRank(null, true);
 		}
@@ -2111,7 +2112,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			html += plain(text.slice(pos, c.start));
 			const cls = [
 				c.kind === "slider" ? "scrub" : "",
-				state.drag?.id === c.id ? "scrubbing" : "",
+				state.press?.id === c.id ? "scrubbing" : "",
 				c.settled ? "settled" : "",
 				c.promo && !c.settled ? "ph" : "",
 				isAsk(c) ? "ask" : "",
@@ -2141,7 +2142,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			if (c.kind === "slider") {
 				const s = c.slider;
 				const v = textFor(c);
-				return `<button class="token scrub ${c.settled ? "settled" : "unset"} ${open} ${state.drag?.id === c.id ? "scrubbing" : ""}" data-id="${c.id}" role="slider" aria-label="${esc(c.question)}" aria-valuemin="${String(s.min)}" aria-valuemax="${String(s.max)}" aria-valuenow="${String(c.value)}" aria-valuetext="${esc(v)}"><span class="k">${esc(c.token)}:</span> <span class="v">${esc(v)}</span></button>`;
+				return `<button class="token scrub ${c.settled ? "settled" : "unset"} ${open} ${state.press?.id === c.id ? "scrubbing" : ""}" data-id="${c.id}" role="slider" aria-label="${esc(c.question)}" aria-valuemin="${String(s.min)}" aria-valuemax="${String(s.max)}" aria-valuenow="${String(c.value)}" aria-valuetext="${esc(v)}"><span class="k">${esc(c.token)}:</span> <span class="v">${esc(v)}</span></button>`;
 			}
 			const v = tokenValue(c);
 			return `<button class="token ${c.settled ? "settled" : "unset"} ${open}" data-id="${c.id}" title="${esc(c.question)}"><span class="k">${esc(c.token)}:</span> <span class="v">${v ? esc(v) : "?"}</span></button>`;
@@ -2312,7 +2313,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 	function startPress(id, e, el) {
 		const ch = byChoiceId(id);
 		const scrub = isScrub(ch) && !state.ended;
-		state.drag = {
+		state.press = {
 			id: ch ? id : null,
 			pointer: e.pointerId,
 			x0: e.clientX,
@@ -2327,9 +2328,9 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		}
 	}
 	function endPress(e, cancelled) {
-		const d = state.drag;
+		const d = state.press;
 		if (!d || e.pointerId !== d.pointer) return;
-		state.drag = null;
+		state.press = null;
 		document.body.classList.remove("scrubbing");
 		if (d.moved || cancelled && d.scrub) {
 			render();
@@ -2360,7 +2361,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		return true;
 	}
 	ta.addEventListener("mousemove", (e) => {
-		if (state.drag) return;
+		if (state.press) return;
 		const id = markAt(e.clientX, e.clientY);
 		if (id !== state.hoverId) {
 			state.hoverId = id;
@@ -2385,11 +2386,11 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		else openPop(id);
 	});
 	document.addEventListener("pointermove", (e) => {
-		const d = state.drag;
+		const d = state.press;
 		if (!d?.scrub || e.pointerId !== d.pointer) return;
 		const ch = byChoiceId(d.id);
 		if (!isScrub(ch)) {
-			state.drag = null;
+			state.press = null;
 			return;
 		}
 		const dx = e.clientX - d.x0;
@@ -2431,7 +2432,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 	});
 	extrasEl.addEventListener("pointerover", (e) => {
 		const ch = byChoiceId(tokenOf(e, ".token.scrub")?.dataset["id"] ?? null);
-		if (ch && !state.drag) showHint(ch);
+		if (ch && !state.press) showHint(ch);
 	});
 	extrasEl.addEventListener("pointerout", (e) => {
 		const to = e.relatedTarget instanceof Element ? e.relatedTarget.closest(".token.scrub") : null;
@@ -2456,8 +2457,6 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		multi: "pick any",
 		slider: "slide, or drag the value in place"
 	};
-	const errorMessage$1 = (e) => e instanceof Error ? e.message : String(e);
-	const isSuperseded$1 = (e) => e instanceof Error && "superseded" in e;
 	const newDecide = () => ({
 		qs: [],
 		rec: null,
@@ -2708,8 +2707,8 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			})));
 			d.rec = answers.length ? r.recommendation ?? d.rec : null;
 		} catch (e) {
-			if (isSuperseded$1(e) || ch.decide !== d || my !== d.seq) return;
-			d.err = errorMessage$1(e);
+			if (isSuperseded(e) || ch.decide !== d || my !== d.seq) return;
+			d.err = errorMessage(e);
 		}
 		d.busy = false;
 		refreshChoice(ch);
@@ -2731,7 +2730,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 					options
 				}) : await demoExplain(ch, options);
 			} catch (e) {
-				if (!isSuperseded$1(e)) ch.explainErr = errorMessage$1(e);
+				if (!isSuperseded(e)) ch.explainErr = errorMessage(e);
 			}
 			ch.explainBusy = false;
 		}
@@ -2868,8 +2867,6 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 	}
 	// page/main.ts
 	const EXAMPLE = "Help me choose a home coffee machine for my small kitchen, something good for lattes.";
-	const errorMessage = (e) => e instanceof Error ? e.message : String(e);
-	const isSuperseded = (e) => e instanceof Error && "superseded" in e;
 	function schedule(ms = 700) {
 		clearTimeout(state.timer);
 		state.timer = setTimeout(() => void analyze(), ms);
@@ -2882,7 +2879,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			setStatus("", "waiting for a request");
 			return;
 		}
-		const my = more ? state.seq : ++state.seq;
+		const my = more ? state.analysisSeq : ++state.analysisSeq;
 		if (more) state.moreBusy = true;
 		else state.busy = true;
 		render();
@@ -2903,7 +2900,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 				state.moreBusy = false;
 				render();
 			}
-			if (my !== state.seq || isSuperseded(e)) return;
+			if (my !== state.analysisSeq || isSuperseded(e)) return;
 			state.busy = false;
 			render();
 			setStatus("err", `couldn't analyse: ${esc(errorMessage(e))} · <button id="retry">retry</button>`);
@@ -2915,7 +2912,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		}
 		if (more) state.moreBusy = false;
 		else state.busy = false;
-		if (my !== state.seq || ta.value !== text) {
+		if (my !== state.analysisSeq || ta.value !== text) {
 			render();
 			return;
 		}
@@ -3048,7 +3045,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 	function end(kind, title, sub, prompt, notes = []) {
 		state.ended = kind;
 		clearTimeout(state.timer);
-		state.seq++;
+		state.analysisSeq++;
 		state.tidySeq++;
 		state.busy = state.moreBusy = state.tidyBusy = false;
 		for (const c of state.choices) if (c.decide) {
@@ -3141,7 +3138,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		if (state.openId) positionPop();
 	}, true);
 	async function start() {
-		const chat = window.__HELP_ME_MCP__ ? chatHost() : null;
+		const chat = inChat() ? chatHost() : null;
 		state.chat = chat;
 		try {
 			if (!chat && location.protocol === "file:") throw new Error("no server behind a file");
