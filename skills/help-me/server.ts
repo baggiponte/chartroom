@@ -11,7 +11,6 @@ import { createHandler } from "./http.ts";
 import { createJobs } from "./jobs.ts";
 import { createModel } from "./model.ts";
 import { readPage } from "./page.ts";
-import { loadBackend } from "./plugins.ts";
 import { outPath, readSettings } from "./settings.ts";
 import type { Settings } from "./settings.ts";
 
@@ -38,9 +37,9 @@ function writeOut(out: string, code: ExitCode, prompt: string, error = ""): void
 }
 
 // Refusing to start still writes --out, so an agent polling it learns at once instead of at its own timeout.
-const settings = ((): Settings => {
+const settings = await (async (): Promise<Settings> => {
   try {
-    return readSettings(argv, env);
+    return await readSettings(argv, env);
   } catch (error) {
     log(errorMessage(error));
     writeOut(outPath(argv, env), 1, "", errorMessage(error));
@@ -67,12 +66,8 @@ function finish(code: ExitCode, prompt: string): void {
 
 const { effort, images, agent } = settings;
 const backend = settings.backend.name;
-const chosen = await loadBackend(settings.backend).catch((error: unknown) => {
-  log(errorMessage(error));
-  writeOut(settings.out, 1, "", errorMessage(error));
-  return process.exit(1);
-});
-const model = settings.model || chosen.model;
+const chosen = settings.backend.plugin;
+const model = settings.model || chosen.model || "";
 const server = http.createServer(
   createHandler({
     model: createModel({ name: backend, backend: chosen, model, effort, env, jobs }),

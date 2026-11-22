@@ -201,8 +201,12 @@ export default {
 ```
 
 The call also has `effort` and `env`. Return `{ data, model?, ms? }`; help-me checks `data` against the schema, so
-a wrong shape shows up as an error on the page. For types, `import type { Backend } from ".../skills/help-me/providers.ts"`
-and end with `satisfies Backend`. A plugin with a built-in's name replaces it.
+a wrong shape shows up as an error on the page. For types, `import type { Plugin } from ".../skills/help-me/plugins.ts"`
+and end with `satisfies Plugin`. A plugin with a built-in's name replaces it.
+
+The built-in backends are plugins of the same shape (`skills/help-me/providers/`), so the optional fields they use
+work for yours too: `needs` and `available(env)` make help-me stop with a clear error when it can't run, and
+`host: { agent, running(env) }` lets `host` pick it when help-me runs inside that harness.
 
 ## Development
 
@@ -210,7 +214,8 @@ The skill runs straight from `skills/help-me/` with nothing to install; the dev 
 
 - `skills/help-me/server.ts` is what `/help-me` runs: it serves the page, waits for Send and prints the request on
   stdout. `api.ts` lists the routes the page calls, `tasks.ts` and `prompts.ts` what each one asks the model,
-  `providers.ts` every built-in backend and which one `host` means, `plugins.ts` how a plugin is loaded.
+  `plugins.ts` the shape every backend has and how a configured one is loaded, `providers/` one file per built-in
+  backend, and `settings.ts` which backend runs.
 - `mcp/server.ts` serves the same page as an MCP App: `node mcp/server.ts` for stdio, `--http` for `127.0.0.1:3917/mcp`.
 - `page/` is the page's source. `pnpm build` bundles it into `skills/help-me/index.html`, which is committed.
 - `docs/shots.ts` and `docs/rec.ts` record the README's images and GIF from demo mode.
