@@ -298,7 +298,10 @@ describe("choosing a backend", () => {
   test("an unknown backend exits 1 and lists the known ones", async () => {
     const { code, stderr } = await runHelpMe(["--backend", "nope"]);
     assert.equal(code, 1);
-    assert.match(stderr, /unknown backend "nope", use one of: auto, claude, codex, gemini, anthropic, openai/);
+    assert.match(
+      stderr,
+      /unknown backend "nope", use one of: auto, claude, codex, gemini, antigravity, qwen, opencode, pi, anthropic, openai/,
+    );
   });
 
   test("an unknown flag exits 1, and --out still says so", async () => {

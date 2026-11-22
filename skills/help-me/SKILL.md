@@ -1,7 +1,7 @@
 ---
 name: help-me
 description: Opens a browser page where the user shapes a vague request by clicking on it, then returns the sharpened request. Use when the user types /help-me or asks to refine their request in the browser before you start.
-compatibility: Needs Node 22.18+, a local browser, and one analysis backend (the claude, codex or gemini CLI, or ANTHROPIC_API_KEY / OPENAI_API_KEY).
+compatibility: Needs Node 22.18+, a local browser, and one analysis backend (the claude, codex, gemini, agy, qwen, opencode or pi CLI, or ANTHROPIC_API_KEY / OPENAI_API_KEY).
 allowed-tools: Bash(node:*)
 metadata:
   version: "0.4.0"
@@ -33,14 +33,14 @@ HELP_ME_EOF
 
 Turn instructions about the page itself into flags and **remove them from the request** on stdin:
 
-| The user says something like                                  | Flag                                                             |
-| ------------------------------------------------------------- | ---------------------------------------------------------------- |
-| "use gemini", "with codex", "via claude", "use my OpenAI key" | `--backend gemini` (or `claude`, `codex`, `anthropic`, `openai`) |
-| "with sonnet", "use gpt-5"                                    | `--model <name>` (with `--backend` if the model implies one)     |
-| "think harder", "high effort"                                 | `--effort high`                                                  |
-| "no pictures", "without images" / "with pictures"             | `--no-images` / `--images`                                       |
-| "don't open the browser", "I'm on SSH"                        | `--no-open` (then give them the URL from the logs)               |
-| "on port 8080"                                                | `--port 8080`                                                    |
+| The user says something like                                  | Flag                                                                                                      |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| "use gemini", "with codex", "via claude", "use my OpenAI key" | `--backend gemini` (or `claude`, `codex`, `antigravity`, `qwen`, `opencode`, `pi`, `anthropic`, `openai`) |
+| "with sonnet", "use gpt-5"                                    | `--model <name>` (with `--backend` if the model implies one)                                              |
+| "think harder", "high effort"                                 | `--effort high`                                                                                           |
+| "no pictures", "without images" / "with pictures"             | `--no-images` / `--images`                                                                                |
+| "don't open the browser", "I'm on SSH"                        | `--no-open` (then give them the URL from the logs)                                                        |
+| "on port 8080"                                                | `--port 8080`                                                                                             |
 
 Only strip what is clearly about the page: "Help me choose between Gemini and Claude" is the request. If the
 chosen backend isn't set up, say so and offer another.
