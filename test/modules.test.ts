@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, relative } from "node:path";
 import { describe, test } from "node:test";
 import type { TestContext } from "node:test";
 
@@ -12,8 +15,19 @@ import { createModel } from "../skills/help-me/model.ts";
 import type { ModelCall } from "../skills/help-me/model.ts";
 import type { Backend } from "../skills/help-me/providers.ts";
 import { check } from "../skills/help-me/schema.ts";
+import { loadBackend } from "../skills/help-me/plugins.ts";
 import { readSettings } from "../skills/help-me/settings.ts";
 import { analyze, tidy } from "../skills/help-me/tasks.ts";
+
+const CALL = {
+  system: "sys",
+  schema: { type: "object", properties: {} },
+  input: "in",
+  model: "",
+  effort: "low",
+  env: {},
+  signal: new AbortController().signal,
+} as const;
 
 const NO_CONFIG = { PROMPT_SHAPER_CONFIG: "/nonexistent/config.json", PATH: "", OPENAI_API_KEY: "x" };
 
@@ -29,13 +43,13 @@ const answering =
 describe("readSettings", () => {
   test("a flag beats its env var", () => {
     const s = readSettings(["--backend", "openai", "--model", "flag"], { ...NO_CONFIG, PROMPT_SHAPER_MODEL: "env" });
-    assert.equal(s.backend, "openai");
+    assert.deepEqual(s.backend, { kind: "provider", name: "openai" });
     assert.equal(s.model, "flag");
   });
 
   test("a backend that can run is taken as asked, leaving the model to it", () => {
     const s = readSettings(["--backend", "anthropic"], { ...NO_CONFIG, ANTHROPIC_API_KEY: "x" });
-    assert.deepEqual([s.backend, s.model], ["anthropic", ""]);
+    assert.deepEqual([s.backend, s.model], [{ kind: "provider", name: "anthropic" }, ""]);
   });
 
   test("inside a known harness, the page names it", () => {
@@ -55,6 +69,51 @@ describe("readSettings", () => {
       /backend "anthropic" needs ANTHROPIC_API_KEY, which isn't there. .*Set "backend" in \/nonexistent\/config.json/,
     );
     assert.throws(() => readSettings(["--backend", "openai", "--timeout-min", "x"], NO_CONFIG), /--timeout-min/);
+  });
+});
+
+describe("plugins", () => {
+  const dir = mkdtempSync(join(tmpdir(), "plugins-"));
+  const plugins = join(import.meta.dirname, "support", "plugins");
+  const configWith = (config: unknown) => {
+    const file = join(dir, `${String(Math.random())}.json`);
+    writeFileSync(file, JSON.stringify(config));
+    return { PROMPT_SHAPER_CONFIG: file, PATH: "" };
+  };
+
+  test("a plugin named in the config file runs under that name, path relative to the file", async () => {
+    const env = configWith({ backend: "mine", plugins: { mine: relative(dir, join(plugins, "echo.ts")) } });
+    const { backend } = readSettings([], env);
+    assert.deepEqual(backend, { kind: "plugin", name: "mine", file: join(plugins, "echo.ts") });
+    const run = await loadBackend(backend);
+    const reply = await run.run({ ...CALL, model: run.model });
+    assert.deepEqual(reply, { data: { model: "echo-1", input: "in" }, model: "echo-1" });
+  });
+
+  test("a plugin can replace a built-in backend", () => {
+    const env = configWith({ plugins: { claude: join(plugins, "echo.ts") } });
+    assert.equal(readSettings(["--backend", "claude"], env).backend.kind, "plugin");
+  });
+
+  test("unknown backends list the plugins too", () => {
+    const env = configWith({ plugins: { mine: join(plugins, "echo.ts") } });
+    assert.throws(() => readSettings(["--backend", "nope"], env), /to one of: .*, openai, mine\./);
+  });
+
+  test("refuses a plugin that doesn't export a backend, or a reply without data", async () => {
+    await assert.rejects(
+      loadBackend({ kind: "plugin", name: "b", file: join(plugins, "broken.ts") }),
+      /should export default \{ model\?: string, run\(call\) \}/,
+    );
+    const bad = { model: "", run: async () => ({ nothing: true }) };
+    const file = join(dir, "no-data.mjs");
+    writeFileSync(file, `export default { run: async () => (${JSON.stringify(bad)}) };`);
+    const run = await loadBackend({ kind: "plugin", name: "n", file });
+    await assert.rejects(run.run(CALL), /reply.data is missing/);
+  });
+
+  test("a plugins entry that is not a path is refused", () => {
+    assert.throws(() => readSettings([], configWith({ plugins: { mine: 3 } })), /plugin "mine" should be the path/);
   });
 });
 

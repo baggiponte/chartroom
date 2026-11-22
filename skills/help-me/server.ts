@@ -11,7 +11,7 @@ import { createHandler } from "./http.ts";
 import { createJobs } from "./jobs.ts";
 import { createModel } from "./model.ts";
 import { readPage } from "./page.ts";
-import { PROVIDERS } from "./providers.ts";
+import { loadBackend } from "./plugins.ts";
 import { outPath, readSettings } from "./settings.ts";
 import type { Settings } from "./settings.ts";
 
@@ -65,11 +65,17 @@ function finish(code: ExitCode, prompt: string): void {
   setTimeout(() => process.exit(code), 150);
 }
 
-const { backend, effort, images, agent } = settings;
-const model = settings.model || PROVIDERS[backend].model;
+const { effort, images, agent } = settings;
+const backend = settings.backend.name;
+const chosen = await loadBackend(settings.backend).catch((error: unknown) => {
+  log(errorMessage(error));
+  writeOut(settings.out, 1, "", errorMessage(error));
+  return process.exit(1);
+});
+const model = settings.model || chosen.model;
 const server = http.createServer(
   createHandler({
-    model: createModel({ name: backend, backend: PROVIDERS[backend], model, effort, env, jobs }),
+    model: createModel({ name: backend, backend: chosen, model, effort, env, jobs }),
     init: { draft, model: model || backend, backend, agent, images, build: page.build },
     page: page.html,
     log,

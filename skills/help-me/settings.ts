@@ -1,11 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import type { ParseArgsOptionsConfig } from "node:util";
 
+import type { BackendChoice } from "./plugins.ts";
 import { PROVIDERS, hostOf, isProvider } from "./providers.ts";
-import type { ProviderName } from "./providers.ts";
 import { isRecord } from "./schema.ts";
 
 export interface Settings {
@@ -14,7 +14,7 @@ export interface Settings {
   stdin: boolean;
   draft: string;
   agent: string;
-  backend: ProviderName;
+  backend: BackendChoice;
   /** "" for the backend's own default. */
   model: string;
   effort: string;
@@ -74,11 +74,39 @@ function readConfig(file: string): Readonly<Record<string, unknown>> {
 }
 
 /**
+ * `"plugins": { "name": "./module.ts" }`, paths relative to the config file. A plugin with a built-in's name replaces
+ * it, so how `claude` is called can be changed without a fork.
+ */
+function readPlugins(config: Readonly<Record<string, unknown>>, configFile: string): ReadonlyMap<string, string> {
+  const plugins = config["plugins"] ?? {};
+  if (!isRecord(plugins)) {
+    throw new Error(`${configFile}: "plugins" should map backend names to module paths`);
+  }
+  return new Map(
+    Object.entries(plugins).map(([name, file]) => {
+      if (typeof file !== "string" || !file) {
+        throw new Error(`${configFile}: plugin "${name}" should be the path of a module`);
+      }
+      return [name.toLowerCase(), resolve(dirname(configFile), file)];
+    }),
+  );
+}
+
+/**
  * The backend asked for, or with `host` the agent help-me is running in. Never another one: when that can't run, the
  * error says why and where to set `backend`, so the agent can offer to fix the config instead of us choosing for them.
  */
-function pickBackend(asked: string, env: NodeJS.ProcessEnv, configFile: string): ProviderName {
-  const names = ["host", ...Object.keys(PROVIDERS)].join(", ");
+function pickBackend(
+  asked: string,
+  plugins: ReadonlyMap<string, string>,
+  env: NodeJS.ProcessEnv,
+  configFile: string,
+): BackendChoice {
+  const file = plugins.get(asked);
+  if (file) {
+    return { kind: "plugin", name: asked, file };
+  }
+  const names = ["host", ...Object.keys(PROVIDERS), ...plugins.keys()].join(", ");
   const fix = `Set "backend" in ${configFile} (or pass --backend) to one of: ${names}.`;
   if (asked === "host") {
     const host = hostOf(env);
@@ -90,7 +118,7 @@ function pickBackend(asked: string, env: NodeJS.ProcessEnv, configFile: string):
         `backend is "host" and ${host.agent} is running help-me, but ${PROVIDERS[host.name].needs} isn't there. ${fix}`,
       );
     }
-    return host.name;
+    return { kind: "provider", name: host.name };
   }
   if (!isProvider(asked)) {
     throw new Error(`unknown backend "${asked}". ${fix}`);
@@ -98,7 +126,7 @@ function pickBackend(asked: string, env: NodeJS.ProcessEnv, configFile: string):
   if (!PROVIDERS[asked].available(env)) {
     throw new Error(`backend "${asked}" needs ${PROVIDERS[asked].needs}, which isn't there. Install it, or: ${fix}`);
   }
-  return asked;
+  return { kind: "provider", name: asked };
 }
 
 /**
@@ -133,8 +161,9 @@ export function readSettings(argv: Array<string>, env: NodeJS.ProcessEnv): Setti
     return typeof v === "boolean" ? v : !v ? fallback : !["0", "false", "no", "off"].includes(v.toLowerCase());
   };
 
+  const plugins = readPlugins(config, configFile);
   const asked = setting("backend", "host").toLowerCase();
-  const backend = pickBackend(asked, env, configFile);
+  const backend = pickBackend(asked, plugins, env, configFile);
 
   const timeout = setting("timeout-min", "30");
   const timeoutMin = Number(timeout);

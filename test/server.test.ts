@@ -108,6 +108,22 @@ describe("/api/init", () => {
     t.after(helpMe.stop);
     assert.equal((await init(helpMe)).model, "claude-haiku-5-5");
   });
+
+  test("a plugin from the config file is the backend the page shows, with its own default model", async t => {
+    const plugin = join(import.meta.dirname, "support", "plugins", "echo.ts");
+    const env = { PROMPT_SHAPER_CONFIG: configFile({ backend: "mine", plugins: { mine: plugin } }) };
+    const helpMe = await startHelpMe({ env, backendFlag: false });
+    t.after(helpMe.stop);
+    const { backend, model } = await init(helpMe);
+    assert.deepEqual([backend, model], ["mine", "echo-1"]);
+  });
+
+  test("a plugin that can't be loaded exits 1 with the reason", async () => {
+    const env = { PROMPT_SHAPER_CONFIG: configFile({ backend: "gone", plugins: { gone: "./nowhere.ts" } }) };
+    const { code, stderr } = await runHelpMe([], env);
+    assert.equal(code, 1);
+    assert.match(stderr, /nowhere\.ts/);
+  });
 });
 
 describe("/api/analyze", () => {
