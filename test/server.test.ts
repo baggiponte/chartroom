@@ -309,7 +309,7 @@ describe("bugs", () => {
     assert.deepEqual(outFile(out), { status: "error", prompt: "" });
   });
 
-  test("a --timeout-min that is not a number is refused at start", { todo: "issue #11" }, async () => {
+  test("a --timeout-min that is not a number is refused at start", async () => {
     const { code } = await runHelpMe(["--backend", "anthropic", "--timeout-min", "abc"], { ANTHROPIC_API_KEY: "x" });
     assert.equal(code, 1);
   });

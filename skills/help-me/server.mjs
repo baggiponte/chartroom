@@ -754,7 +754,9 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-const TIMEOUT_MIN = Number(setting("timeoutMin", "--timeout-min", 30));
+const TIMEOUT_SETTING = setting("timeoutMin", "--timeout-min", 30);
+const TIMEOUT_MIN = Number(TIMEOUT_SETTING);
+if (!Number.isFinite(TIMEOUT_MIN)) fail(`--timeout-min should be a number of minutes, got "${TIMEOUT_SETTING}"`);
 if (TIMEOUT_MIN > 0)
   setTimeout(() => {
     log(`no answer after ${TIMEOUT_MIN} min, giving up`);
