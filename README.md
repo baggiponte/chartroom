@@ -18,7 +18,8 @@ Help me choose a bean-to-cup machine for my small kitchen, something good for la
 - Milk: a manual steam wand
 ```
 
-The model is whichever you already have: the `claude`, `codex` or `gemini` CLI, or an API key. See [Backends](#backends).
+The model is the agent you're already using, on your own subscription: Claude Code, Codex, Gemini CLI, Antigravity,
+Qwen Code, OpenCode or Pi. An API key works too. See [Backends](#backends).
 
 ## Install
 
@@ -124,7 +125,7 @@ Flag beats env var beats config file. A config `model` is dropped when the reque
 | ------------ | -------------------------- | --------------------------- | ------------- | -------------------------------------------------- |
 | `backend`    | `--backend`                | `PROMPT_SHAPER_BACKEND`     | `auto`        | see [Backends](#backends)                          |
 | `model`      | `--model`                  | `PROMPT_SHAPER_MODEL`       | per backend   | model for the analysis                             |
-| `effort`     | `--effort`                 | `PROMPT_SHAPER_EFFORT`      | `low`         | effort level (claude, codex)                       |
+| `effort`     | `--effort`                 | `PROMPT_SHAPER_EFFORT`      | `low`         | effort level (claude, codex, antigravity)          |
 | `images`     | `--images` / `--no-images` | `PROMPT_SHAPER_IMAGES=0`    | `true`        | Wikimedia Commons pictures in "Explain me"         |
 | `open`       | `--no-open`                | `PROMPT_SHAPER_OPEN=0`      | `true`        | open a browser at all                              |
 | `browser`    | `--browser`                | `PROMPT_SHAPER_BROWSER`     | system opener | which browser command to use                       |
@@ -137,16 +138,22 @@ For per-agent defaults, set the env vars in that agent's config (e.g. `"env"` in
 
 ## Backends
 
-| `--backend` | Uses                                                                                   | Default model      |
-| ----------- | -------------------------------------------------------------------------------------- | ------------------ |
-| `claude`    | `claude -p` with your Claude Code login                                                | `haiku`            |
-| `codex`     | `codex exec` with your Codex login, JSON enforced by `--output-schema`                 | your Codex default |
-| `gemini`    | `gemini -p` with your Google login                                                     | `gemini-2.5-flash` |
-| `anthropic` | `ANTHROPIC_API_KEY` (and optional `ANTHROPIC_BASE_URL`)                                | `claude-haiku-5-5` |
-| `openai`    | `OPENAI_API_KEY` and/or `OPENAI_BASE_URL`, so OpenRouter, Ollama or LM Studio work too | `gpt-5-mini`       |
+| `--backend`   | Uses                                                                                   | Default model         |
+| ------------- | -------------------------------------------------------------------------------------- | --------------------- |
+| `claude`      | `claude -p` with your Claude Code login                                                | `haiku`               |
+| `codex`       | `codex exec` with your Codex / ChatGPT login, JSON enforced by `--output-schema`       | your Codex default    |
+| `gemini`      | `gemini -p` with your Google login                                                     | `gemini-2.5-flash`    |
+| `antigravity` | `agy -p` with your Antigravity login, JSON enforced by `--json-schema`                 | your agy default      |
+| `qwen`        | `qwen -p` with your Qwen Code login                                                    | your Qwen default     |
+| `opencode`    | `opencode run --pure` with whatever OpenCode is set up to use                          | your OpenCode default |
+| `pi`          | `pi -p --no-tools --no-session` with whatever Pi is set up to use                      | your Pi default       |
+| `anthropic`   | `ANTHROPIC_API_KEY` (and optional `ANTHROPIC_BASE_URL`)                                | `claude-haiku-5-5`    |
+| `openai`      | `OPENAI_API_KEY` and/or `OPENAI_BASE_URL`, so OpenRouter, Ollama or LM Studio work too | `gpt-5-mini`          |
 
-`auto` tries the calling agent's CLI, then `claude`, `codex`, `gemini` on your PATH, then `ANTHROPIC_API_KEY`,
-then `OPENAI_API_KEY`. Pick a small, fast model: every edit triggers a new read.
+`auto` first tries the agent you're calling it from, so it runs on the subscription you're already using. Then it
+tries the CLIs above in order on your PATH, then `ANTHROPIC_API_KEY`, then `OPENAI_API_KEY`. No API key is needed if
+you have any of the CLIs. Pick a small, fast model: every edit triggers a new read. For OpenCode and Pi, `--model`
+takes their own `provider/model` form.
 
 ## Development
 

@@ -124,6 +124,23 @@ const GEMINI_OUTPUT = {
   type: "object",
   properties: { response: STRING, error: { type: "object", properties: { message: STRING } } },
 } as const satisfies Schema;
+const ANTIGRAVITY_OUTPUT = {
+  type: "object",
+  properties: { status: STRING, response: STRING, error: STRING, structured_output: ANY, duration_seconds: NUMBER },
+} as const satisfies Schema;
+/** Qwen Code prints the whole run as one array; the last `result` message holds the answer. */
+const QWEN_OUTPUT = {
+  type: "array",
+  items: {
+    type: "object",
+    properties: { type: STRING, model: STRING, is_error: BOOLEAN, result: STRING, duration_ms: NUMBER },
+  },
+} as const satisfies Schema;
+/** One line of `opencode run --format json`: the answer arrives as `text` parts. */
+const OPENCODE_EVENT = {
+  type: "object",
+  properties: { type: STRING, part: { type: "object", properties: { text: STRING } }, error: ANY },
+} as const satisfies Schema;
 const ANTHROPIC_REPLY = {
   type: "object",
   required: ["content"],
@@ -204,6 +221,7 @@ export const PROVIDERS = {
           "codex",
           [
             "exec",
+            "--ephemeral",
             "--skip-git-repo-check",
             "--sandbox",
             "read-only",
@@ -237,7 +255,16 @@ export const PROVIDERS = {
         runCli(
           call,
           "gemini",
-          ["-m", call.model, "--output-format", "json", "-p", withSchema(call.system, call.schema)],
+          [
+            "-m",
+            call.model,
+            "--output-format",
+            "json",
+            "--approval-mode",
+            "plan",
+            "-p",
+            withSchema(call.system, call.schema),
+          ],
           call.input,
           out => {
             const res: unknown = JSON.parse(out);
@@ -247,6 +274,135 @@ export const PROVIDERS = {
             }
             return { data: parseFenced(res.response ?? "") };
           },
+        ),
+      ),
+  },
+  // No system prompt flag, so both go in the one prompt.
+  antigravity: {
+    model: "",
+    available: env => onPath("agy", env),
+    run: call =>
+      timed(() =>
+        runCli(
+          call,
+          "agy",
+          [
+            "-p",
+            `${call.system}\n\n${call.input}`,
+            "--output-format",
+            "json",
+            "--json-schema",
+            JSON.stringify(call.schema),
+            "--effort",
+            call.effort,
+            ...(call.model ? ["--model", call.model] : []),
+          ],
+          "",
+          out => {
+            const res: unknown = JSON.parse(out);
+            check(res, ANTIGRAVITY_OUTPUT, "agy output");
+            if (res.error || (res.status && res.status !== "SUCCESS")) {
+              throw new Error(res.error ?? `agy ended with ${res.status ?? "no status"}`);
+            }
+            return {
+              data: res.structured_output ?? parseFenced(res.response ?? ""),
+              ms: res.duration_seconds === undefined ? undefined : res.duration_seconds * 1000,
+            };
+          },
+        ),
+      ),
+  },
+  qwen: {
+    model: "",
+    available: env => onPath("qwen", env),
+    host: { agent: "Qwen Code", running: env => Boolean(env["QWEN_CODE"]) },
+    run: call =>
+      runCli(
+        call,
+        "qwen",
+        [
+          ...(call.model ? ["-m", call.model] : []),
+          "--output-format",
+          "json",
+          "--approval-mode",
+          "plan",
+          "-p",
+          withSchema(call.system, call.schema),
+        ],
+        call.input,
+        out => {
+          const res: unknown = JSON.parse(out);
+          check(res, QWEN_OUTPUT, "qwen output");
+          const result = res.findLast(m => m.type === "result");
+          if (!result || result.is_error) {
+            throw new Error(result?.result || "qwen returned no result");
+          }
+          return {
+            data: parseFenced(result.result ?? ""),
+            model: res.find(m => m.model)?.model,
+            ms: result.duration_ms,
+          };
+        },
+      ),
+  },
+  // `run` has no system prompt or schema flag, and --pure keeps the user's plugins out of a one-off question.
+  opencode: {
+    model: "",
+    available: env => onPath("opencode", env),
+    host: { agent: "OpenCode", running: env => Boolean(env["OPENCODE"]) },
+    run: call =>
+      timed(() =>
+        runCli(
+          call,
+          "opencode",
+          [
+            "run",
+            "--pure",
+            "--format",
+            "json",
+            ...(call.model ? ["-m", call.model] : []),
+            `${withSchema(call.system, call.schema)}\n\n${call.input}`,
+          ],
+          "",
+          out => {
+            let text = "";
+            for (const line of out.split("\n")) {
+              if (!line.trim().startsWith("{")) {
+                continue;
+              }
+              const event: unknown = JSON.parse(line);
+              check(event, OPENCODE_EVENT, "opencode event");
+              if (event.type === "error") {
+                throw new Error(`opencode: ${JSON.stringify(event.error)}`);
+              }
+              text += event.type === "text" ? (event.part?.text ?? "") : "";
+            }
+            return { data: parseFenced(text) };
+          },
+        ),
+      ),
+  },
+  // Plain -p prints only the final answer, which is all we read.
+  pi: {
+    model: "",
+    available: env => onPath("pi", env),
+    host: { agent: "Pi", running: env => Boolean(env["PI_CODING_AGENT"]) },
+    run: call =>
+      timed(() =>
+        runCli(
+          call,
+          "pi",
+          [
+            "-p",
+            "--no-tools",
+            "--no-session",
+            "--system-prompt",
+            withSchema(call.system, call.schema),
+            ...(call.model ? ["--model", call.model] : []),
+            call.input,
+          ],
+          "",
+          out => ({ data: parseFenced(out.trim()) }),
         ),
       ),
   },
