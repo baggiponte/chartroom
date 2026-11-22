@@ -9,7 +9,8 @@
     "format": "oxlint --fix && oxfmt",
     "typecheck": "tsc",
     "test:unit": "node --test --test-timeout=20000 \"test/*.test.ts\"",
-    "test": "playwright test"
+    "test": "playwright test",
+    "test:harnesses": "node --test --test-timeout=60000 \"test/harnesses/*.test.ts\""
   },
   "devDependencies": {
     "@cloudflare/oxlint-config": "0.1.0",
