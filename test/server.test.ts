@@ -314,21 +314,17 @@ describe("bugs", () => {
     assert.equal(code, 1);
   });
 
-  test(
-    "an empty PROMPT_SHAPER_MODEL counts as unset, so the config file's model applies",
-    { todo: "issue #12" },
-    async t => {
-      const helpMe = await startHelpMe({
-        backendFlag: false,
-        env: {
-          PROMPT_SHAPER_CONFIG: configFile({ backend: "anthropic", model: "from-file" }),
-          PROMPT_SHAPER_MODEL: "",
-        },
-      });
-      t.after(helpMe.stop);
-      assert.equal((await init(helpMe)).model, "from-file");
-    },
-  );
+  test("an empty PROMPT_SHAPER_MODEL counts as unset, so the config file's model applies", async t => {
+    const helpMe = await startHelpMe({
+      backendFlag: false,
+      env: {
+        PROMPT_SHAPER_CONFIG: configFile({ backend: "anthropic", model: "from-file" }),
+        PROMPT_SHAPER_MODEL: "",
+      },
+    });
+    t.after(helpMe.stop);
+    assert.equal((await init(helpMe)).model, "from-file");
+  });
 
   test("a flag with no value does not swallow the next flag", { todo: "issue #13" }, async () => {
     const { code, stderr } = await runHelpMe(["--backend", "--no-open"]);
