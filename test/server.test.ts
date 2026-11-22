@@ -332,7 +332,7 @@ describe("bugs", () => {
     assert.match(stderr, /--backend needs a value/);
   });
 
-  test("a body with the wrong shape is a 400, not a 500", { todo: "issue #14" }, async t => {
+  test("a body with the wrong shape is a 400, not a 500", async t => {
     const helpMe = await startHelpMe();
     t.after(helpMe.stop);
     const res = await helpMe.post("/api/analyze", { text: "a coffee machine", settled: null });
