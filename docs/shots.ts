@@ -235,7 +235,6 @@ async function main(): Promise<void> {
     await p.waitForTimeout(2300);
     return p;
   };
-  // 1. Overview: every kind of mark in one request, plus the timeline
   {
     const p = await page({ h: 640 });
     const h = helpers(p);
@@ -293,7 +292,6 @@ async function main(): Promise<void> {
     await p.context().close();
   }
 
-  // 2. A question you wrote gets answers, plus Explain me / Help me decide
   {
     const p = await page({ w: 1000, h: 760 });
     const h = helpers(p);
@@ -352,7 +350,6 @@ async function main(): Promise<void> {
     await p.context().close();
   }
 
-  // 3. Explain me
   {
     const p = await page({ w: 1000, h: 1180 });
     const h = helpers(p);
@@ -381,7 +378,6 @@ async function main(): Promise<void> {
     await p.context().close();
   }
 
-  // 4. Help me decide
   {
     const p = await page({ w: 1000, h: 860 });
     const h = helpers(p);
@@ -420,7 +416,6 @@ async function main(): Promise<void> {
     await p.context().close();
   }
 
-  // 5. What was sent
   {
     const p = await page({ w: 1000, h: 820 });
     const h = helpers(p);
@@ -479,7 +474,6 @@ async function main(): Promise<void> {
     await p.context().close();
   }
 
-  // GIF clips (video at 1x; ffmpeg turns them into GIFs)
   const starts: Record<string, number> = {};
   const clip = async (
     name: string,
