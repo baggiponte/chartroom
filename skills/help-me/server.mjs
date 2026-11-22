@@ -651,7 +651,10 @@ const OUT = opt("--out", process.env.PROMPT_SHAPER_OUT || "");
 const STATUS = { 0: "sent", 2: "cancelled", 3: "timeout" };
 
 const printed = text => (text ? (text.endsWith("\n") ? text : text + "\n") : "");
+let finished = false;
 function finish(code, text) {
+  if (finished) return;
+  finished = true;
   for (const j of Object.values(running)) j.abort();
   if (text) process.stdout.write(printed(text));
   if (OUT) {
