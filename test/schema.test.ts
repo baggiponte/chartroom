@@ -72,6 +72,30 @@ test("check deletes the keys the schema doesn't name, at any depth", () => {
   assert.deepEqual(reply, { span: "a", kind: "single", options: [{ label: "Tiny" }] });
 });
 
+const STRING = { type: "string" } as const;
+const tagged = {
+  anyOf: [
+    { type: "object", required: ["type", "span"], properties: { type: { type: "string", enum: ["a"] }, span: STRING } },
+    {
+      type: "object",
+      required: ["type", "token"],
+      properties: { type: { type: "string", enum: ["b"] }, token: STRING },
+    },
+  ],
+} as const satisfies Schema;
+
+test("anyOf keeps the keys of the branch that fits, even when an earlier branch would have deleted them", () => {
+  const reply = { type: "b", token: "x", stray: 1 };
+  check(reply, tagged);
+  assert.deepEqual(reply, { type: "b", token: "x" });
+});
+
+test("anyOf names every branch's complaint when none fits", () => {
+  assert.throws(() => check({ type: "b" }, tagged), {
+    message: "reply fits none of its shapes: reply.span is missing; reply.token is missing",
+  });
+});
+
 test("an empty schema accepts anything and leaves it as it is", () => {
   const value = { any: ["thing"] };
   check(value, {});

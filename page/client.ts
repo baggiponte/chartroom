@@ -1,4 +1,5 @@
-import type { Api, Failure, Init, Route } from "../skills/help-me/api.ts";
+import { type Api, INIT, type Init, REPLY, type Route, errorMessage } from "../skills/help-me/api.ts";
+import { type Infer, type Schema, check, isRecord } from "../skills/help-me/schema.ts";
 import { state } from "./state.ts";
 
 /** A newer request of the same kind took over; the page drops the older one's answer. */
@@ -9,16 +10,28 @@ export const isSuperseded = (e: unknown): e is Superseded => e instanceof Error 
 // The serving process swaps in a hash of this file; a file:// page keeps the placeholder. It sits in a meta tag so
 // the bundler can't fold the comparison below into a constant.
 const BUILD = document.querySelector<HTMLMetaElement>('meta[name="build"]')?.content ?? "%";
-export const STALE = "this page doesn't match the running help-me server. Run /help-me again to restart it";
+const RESTART = "Run /help-me again to restart it";
+export const STALE = `this page doesn't match the running help-me server. ${RESTART}`;
 export const staleFor = (init: Pick<Init, "build">): boolean => !BUILD.startsWith("%") && init.build !== BUILD;
 
-// oxlint-disable typescript/no-unsafe-type-assertion -- replies from the page's own server, which Api describes
+/** Checked here, so a page and a server that drifted apart fail with this message instead of deep in rendering. */
+export function fits<S extends Schema>(j: unknown, schema: S): Infer<S> {
+  try {
+    check(j, schema);
+  } catch (e) {
+    throw new Error(`the help-me server answered something this page can't read (${errorMessage(e)}). ${RESTART}`, {
+      cause: e,
+    });
+  }
+  return j;
+}
+
 export async function getInit(): Promise<Init> {
   const r = await fetch("/api/init");
   if (!r.ok) {
     throw new Error(r.statusText);
   }
-  return (await r.json()) as Init;
+  return fits(await r.json(), INIT);
 }
 
 export async function post<R extends Route>(path: R, body: Api[R]["body"]): Promise<Api[R]["reply"]> {
@@ -30,7 +43,7 @@ export async function post<R extends Route>(path: R, body: Api[R]["body"]): Prom
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  const j = (await r.json().catch(() => ({}))) as Api[R]["reply"] & Partial<Failure>;
+  const j: unknown = await r.json().catch(() => ({}));
   if (r.status === 409) {
     throw superseded();
   }
@@ -38,8 +51,8 @@ export async function post<R extends Route>(path: R, body: Api[R]["body"]): Prom
     throw new Error(STALE);
   }
   if (!r.ok) {
-    throw new Error(j.error || r.statusText);
+    const error = isRecord(j) ? j["error"] : undefined;
+    throw new Error(typeof error === "string" && error ? error : r.statusText);
   }
-  return j;
+  return fits(j, REPLY[path]);
 }
-// oxlint-enable typescript/no-unsafe-type-assertion

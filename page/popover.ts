@@ -14,9 +14,9 @@ const KIND = { single: "pick one", multi: "pick any", slider: "slide, or drag th
 interface ExplainedOption {
   label: string;
   emoji?: string | undefined;
-  what?: string;
-  good_for?: string;
-  image?: string;
+  what?: string | undefined;
+  good_for?: string | undefined;
+  image?: string | undefined;
   /** The option's index, or -1 for an explained end of a numeric slider, which only the slider below sets. */
   i: number;
 }

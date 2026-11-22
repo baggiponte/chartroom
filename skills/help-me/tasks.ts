@@ -1,30 +1,13 @@
-import type { ModelCall, Reply } from "./model.ts";
+import type { ModelCall } from "./model.ts";
 import { ANALYZE_SYSTEM, DECIDE_SYSTEM, EXPLAIN_SYSTEM, TIDY_SYSTEM } from "./prompts.ts";
 import { BOOLEAN, type Infer, NUMBER, STRING, STRINGS, type Schema } from "./schema.ts";
 
-/** A choice as the page gets it: `type` says where it goes in the request. */
-export type Choice =
-  | (Omit<Item<"asks">, "sentence" | "kind"> & { type: "ask"; kind: "single" | "multi"; statement: string })
-  | (Item<"underlines"> & { type: "underline" })
-  | (Item<"extras"> & { type: "extra" });
-type Item<K extends "asks" | "underlines" | "extras"> = Infer<(typeof ANALYZE_SCHEMA)["properties"][K]["items"]>;
-
-export interface Analysis {
-  summary: string;
-  choices: Choice[];
-  model?: string;
-  ms?: number | undefined;
-}
-export type Explanation = Reply<typeof EXPLAIN_SCHEMA>;
-export type Decision = Omit<Reply<typeof DECIDE_SCHEMA>, "recommendation"> & {
-  recommendation?: Infer<(typeof DECIDE_SCHEMA)["properties"]["recommendation"]>;
-};
+export type Choice = Infer<typeof CHOICE>;
+export type Analysis = Infer<typeof ANALYSIS>;
+export type Explanation = Infer<typeof EXPLANATION>;
+export type Decision = Infer<typeof DECISION>;
 /** Each block lists 0-based sentence indexes, and every sentence lands in exactly one block. */
-export interface Tidied {
-  blocks: { heading: string; items: number[] }[];
-  model: string;
-  ms: number | undefined;
-}
+export type Tidied = Infer<typeof TIDIED>;
 
 export interface AnalyzeInput {
   text: string;
@@ -77,6 +60,17 @@ const CHOICE_FIELDS = {
   },
 } as const satisfies Record<string, Schema>;
 
+const UNDERLINE = {
+  type: "object",
+  required: ["span", "question", "kind"],
+  properties: { span: STRING, ...CHOICE_FIELDS },
+} as const satisfies Schema;
+const EXTRA = {
+  type: "object",
+  required: ["token", "sentence", "question", "kind"],
+  properties: { token: STRING, sentence: STRING, ...CHOICE_FIELDS },
+} as const satisfies Schema;
+
 // Separate lists keep Haiku from mixing up "answer this question", "underline this phrase" and "add this missing setting".
 const ANALYZE_SCHEMA = {
   type: "object",
@@ -91,19 +85,45 @@ const ANALYZE_SCHEMA = {
         properties: { span: STRING, sentence: STRING, ...CHOICE_FIELDS },
       },
     },
-    underlines: {
-      type: "array",
-      items: { type: "object", required: ["span", "question", "kind"], properties: { span: STRING, ...CHOICE_FIELDS } },
-    },
-    extras: {
-      type: "array",
-      items: {
-        type: "object",
-        required: ["token", "sentence", "question", "kind"],
-        properties: { token: STRING, sentence: STRING, ...CHOICE_FIELDS },
+    underlines: { type: "array", items: UNDERLINE },
+    extras: { type: "array", items: EXTRA },
+  },
+} as const satisfies Schema;
+
+/** A choice as the page gets it: `type` says where it goes in the request. */
+const CHOICE = {
+  anyOf: [
+    {
+      type: "object",
+      required: ["type", "span", "statement", "question", "kind"],
+      properties: {
+        type: { type: "string", enum: ["ask"] },
+        span: STRING,
+        statement: STRING,
+        ...CHOICE_FIELDS,
+        kind: { type: "string", enum: ["single", "multi"] },
       },
     },
-  },
+    {
+      ...UNDERLINE,
+      required: [...UNDERLINE.required, "type"],
+      properties: { ...UNDERLINE.properties, type: { type: "string", enum: ["underline"] } },
+    },
+    {
+      ...EXTRA,
+      required: [...EXTRA.required, "type"],
+      properties: { ...EXTRA.properties, type: { type: "string", enum: ["extra"] } },
+    },
+  ],
+} as const satisfies Schema;
+
+// Which model answered and how long it took, when the backend says.
+const MODEL_INFO = { model: STRING, ms: NUMBER } as const;
+
+export const ANALYSIS = {
+  type: "object",
+  required: ["summary", "choices"],
+  properties: { summary: STRING, choices: { type: "array", items: CHOICE }, ...MODEL_INFO },
 } as const satisfies Schema;
 
 export async function analyze(
@@ -173,6 +193,10 @@ const EXPLAIN_SCHEMA = {
     },
   },
 } as const satisfies Schema;
+export const EXPLANATION = {
+  ...EXPLAIN_SCHEMA,
+  properties: { ...EXPLAIN_SCHEMA.properties, ...MODEL_INFO },
+} as const satisfies Schema;
 
 export function explain(model: ModelCall, { text, question, options }: ExplainInput): Promise<Explanation> {
   const input = `Request: ${text}\nQuestion: ${question}\nOptions:\n` + options.map(o => `- ${o}`).join("\n");
@@ -199,6 +223,10 @@ const DECIDE_SCHEMA = {
     },
     recommendation: { type: "object", required: ["label", "why"], properties: { label: STRING, why: STRING } },
   },
+} as const satisfies Schema;
+export const DECISION = {
+  ...DECIDE_SCHEMA,
+  properties: { ...DECIDE_SCHEMA.properties, ...MODEL_INFO },
 } as const satisfies Schema;
 
 export async function decide(
@@ -236,6 +264,10 @@ const TIDY_SCHEMA = {
       },
     },
   },
+} as const satisfies Schema;
+export const TIDIED = {
+  ...TIDY_SCHEMA,
+  properties: { ...TIDY_SCHEMA.properties, ...MODEL_INFO },
 } as const satisfies Schema;
 
 export async function tidy(model: ModelCall, sentences: string[]): Promise<Tidied> {

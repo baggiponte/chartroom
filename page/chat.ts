@@ -1,9 +1,9 @@
 // The MCP Apps protocol (https://github.com/modelcontextprotocol/ext-apps, 2026-01-26), written by hand to keep the
 // page one file.
 
-import type { Api, Init, Route } from "../skills/help-me/api.ts";
+import { type Api, INIT, type Init, REPLY, type Route } from "../skills/help-me/api.ts";
 import { check, isRecord } from "../skills/help-me/schema.ts";
-import { superseded } from "./client.ts";
+import { fits, superseded } from "./client.ts";
 
 export type ChatHost = ReturnType<typeof chatHost>;
 
@@ -15,18 +15,10 @@ const TOOL_RESULT = {
   type: "object",
   properties: { isError: { type: "boolean" }, content: TEXT, structuredContent: {} },
 } as const;
-const INIT = {
-  type: "object",
-  required: ["session", "draft", "model", "backend", "agent", "images", "build"],
-  properties: {
-    session: STRING,
-    draft: STRING,
-    model: STRING,
-    backend: STRING,
-    agent: STRING,
-    images: { type: "boolean" },
-    build: STRING,
-  },
+const SESSION_INIT = {
+  ...INIT,
+  required: [...INIT.required, "session"],
+  properties: { ...INIT.properties, session: STRING },
 } as const;
 const API_RESULT = {
   type: "object",
@@ -75,7 +67,7 @@ export function chatHost() {
       if (r.isError) {
         throw new Error("tool error");
       }
-      check(content, INIT);
+      check(content, SESSION_INIT);
       result.resolve(content);
     } catch {
       result.reject(new Error(r.content?.[0]?.text || "the help-me tool failed"));
@@ -151,8 +143,7 @@ export function chatHost() {
         const error = isRecord(j) ? j["error"] : undefined;
         throw new Error(typeof error === "string" && error ? error : `error ${String(status)}`);
       }
-      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the help-me server's reply, passed on by mcp/server.ts
-      return j as Api[R]["reply"];
+      return fits(j, REPLY[path]);
     },
   };
 }

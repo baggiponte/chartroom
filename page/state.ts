@@ -59,7 +59,7 @@ export interface Decide {
 
 export interface DecideQuestion {
   question: string;
-  options: { label: string; emoji?: string }[];
+  options: { label: string; emoji?: string | undefined }[];
   answer: string;
 }
 
