@@ -32,9 +32,9 @@ const log = (...m: unknown[]): void => {
   console.error("[help-me mcp]", ...m);
 };
 
-// The page decides "in the chat" from this flag, so the same file still works in a tab.
+// The page decides "in the chat" from this tag, so the same file still works in a tab.
 const { html, build: BUILD } = readPage();
-const PAGE = html.replace("<script>", "<script>window.__HELP_ME_MCP__ = true;</script>\n<script>");
+const PAGE = html.replace('<meta name="build"', '<meta name="host" content="chat">\n<meta name="build"');
 
 // Desktop apps start MCP servers with a bare PATH, so the claude/codex/gemini CLIs wouldn't be found.
 const ENV: NodeJS.ProcessEnv = {

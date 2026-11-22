@@ -1,12 +1,10 @@
-// Ranking: each bullet under a Tidy up heading gets a grip in the left margin. Drag it (mouse or touch), or focus it
-// and use ↑/↓, to reorder items within a list or move them to the other list; Alt+Shift+↑/↓ does it from the caret.
 // Only whole lines move, so underlines travel with their item, and the order on screen is what gets sent.
-// Ctrl/Cmd+Z undoes moves one at a time; Undo tidy still goes all the way back to before the tidy.
 
 import { closePop } from "./popover.ts";
 import { render } from "./render.ts";
 import { isHeading, setText } from "./request.ts";
-import { $, type Snapshot, backdrop, gripsEl, laneEl, state, ta } from "./state.ts";
+import { $, backdrop, gripsEl, laneEl, ta } from "./dom.ts";
+import { type Snapshot, state } from "./state.ts";
 import { undoTidy } from "./tidy.ts";
 
 const BULLET = /^[ \t]*[-*•][ \t]+\S/;
@@ -115,13 +113,13 @@ export function renderGrips(): void {
       "aria-label",
       `Move “${words}”: item ${String(it.k + 1)} of ${String(it.n)} in ${lists[it.li]?.title ?? ""}. Use up and down arrows to move it.`,
     );
-    g.classList.toggle("dragging", Boolean(state.rank) && state.rank?.ln === it.ln);
+    g.classList.toggle("dragging", Boolean(state.ranking) && state.ranking?.ln === it.ln);
   });
   const fg = document.activeElement;
   if (fg instanceof HTMLElement && gripsEl.contains(fg)) {
-    state.laneLn = Number(fg.dataset["ln"]);
+    state.laneLine = Number(fg.dataset["ln"]);
   }
-  const show = state.rank ? state.rank.ln : state.laneLn;
+  const show = state.ranking ? state.ranking.ln : state.laneLine;
   const box = show >= 0 && items.some(it => it.ln === show) ? lineBox(show, text) : null;
   laneEl.hidden = !box;
   if (box) {
@@ -201,10 +199,10 @@ function recordMove(snap: Snapshot): void {
   if (ta.value === snap.text) {
     return;
   }
-  if (state.moves.length && state.moves.at(-1)?.after !== snap.text) {
-    state.moves = [];
+  if (state.moveUndo.length && state.moveUndo.at(-1)?.after !== snap.text) {
+    state.moveUndo = [];
   }
-  state.moves.push({ ...snap, after: ta.value });
+  state.moveUndo.push({ ...snap, after: ta.value });
 }
 
 function restore(snap: Snapshot, from: string): void {
@@ -219,15 +217,15 @@ function restore(snap: Snapshot, from: string): void {
 }
 
 export function undoMove(): boolean {
-  const m = state.moves.at(-1);
+  const m = state.moveUndo.at(-1);
   if (!m || state.ended) {
     return false;
   }
   if (m.after !== ta.value) {
-    state.moves = [];
+    state.moveUndo = [];
     return false;
   }
-  state.moves.pop();
+  state.moveUndo.pop();
   restore(m, m.after);
   render();
   say("Move undone.");
@@ -322,24 +320,24 @@ gripsEl.addEventListener("keydown", e => {
 gripsEl.addEventListener("focusin", e => {
   const g = gripOf(e);
   if (g) {
-    state.laneLn = Number(g.dataset["ln"]);
+    state.laneLine = Number(g.dataset["ln"]);
     renderGrips();
   }
 });
 gripsEl.addEventListener("focusout", () => {
-  state.laneLn = -1;
+  state.laneLine = -1;
   renderGrips();
 });
 gripsEl.addEventListener("pointerover", e => {
   const g = gripOf(e);
-  if (g && !state.rank) {
-    state.laneLn = Number(g.dataset["ln"]);
+  if (g && !state.ranking) {
+    state.laneLine = Number(g.dataset["ln"]);
     renderGrips();
   }
 });
 gripsEl.addEventListener("pointerout", () => {
-  if (!state.rank && !gripsEl.contains(document.activeElement)) {
-    state.laneLn = -1;
+  if (!state.ranking && !gripsEl.contains(document.activeElement)) {
+    state.laneLine = -1;
     renderGrips();
   }
 });
@@ -353,11 +351,11 @@ gripsEl.addEventListener("pointerdown", e => {
   e.preventDefault();
   closePop();
   g.setPointerCapture(e.pointerId);
-  state.rank = { ln: Number(g.dataset["ln"]), id: e.pointerId, snap: snapshot(), y0: e.clientY, live: false };
+  state.ranking = { ln: Number(g.dataset["ln"]), id: e.pointerId, snap: snapshot(), y0: e.clientY, live: false };
   render();
 });
 gripsEl.addEventListener("pointermove", e => {
-  const { rank } = state;
+  const { ranking: rank } = state;
   if (!rank || e.pointerId !== rank.id) {
     return;
   }
@@ -400,18 +398,18 @@ gripsEl.addEventListener("pointermove", e => {
 });
 
 function endRank(e: PointerEvent | null, cancel: boolean): void {
-  const r = state.rank;
+  const r = state.ranking;
   if (!r || (e && e.pointerId !== r.id)) {
     return;
   }
-  state.rank = null;
+  state.ranking = null;
   document.body.classList.remove("ranking");
   if (cancel) {
     restore(r.snap, ta.value);
   } else {
     recordMove(r.snap);
   }
-  state.laneLn = -1;
+  state.laneLine = -1;
   render();
   if (!cancel && r.snap.text !== ta.value) {
     sayWhere(r.ln);
@@ -426,7 +424,7 @@ gripsEl.addEventListener("pointercancel", e => {
 document.addEventListener(
   "keydown",
   e => {
-    if (e.key === "Escape" && state.rank) {
+    if (e.key === "Escape" && state.ranking) {
       e.preventDefault();
       endRank(null, true);
     }

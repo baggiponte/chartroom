@@ -1,5 +1,3 @@
-// Demo mode: the page was opened as a plain file, with no server behind it, so canned replies stand in.
-
 import type { Analysis, DecideInput, Choice as Sent } from "../skills/help-me/tasks.ts";
 import type { Api } from "../skills/help-me/api.ts";
 import type { Choice, Explanation } from "./state.ts";

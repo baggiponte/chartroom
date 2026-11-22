@@ -1,11 +1,10 @@
-// The page's side of the API: POST a route's body, get its reply, through the help-me server or the chat host.
-
 import type { Api, Failure, Init, Route } from "../skills/help-me/api.ts";
 import { state } from "./state.ts";
 
 /** A newer request of the same kind took over; the page drops the older one's answer. */
 export type Superseded = Error & { superseded: true };
 export const superseded = (): Superseded => Object.assign(new Error("superseded"), { superseded: true as const });
+export const isSuperseded = (e: unknown): e is Superseded => e instanceof Error && "superseded" in e;
 
 // The serving process swaps in a hash of this file; a file:// page keeps the placeholder. It sits in a meta tag so
 // the bundler can't fold the comparison below into a constant.

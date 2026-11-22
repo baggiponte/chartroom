@@ -1,10 +1,10 @@
-// Drawing the request: underlines in the backdrop, extras as tokens, the toolbar and the "Where you are" timeline.
-
-import { cap, esc, isAsk, isSet, textFor, tokenValue } from "./choice.ts";
+import { isAsk, isSet, textFor, tokenValue } from "./choice.ts";
+import { cap, esc } from "./format.ts";
 import { anchorFor, openPop, positionPop } from "./popover.ts";
 import { renderGrips, tidyLists } from "./rank.ts";
 import { hasTidyLayout, isHeading } from "./request.ts";
-import { $, backdrop, extrasEl, moreBtn, sendBtn, state, ta, tidyBtn } from "./state.ts";
+import { $, backdrop, extrasEl, moreBtn, sendBtn, ta, tidyBtn } from "./dom.ts";
+import { state } from "./state.ts";
 import { segments, tidyOrUndo } from "./tidy.ts";
 
 // plain text between underlines; headings added by Tidy up are dimmed (colour only, so the caret stays aligned)
@@ -28,7 +28,7 @@ export function render(flashId?: string): void {
     html += plain(text.slice(pos, c.start));
     const cls = [
       c.kind === "slider" ? "scrub" : "",
-      state.drag?.id === c.id ? "scrubbing" : "",
+      state.press?.id === c.id ? "scrubbing" : "",
       c.settled ? "settled" : "",
       c.promo && !c.settled ? "ph" : "",
       isAsk(c) ? "ask" : "",
@@ -62,7 +62,7 @@ export function renderExtras(): void {
         const s = c.slider;
         const v = textFor(c);
         return (
-          `<button class="token scrub ${c.settled ? "settled" : "unset"} ${open} ${state.drag?.id === c.id ? "scrubbing" : ""}" data-id="${c.id}" ` +
+          `<button class="token scrub ${c.settled ? "settled" : "unset"} ${open} ${state.press?.id === c.id ? "scrubbing" : ""}" data-id="${c.id}" ` +
           `role="slider" aria-label="${esc(c.question)}" aria-valuemin="${String(s.min)}" aria-valuemax="${String(s.max)}" aria-valuenow="${String(c.value)}" aria-valuetext="${esc(v)}">` +
           `<span class="k">${esc(c.token)}:</span> <span class="v">${esc(v)}</span></button>`
         );
@@ -119,9 +119,6 @@ function renderTidy(): void {
         : 'Tidy<span class="long"> up</span>';
 }
 
-// Four steps: the model reads -> you shape it -> you read it over and send -> your agent takes over.
-// The side timeline (a compact stepper on narrow screens), the toolbar status and the Send button all say
-// what is happening now and what you're expected to do.
 export function openItems() {
   return state.choices
     .filter(c => !c.extra && c.start >= 0 && ((c.promo && !c.settled) || (isAsk(c) && !isSet(c))))

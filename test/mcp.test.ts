@@ -133,7 +133,7 @@ describe("MCP App over stdio", () => {
   test("serves the page marked as shown inside the chat", async t => {
     const client = await connect(t);
     const page = Page.parse(await client.request("resources/read", { uri: "ui://help-me/page.html" }));
-    assert.match(page.contents[0].text, /window\.__HELP_ME_MCP__ = true/);
+    assert.match(page.contents[0].text, /<meta name="host" content="chat">/);
     assert.doesNotMatch(page.contents[0].text, /"%BUILD%"/);
   });
 });

@@ -1,11 +1,11 @@
-// Pointing at the request: marks sit under the textarea, so presses are hit-tested against their boxes. A press on
-// a slider's value drags it Bret Victor style; any other press toggles the choice's popover.
+// Marks sit under the textarea, so presses are hit-tested against their boxes.
 
-import { clamp } from "./choice.ts";
+import { clamp } from "./format.ts";
 import { anchorFor, closePop, openPop } from "./popover.ts";
 import { render } from "./render.ts";
 import { applyChoice } from "./request.ts";
-import { type Choice, backdrop, byChoiceId, extrasEl, hintEl, state, ta } from "./state.ts";
+import { backdrop, extrasEl, hintEl, ta } from "./dom.ts";
+import { byChoiceId, type Choice, state } from "./state.ts";
 
 type SliderChoice = Choice & { kind: "slider" };
 const isScrub = (ch: Choice | undefined): ch is SliderChoice => ch?.kind === "slider";
@@ -64,11 +64,10 @@ export function hideHint(): void {
   hintEl.hidden = true;
 }
 
-// Every press on the textarea or a token ends in endPress: a drag scrubs, anything else toggles the popover.
 function startPress(id: string | null, e: PointerEvent, el: HTMLElement): void {
   const ch = byChoiceId(id);
   const scrub = isScrub(ch) && !state.ended;
-  state.drag = {
+  state.press = {
     id: ch ? id : null,
     pointer: e.pointerId,
     x0: e.clientX,
@@ -84,11 +83,11 @@ function startPress(id: string | null, e: PointerEvent, el: HTMLElement): void {
 }
 
 function endPress(e: PointerEvent, cancelled: boolean): void {
-  const d = state.drag;
+  const d = state.press;
   if (!d || e.pointerId !== d.pointer) {
     return;
   }
-  state.drag = null;
+  state.press = null;
   document.body.classList.remove("scrubbing");
   if (d.moved || (cancelled && d.scrub)) {
     render();
@@ -133,7 +132,7 @@ function scrubKey(ch: SliderChoice, e: KeyboardEvent): boolean {
 }
 
 ta.addEventListener("mousemove", e => {
-  if (state.drag) {
+  if (state.press) {
     return;
   }
   const id = markAt(e.clientX, e.clientY);
@@ -175,13 +174,13 @@ extrasEl.addEventListener("click", e => {
 });
 
 document.addEventListener("pointermove", e => {
-  const d = state.drag;
+  const d = state.press;
   if (!d?.scrub || e.pointerId !== d.pointer) {
     return;
   }
   const ch = byChoiceId(d.id);
   if (!isScrub(ch)) {
-    state.drag = null;
+    state.press = null;
     return;
   }
   const dx = e.clientX - d.x0;
@@ -244,7 +243,7 @@ extrasEl.addEventListener("pointerdown", e => {
 });
 extrasEl.addEventListener("pointerover", e => {
   const ch = byChoiceId(tokenOf(e, ".token.scrub")?.dataset["id"] ?? null);
-  if (ch && !state.drag) {
+  if (ch && !state.press) {
     showHint(ch);
   }
 });

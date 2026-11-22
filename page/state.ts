@@ -1,53 +1,12 @@
-// What the page knows: its elements, the choices on the request, and what is running.
-
-import type { Api } from "../skills/help-me/api.ts";
+import type { Choice as Suggested, Explanation as Explained } from "../skills/help-me/tasks.ts";
 import type { ChatHost } from "./chat.ts";
 
-export interface Option {
-  label: string;
-  emoji?: string;
-  text: string;
-}
-
-export interface Slider {
-  min: number;
-  max: number;
-  step: number;
-  value?: number;
-  unit?: string;
-  minLabel?: string;
-  maxLabel?: string;
-  template?: string;
-  stops?: string[];
-}
-
-/** Where a written-in question's sentence sits around its value: "My budget is " + value + ".". */
-export interface Promo {
-  sep: string;
-  pre: string;
-  post: string;
-}
-
-export type Explanation = Omit<Api["/api/explain"]["reply"], "model" | "ms">;
-
-export interface DecideQuestion {
-  question: string;
-  options: { label: string; emoji?: string }[];
-  answer: string;
-}
-
-export interface Decide {
-  qs: DecideQuestion[];
-  rec: { label: string; why: string } | null;
-  busy: boolean;
-  err: string;
-  seq: number;
-}
+/** A choice on the request: a question it asks, a phrase in it, or something it doesn't say yet (`extra`). */
+export type Choice = ChoiceBase & ({ kind: "slider"; slider: Slider } | { kind: "single" | "multi"; slider: null });
 
 interface ChoiceBase {
   id: string;
-  /** Where it came from: a question the request asks, a phrase in it, or something it doesn't say yet. */
-  type: "ask" | "underline" | "extra";
+  type: Suggested["type"];
   span: string;
   question: string;
   token: string;
@@ -77,7 +36,70 @@ interface ChoiceBase {
   decide: Decide | null;
 }
 
-export type Choice = ChoiceBase & ({ kind: "slider"; slider: Slider } | { kind: "single" | "multi"; slider: null });
+export type Option = NonNullable<Suggested["options"]>[number];
+
+export type Slider = NonNullable<Suggested["slider"]> & { min: number; max: number; step: number };
+
+/** Where a written-in question's sentence sits around its value: "My budget is " + value + ".". */
+export interface Promo {
+  sep: string;
+  pre: string;
+  post: string;
+}
+
+export type Explanation = Omit<Explained, "model" | "ms">;
+
+export interface Decide {
+  qs: DecideQuestion[];
+  rec: { label: string; why: string } | null;
+  busy: boolean;
+  err: string;
+  seq: number;
+}
+
+export interface DecideQuestion {
+  question: string;
+  options: { label: string; emoji?: string }[];
+  answer: string;
+}
+
+export interface PageState {
+  /** "demo" when no server is behind the page, so canned replies stand in. */
+  mode: "live" | "demo";
+  modelName: string;
+  agentName: string;
+  imagesOn: boolean;
+  chat: ChatHost | null;
+  choices: Choice[];
+  summary: string;
+  /** Bumped by each read of the request, so an older read's answer is dropped. */
+  analysisSeq: number;
+  timer: ReturnType<typeof setTimeout> | undefined;
+  lastAnalyzed: string | null;
+  busy: boolean;
+  moreBusy: boolean;
+  openId: string | null;
+  hoverId: string | null;
+  /** The choice the open popover was last drawn for, so a redraw of the same one keeps its scroll. */
+  openedFor: string | null;
+  lastChoiceId: number;
+  /** Once sent or cancelled the page stays open to look back at, but nothing changes or is sent again. */
+  ended: "sent" | "cancelled" | null;
+  /** Each written-in question whose sentence you removed. */
+  removed: { question: string; token: string }[];
+  skipNextAnalysisFor: string | null;
+  statusKind: string;
+  readInfo: string;
+  nudgeId: string | null;
+  tidyHeads: Set<string>;
+  tidyBusy: boolean;
+  tidyUndo: TidyUndo | null;
+  tidySeq: number;
+  moveUndo: (Snapshot & { after: string })[];
+  ranking: RankDrag | null;
+  laneLine: number;
+  press: Press | null;
+}
 
 export interface TidyUndo {
   before: string;
@@ -91,7 +113,8 @@ export interface Snapshot {
   linked: boolean;
 }
 
-export interface Rank {
+/** A tidied item being dragged by its grip. */
+export interface RankDrag {
   ln: number;
   id: number;
   snap: Snapshot;
@@ -99,6 +122,7 @@ export interface Rank {
   live: boolean;
 }
 
+/** A pointer press on the request or a token: a drag on a slider's value scrubs it, anything else is a click. */
 export interface Press {
   id: string | null;
   pointer: number;
@@ -109,60 +133,37 @@ export interface Press {
   inTa: boolean;
 }
 
-function byId<T extends HTMLElement>(id: string, type: new () => T): T {
-  const el = document.getElementById(id);
-  if (!(el instanceof type)) {
-    throw new Error(`#${id} is missing`);
-  }
-  return el;
-}
-
-export const $ = (id: string): HTMLElement => byId(id, HTMLElement);
-export const ta = byId("ta", HTMLTextAreaElement);
-export const backdrop = $("backdrop");
-export const pop = $("pop");
-export const extrasEl = $("extras");
-export const gripsEl = $("grips");
-export const laneEl = $("lane");
-export const hintEl = $("scrubHint");
-export const moreBtn = byId("more", HTMLButtonElement);
-export const tidyBtn = byId("tidy", HTMLButtonElement);
-export const sendBtn = byId("send", HTMLButtonElement);
-
-export const state = {
-  mode: "live" as "live" | "demo",
+export const state: PageState = {
+  mode: "live",
   modelName: "the model",
   agentName: "your agent",
   imagesOn: true,
-  chat: null as ChatHost | null,
-  choices: [] as Choice[],
+  chat: null,
+  choices: [],
   summary: "",
-  seq: 0,
-  timer: undefined as ReturnType<typeof setTimeout> | undefined,
-  lastAnalyzed: null as string | null,
+  analysisSeq: 0,
+  timer: undefined,
+  lastAnalyzed: null,
   busy: false,
   moreBusy: false,
-  openId: null as string | null,
-  hoverId: null as string | null,
-  /** The choice the open popover was last drawn for, so a redraw of the same one keeps its scroll. */
-  openedFor: null as string | null,
-  uid: 0,
-  /** Once sent or cancelled the page stays open to look back at, but nothing changes or is sent again. */
-  ended: null as "sent" | "cancelled" | null,
-  /** Each written-in question whose sentence you removed. */
-  removed: [] as { question: string; token: string }[],
-  skipNextAnalysisFor: null as string | null,
+  openId: null,
+  hoverId: null,
+  openedFor: null,
+  lastChoiceId: 0,
+  ended: null,
+  removed: [],
+  skipNextAnalysisFor: null,
   statusKind: "",
   readInfo: "",
-  nudgeId: null as string | null,
-  tidyHeads: new Set<string>(),
+  nudgeId: null,
+  tidyHeads: new Set(),
   tidyBusy: false,
-  tidyUndo: null as TidyUndo | null,
+  tidyUndo: null,
   tidySeq: 0,
-  moves: [] as (Snapshot & { after: string })[],
-  rank: null as Rank | null,
-  laneLn: -1,
-  drag: null as Press | null,
+  moveUndo: [],
+  ranking: null,
+  laneLine: -1,
+  press: null,
 };
 
 export const byChoiceId = (id: string | null): Choice | undefined =>
