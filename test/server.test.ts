@@ -284,10 +284,10 @@ describe("choosing a backend", () => {
   });
 });
 
-// Bugs found while writing these tests. Each asserts the behaviour we want; `todo` keeps the suite green until the
-// fix lands, and the runner still reports whether they pass.
-describe("known bugs", () => {
-  test("a second Send is ignored instead of printing the prompt twice", { todo: "issue #9" }, async () => {
+// Bugs found while writing these tests, one issue each. A test still marked `todo` asserts the behaviour we want before
+// the fix lands, so the suite stays green and the runner still reports whether it passes.
+describe("bugs", () => {
+  test("a second Send is ignored instead of printing the prompt twice", async () => {
     const helpMe = await startHelpMe();
     await Promise.all([helpMe.post("/api/submit", { prompt: "once" }), helpMe.post("/api/submit", { prompt: "once" })]);
     assert.equal((await helpMe.exited).stdout, "once\n");
