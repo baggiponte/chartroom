@@ -93,7 +93,7 @@ export function renderGrips(): void {
   const text = ta.value;
   const lines = text.split("\n");
   const items = lists.flatMap((L, li) => L.items.map((ln, k) => ({ ln, li, k, n: L.items.length })));
-  const lh = parseFloat(getComputedStyle(ta).lineHeight) || 35;
+  const lh = Number.parseFloat(getComputedStyle(ta).lineHeight) || 35;
   if (gripsEl.children.length !== items.length) {
     gripsEl.innerHTML = items
       .map(() => `<button class="grip" type="button" tabindex="0">${GRIP_SVG}</button>`)

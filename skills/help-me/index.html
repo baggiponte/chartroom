@@ -2118,7 +2118,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			k,
 			n: L.items.length
 		})));
-		const lh = parseFloat(getComputedStyle(ta).lineHeight) || 35;
+		const lh = Number.parseFloat(getComputedStyle(ta).lineHeight) || 35;
 		if (gripsEl.children.length !== items.length) gripsEl.innerHTML = items.map(() => `<button class="grip" type="button" tabindex="0">${GRIP_SVG}</button>`).join("");
 		items.forEach((it, i) => {
 			const g = gripsEl.children[i];
