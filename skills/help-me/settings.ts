@@ -74,20 +74,20 @@ function readConfig(file: string): Readonly<Record<string, unknown>> {
 }
 
 /**
- * The backend asked for, or with `auto` the agent help-me is running in. Never another one: when that can't run, the
+ * The backend asked for, or with `host` the agent help-me is running in. Never another one: when that can't run, the
  * error says why and where to set `backend`, so the agent can offer to fix the config instead of us choosing for them.
  */
 function pickBackend(asked: string, env: NodeJS.ProcessEnv, configFile: string): ProviderName {
-  const names = Object.keys(PROVIDERS).join(", ");
+  const names = ["host", ...Object.keys(PROVIDERS)].join(", ");
   const fix = `Set "backend" in ${configFile} (or pass --backend) to one of: ${names}.`;
-  if (asked === "auto") {
+  if (asked === "host") {
     const host = hostOf(env);
     if (!host) {
-      throw new Error(`backend is "auto", but help-me can't tell which agent is running it. ${fix}`);
+      throw new Error(`backend is "host", but help-me can't tell which agent is running it. ${fix}`);
     }
     if (!PROVIDERS[host.name].available(env)) {
       throw new Error(
-        `backend is "auto" and ${host.agent} is running help-me, but ${PROVIDERS[host.name].needs} isn't there. ${fix}`,
+        `backend is "host" and ${host.agent} is running help-me, but ${PROVIDERS[host.name].needs} isn't there. ${fix}`,
       );
     }
     return host.name;
@@ -133,7 +133,7 @@ export function readSettings(argv: Array<string>, env: NodeJS.ProcessEnv): Setti
     return typeof v === "boolean" ? v : !v ? fallback : !["0", "false", "no", "off"].includes(v.toLowerCase());
   };
 
-  const asked = setting("backend", "auto").toLowerCase();
+  const asked = setting("backend", "host").toLowerCase();
   const backend = pickBackend(asked, env, configFile);
 
   const timeout = setting("timeout-min", "30");
