@@ -289,7 +289,7 @@ export async function tidy(model: ModelCall, sentences: Array<string>): Promise<
       blocks.push({ heading: b.heading.trim().replace(/[:：]\s*$/, ""), items });
     }
   }
-  const missing = sentences.map((_, i) => i).filter(i => !used.has(i));
+  const missing = sentences.flatMap((_, i) => (used.has(i) ? [] : [i]));
   const first = blocks[0];
   if (missing.length && first) {
     first.items.push(...missing);

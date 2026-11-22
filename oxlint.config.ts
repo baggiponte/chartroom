@@ -12,7 +12,6 @@ export default defineConfig({
     "quality/no-known-value-widening": "off",
     "quality/no-conditional-empty-object-spread": "off",
     "quality/no-object-parameters": "off",
-    "quality/no-array-filter-map": "off",
   },
   overrides: [
     ...(cloudflare.overrides ?? []),

@@ -1968,7 +1968,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 				items
 			});
 		}
-		const missing = segs.map((_, i) => i).filter((i) => !used.has(i));
+		const missing = segs.flatMap((_, i) => used.has(i) ? [] : [i]);
 		if (missing.length) {
 			const first = blocks[0];
 			if (first) first.items.push(...missing);

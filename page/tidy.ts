@@ -116,7 +116,7 @@ function applyTidy(text: string, segs: Array<Segment>, raw: Array<{ heading: str
       blocks.push({ heading: b.heading.trim().replace(/:$/, ""), items });
     }
   }
-  const missing = segs.map((_, i) => i).filter(i => !used.has(i));
+  const missing = segs.flatMap((_, i) => (used.has(i) ? [] : [i]));
   if (missing.length) {
     const first = blocks[0];
     if (first) {
