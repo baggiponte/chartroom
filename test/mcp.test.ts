@@ -127,7 +127,9 @@ describe("MCP App over stdio", () => {
     const client = await connect(t, { PROMPT_SHAPER_TIMEOUT_MIN: "soon" });
     const r = z
       .object({ isError: z.literal(true), content: z.tuple([z.object({ text: z.string() })]) })
-      .parse(await client.request("tools/call", { name: "help_me", arguments: { request: "x" } }));
+      .parse(
+        await client.request("tools/call", { name: "help_me", arguments: { request: "x", backend: "anthropic" } }),
+      );
     assert.match(r.content[0].text, /couldn't start: --timeout-min should be a number/);
   });
 

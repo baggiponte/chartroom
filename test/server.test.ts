@@ -50,7 +50,7 @@ const Decision = z.object({
   recommendation: z.object({ label: z.string(), why: z.string() }).optional(),
 });
 const Submitted = z.object({ ok: z.literal(true), sent: z.string() });
-const OutFile = z.object({ status: z.string(), prompt: z.string() });
+const OutFile = z.object({ status: z.string(), prompt: z.string(), error: z.string().optional() });
 
 function outFile(path: string): z.infer<typeof OutFile> {
   return OutFile.parse(JSON.parse(readFileSync(path, "utf8")));
@@ -298,7 +298,10 @@ describe("choosing a backend", () => {
   test("an unknown backend exits 1 and lists the known ones", async () => {
     const { code, stderr } = await runHelpMe(["--backend", "nope"]);
     assert.equal(code, 1);
-    assert.match(stderr, /unknown backend "nope", use one of: auto, claude, codex, gemini, anthropic, openai/);
+    assert.match(
+      stderr,
+      /unknown backend "nope". Set "backend" in .* to one of: host, claude, codex, gemini, antigravity, opencode, pi, anthropic, openai/,
+    );
   });
 
   test("an unknown flag exits 1, and --out still says so", async () => {
@@ -306,7 +309,7 @@ describe("choosing a backend", () => {
     const { code, stderr } = await runHelpMe(["--out", out, "--bogus"]);
     assert.equal(code, 1);
     assert.match(stderr, /Unknown option '--bogus'/);
-    assert.deepEqual(outFile(out), { status: "error", prompt: "" });
+    assert.deepEqual(outFile(out), { status: "error", prompt: "", error: "Unknown option '--bogus'" });
   });
 
   test("a config file that is not a JSON object exits 1 instead of being ignored", async () => {
@@ -316,13 +319,19 @@ describe("choosing a backend", () => {
     const { code, stderr } = await runHelpMe(["--out", out], { PROMPT_SHAPER_CONFIG: config, ANTHROPIC_API_KEY: "x" });
     assert.equal(code, 1);
     assert.match(stderr, /broken-config\.json is not a valid config/);
-    assert.deepEqual(outFile(out), { status: "error", prompt: "" });
+    assert.match(outFile(out).error ?? "", /broken-config\.json is not a valid config/);
   });
 
-  test("with no CLI on PATH and no API key there is no backend, and it exits 1", async () => {
-    const { code, stderr } = await runHelpMe([]);
+  test("host outside a known agent exits 1 instead of picking a backend for the user", async () => {
+    const { code, stderr } = await runHelpMe([], { ANTHROPIC_API_KEY: "x" });
     assert.equal(code, 1);
-    assert.match(stderr, /no backend found/);
+    assert.match(stderr, /backend is "host", but help-me can't tell which agent is running it/);
+  });
+
+  test("host inside an agent whose CLI is missing exits 1 instead of falling back to another", async () => {
+    const { code, stderr } = await runHelpMe([], { CLAUDECODE: "1", ANTHROPIC_API_KEY: "x" });
+    assert.equal(code, 1);
+    assert.match(stderr, /Claude Code is running help-me, but the claude CLI on PATH isn't there/);
   });
 });
 
@@ -336,7 +345,9 @@ describe("bugs", () => {
   test("with no backend, --out still says what happened", async () => {
     const out = join(scratch, "no-backend.json");
     await runHelpMe(["--out", out]);
-    assert.deepEqual(outFile(out), { status: "error", prompt: "" });
+    const { status, error } = outFile(out);
+    assert.equal(status, "error");
+    assert.match(error ?? "", /Set "backend" in/);
   });
 
   test("a --timeout-min that is not a number is refused at start", async () => {

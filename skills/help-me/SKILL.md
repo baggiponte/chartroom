@@ -1,7 +1,7 @@
 ---
 name: help-me
 description: Opens a browser page where the user shapes a vague request by clicking on it, then returns the sharpened request. Use when the user types /help-me or asks to refine their request in the browser before you start.
-compatibility: Needs Node 22.18+, a local browser, and one analysis backend (the claude, codex or gemini CLI, or ANTHROPIC_API_KEY / OPENAI_API_KEY).
+compatibility: Needs Node 22.18+, a local browser, and one analysis backend (by default the agent running it, through its claude, codex, gemini, agy, opencode or pi CLI; or ANTHROPIC_API_KEY / OPENAI_API_KEY).
 allowed-tools: Bash(node:*)
 metadata:
   version: "0.4.0"
@@ -33,14 +33,14 @@ HELP_ME_EOF
 
 Turn instructions about the page itself into flags and **remove them from the request** on stdin:
 
-| The user says something like                                  | Flag                                                             |
-| ------------------------------------------------------------- | ---------------------------------------------------------------- |
-| "use gemini", "with codex", "via claude", "use my OpenAI key" | `--backend gemini` (or `claude`, `codex`, `anthropic`, `openai`) |
-| "with sonnet", "use gpt-5"                                    | `--model <name>` (with `--backend` if the model implies one)     |
-| "think harder", "high effort"                                 | `--effort high`                                                  |
-| "no pictures", "without images" / "with pictures"             | `--no-images` / `--images`                                       |
-| "don't open the browser", "I'm on SSH"                        | `--no-open` (then give them the URL from the logs)               |
-| "on port 8080"                                                | `--port 8080`                                                    |
+| The user says something like                                  | Flag                                                                                              |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| "use gemini", "with codex", "via claude", "use my OpenAI key" | `--backend gemini` (or `claude`, `codex`, `antigravity`, `opencode`, `pi`, `anthropic`, `openai`) |
+| "with sonnet", "use gpt-5"                                    | `--model <name>` (with `--backend` if the model implies one)                                      |
+| "think harder", "high effort"                                 | `--effort high`                                                                                   |
+| "no pictures", "without images" / "with pictures"             | `--no-images` / `--images`                                                                        |
+| "don't open the browser", "I'm on SSH"                        | `--no-open` (then give them the URL from the logs)                                                |
+| "on port 8080"                                                | `--port 8080`                                                                                     |
 
 Only strip what is clearly about the page: "Help me choose between Gemini and Claude" is the request. If the
 chosen backend isn't set up, say so and offer another.
@@ -52,4 +52,7 @@ stderr lines starting with `[prompt-shaper]` are logs; one has the page URL to g
 - Exit 0 (`sent`): stdout is the refined request. Treat it as the user's message, every detail a firm
   constraint, and don't comment on the page.
 - Exit 2 (`cancelled`): say so in one line and stop.
+- Exit 1 (`error`) before the page opened: help-me refuses to guess a backend, so stderr (and `error` in the
+  `--out` file) says what is missing and which config file sets `backend`. Show the user that message and offer to
+  fix it: install the missing CLI, or write `"backend"` into that JSON file. Don't pick another backend yourself.
 - Exit 3 (`timeout`) or any other error: say so briefly and offer to run it again.

@@ -32,9 +32,10 @@ export interface RawReply {
   ms?: number | undefined;
 }
 
-/** A backend that ships with help-me, and how `auto` finds it. */
+/** A backend that ships with help-me, and how `host` recognises it. */
 export interface Provider extends Backend {
-  /** Whether it can run here: its CLI is on PATH, or its API key is set. */
+  /** What it needs to run, for the error when that's missing: its CLI on PATH, or its API key. */
+  needs: string;
   available: (env: NodeJS.ProcessEnv) => boolean;
   /** For a harness: its name on the page, and whether help-me is running inside it right now. */
   host?: { agent: string; running: (env: NodeJS.ProcessEnv) => boolean };
@@ -124,6 +125,15 @@ const GEMINI_OUTPUT = {
   type: "object",
   properties: { response: STRING, error: { type: "object", properties: { message: STRING } } },
 } as const satisfies Schema;
+const ANTIGRAVITY_OUTPUT = {
+  type: "object",
+  properties: { status: STRING, response: STRING, error: STRING, structured_output: ANY, duration_seconds: NUMBER },
+} as const satisfies Schema;
+/** One line of `opencode run --format json`: the answer arrives as `text` parts. */
+const OPENCODE_EVENT = {
+  type: "object",
+  properties: { type: STRING, part: { type: "object", properties: { text: STRING } }, error: ANY },
+} as const satisfies Schema;
 const ANTHROPIC_REPLY = {
   type: "object",
   required: ["content"],
@@ -146,10 +156,10 @@ const OPENAI_REPLY = {
 
 const baseUrl = (value: string | undefined, fallback: string): string => (value || fallback).replace(/\/$/, "");
 
-/** In the order `auto` tries them: the harnesses' own CLIs on their subscriptions first, API keys last. */
 export const PROVIDERS = {
   claude: {
     model: "haiku",
+    needs: "the claude CLI on PATH",
     available: env => onPath("claude", env),
     host: { agent: "Claude Code", running: env => Boolean(env["CLAUDECODE"]) },
     run: call =>
@@ -191,8 +201,11 @@ export const PROVIDERS = {
   },
   codex: {
     model: "",
+    needs: "the codex CLI on PATH",
     available: env => onPath("codex", env),
-    host: { agent: "Codex", running: env => Object.keys(env).some(k => k.startsWith("CODEX_")) },
+    // Not any CODEX_* variable: CODEX_HOME is a user setting and the npm wrapper sets CODEX_MANAGED_BY_NPM, so
+    // only what Codex sets for the commands it runs counts.
+    host: { agent: "Codex", running: env => Boolean(env["CODEX_THREAD_ID"] || env["CODEX_SANDBOX"]) },
     run: call => {
       const dir = mkdtempSync(join(tmpdir(), "prompt-shaper-"));
       const schemaFile = join(dir, "schema.json");
@@ -204,6 +217,7 @@ export const PROVIDERS = {
           "codex",
           [
             "exec",
+            "--ephemeral",
             "--skip-git-repo-check",
             "--sandbox",
             "read-only",
@@ -230,6 +244,7 @@ export const PROVIDERS = {
   // No schema flag, so the schema goes in the prompt.
   gemini: {
     model: "gemini-2.5-flash",
+    needs: "the gemini CLI on PATH",
     available: env => onPath("gemini", env),
     host: { agent: "Gemini CLI", running: env => Boolean(env["GEMINI_CLI"]) },
     run: call =>
@@ -237,7 +252,16 @@ export const PROVIDERS = {
         runCli(
           call,
           "gemini",
-          ["-m", call.model, "--output-format", "json", "-p", withSchema(call.system, call.schema)],
+          [
+            "-m",
+            call.model,
+            "--output-format",
+            "json",
+            "--approval-mode",
+            "plan",
+            "-p",
+            withSchema(call.system, call.schema),
+          ],
           call.input,
           out => {
             const res: unknown = JSON.parse(out);
@@ -250,9 +274,109 @@ export const PROVIDERS = {
         ),
       ),
   },
+  // No system prompt flag, so both go in the one prompt.
+  antigravity: {
+    model: "",
+    needs: "the agy CLI on PATH",
+    available: env => onPath("agy", env),
+    run: call =>
+      timed(() =>
+        runCli(
+          call,
+          "agy",
+          [
+            "-p",
+            `${call.system}\n\n${call.input}`,
+            "--output-format",
+            "json",
+            "--json-schema",
+            JSON.stringify(call.schema),
+            "--effort",
+            call.effort,
+            ...(call.model ? ["--model", call.model] : []),
+          ],
+          "",
+          out => {
+            const res: unknown = JSON.parse(out);
+            check(res, ANTIGRAVITY_OUTPUT, "agy output");
+            if (res.error || (res.status && res.status !== "SUCCESS")) {
+              throw new Error(res.error ?? `agy ended with ${res.status ?? "no status"}`);
+            }
+            return {
+              data: res.structured_output ?? parseFenced(res.response ?? ""),
+              ms: res.duration_seconds === undefined ? undefined : res.duration_seconds * 1000,
+            };
+          },
+        ),
+      ),
+  },
+  // `run` has no system prompt or schema flag, and --pure keeps the user's plugins out of a one-off question.
+  opencode: {
+    model: "",
+    needs: "the opencode CLI on PATH",
+    available: env => onPath("opencode", env),
+    host: { agent: "OpenCode", running: env => Boolean(env["OPENCODE"]) },
+    run: call =>
+      timed(() =>
+        runCli(
+          call,
+          "opencode",
+          [
+            "run",
+            "--pure",
+            "--format",
+            "json",
+            ...(call.model ? ["-m", call.model] : []),
+            `${withSchema(call.system, call.schema)}\n\n${call.input}`,
+          ],
+          "",
+          out => {
+            let text = "";
+            for (const line of out.split("\n")) {
+              if (!line.trim().startsWith("{")) {
+                continue;
+              }
+              const event: unknown = JSON.parse(line);
+              check(event, OPENCODE_EVENT, "opencode event");
+              if (event.type === "error") {
+                throw new Error(`opencode: ${JSON.stringify(event.error)}`);
+              }
+              text += event.type === "text" ? (event.part?.text ?? "") : "";
+            }
+            return { data: parseFenced(text) };
+          },
+        ),
+      ),
+  },
+  // Plain -p prints only the final answer, which is all we read.
+  pi: {
+    model: "",
+    needs: "the pi CLI on PATH",
+    available: env => onPath("pi", env),
+    host: { agent: "Pi", running: env => Boolean(env["PI_CODING_AGENT"]) },
+    run: call =>
+      timed(() =>
+        runCli(
+          call,
+          "pi",
+          [
+            "-p",
+            "--no-tools",
+            "--no-session",
+            "--system-prompt",
+            withSchema(call.system, call.schema),
+            ...(call.model ? ["--model", call.model] : []),
+            call.input,
+          ],
+          "",
+          out => ({ data: parseFenced(out.trim()) }),
+        ),
+      ),
+  },
   // A forced tool call returns input that matches the schema.
   anthropic: {
     model: "claude-haiku-5-5",
+    needs: "ANTHROPIC_API_KEY",
     available: env => Boolean(env["ANTHROPIC_API_KEY"]),
     run: call =>
       timed(() =>
@@ -282,6 +406,7 @@ export const PROVIDERS = {
   },
   openai: {
     model: "gpt-5-mini",
+    needs: "OPENAI_API_KEY or OPENAI_BASE_URL",
     available: env => Boolean(env["OPENAI_API_KEY"] || env["OPENAI_BASE_URL"]),
     run: call =>
       timed(() =>
@@ -330,13 +455,4 @@ export function hostOf(env: NodeJS.ProcessEnv): { name: ProviderName; agent: str
     }
   }
   return undefined;
-}
-
-/** The calling harness when it can run here, so help-me spends that subscription; else the first that can. */
-export function autoProvider(env: NodeJS.ProcessEnv): ProviderName | undefined {
-  const host = hostOf(env)?.name;
-  if (host && PROVIDERS[host].available(env)) {
-    return host;
-  }
-  return NAMES.find(name => PROVIDERS[name].available(env));
 }
