@@ -112,7 +112,7 @@ export function readSettings(argv: Array<string>, env: NodeJS.ProcessEnv): Setti
   const backend = asked === "auto" ? autoProvider(env) : asked;
   if (!backend) {
     throw new Error(
-      "no backend found: install the claude, codex or gemini CLI, or set ANTHROPIC_API_KEY or OPENAI_API_KEY",
+      "no backend found: install one of the claude, codex, gemini, agy, qwen, opencode or pi CLIs, or set ANTHROPIC_API_KEY or OPENAI_API_KEY",
     );
   }
 
