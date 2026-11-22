@@ -60,13 +60,22 @@ export interface Failure {
   error: string;
 }
 
-export interface HandlerDeps {
+export interface ApiDeps {
   model: ModelCall;
+  log: (message: string) => void;
+  /** Called once the page sends or cancels, with what goes back to the agent. */
+  finish: (code: ExitCode, prompt: string) => void;
+}
+
+export interface HandlerDeps extends ApiDeps {
   init: Init;
   page: string;
-  log: (message: string) => void;
-  /** Called once the page sends or cancels: the prompt goes back to the agent and the process exits. */
-  finish: (code: ExitCode, prompt: string) => void;
+}
+
+/** What a route answers: the HTTP status and the JSON body, whichever way the page reached it. */
+export interface Answer {
+  status: number;
+  body: unknown;
 }
 
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
@@ -74,102 +83,122 @@ const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : S
 /** The text the server prints for `prompt`: nothing for nothing, and always ending in a newline. */
 export const printed = (prompt: string): string => (prompt ? (prompt.endsWith("\n") ? prompt : prompt + "\n") : "");
 
-// Rejects a body that is not JSON or not shaped like `schema`, which the request handler answers with a 400.
-async function body<S extends Schema>(req: IncomingMessage, schema: S): Promise<Infer<S>> {
-  const raw = await readAll(req);
-  const data: unknown = raw ? JSON.parse(raw) : {};
+/** Rejects a body that is not shaped like `schema`, which `call` answers with a 400. */
+function read<S extends Schema>(data: unknown, schema: S): Infer<S> {
   check(data, schema, "body");
   return data;
 }
 
-function send(res: ServerResponse, status: number, obj: unknown): void {
-  res.writeHead(status, { "content-type": "application/json" });
-  res.end(JSON.stringify(obj));
-}
-
-export function createHandler({ model, init, page, log, finish }: HandlerDeps) {
+/**
+ * The page's API without HTTP around it, so the browser server and the MCP App answer the same way: `call` takes a
+ * route and its parsed JSON body, and never throws.
+ */
+export function createApi({ model, log, finish }: ApiDeps) {
   /** Answers a model-backed route: 409 when a newer request in the same slot took over, 500 for any other failure. */
-  async function answer<T>(res: ServerResponse, work: () => Promise<T>, done: (data: T) => string): Promise<void> {
+  async function answer<T>(work: () => Promise<T>, done: (data: T) => string): Promise<Answer> {
     const t0 = Date.now();
     try {
       const data = await work();
       log(`${done(data)} in ${String(Date.now() - t0)} ms`);
-      send(res, 200, data);
+      return { status: 200, body: data };
     } catch (e) {
       if (e instanceof SupersededError) {
-        send(res, 409, { error: e.message } satisfies Failure);
-        return;
+        return { status: 409, body: { error: e.message } satisfies Failure };
       }
       log(errorMessage(e));
-      send(res, 500, { error: errorMessage(e) } satisfies Failure);
+      return { status: 500, body: { error: errorMessage(e) } satisfies Failure };
     }
   }
 
+  const routes: { [R in Route]: (data: unknown) => Answer | Promise<Answer> } = {
+    "/api/analyze": data => {
+      const { text = "", settled = [], answers = [], asked = [], more = false } = read(data, BODY.analyze);
+      return answer(
+        () => analyze(model, { text, settled, answers, asked, more }),
+        reply => `analysed ${String(text.length)} chars, ${String(reply.choices.length)} choices`,
+      );
+    },
+    "/api/explain": data => {
+      const { text = "", question = "", options = [] } = read(data, BODY.explain);
+      return answer(
+        () => explain(model, { text, question, options }),
+        () => `explained "${question}"`,
+      );
+    },
+    "/api/decide": data => {
+      const { text = "", question = "", options = [], answers = [], asked = [] } = read(data, BODY.decide);
+      return answer(
+        () => decide(model, { text, question, options, answers, asked }),
+        reply => `helped decide "${question}"${reply.recommendation ? `: ${reply.recommendation.label}` : ""}`,
+      );
+    },
+    "/api/tidy": data => {
+      const { sentences = [] } = read(data, BODY.tidy);
+      return answer(
+        () => tidy(model, sentences),
+        reply => `tidied ${String(sentences.length)} sentences into ${String(reply.blocks.length)} blocks`,
+      );
+    },
+    "/api/submit": data => {
+      const { prompt = "" } = read(data, BODY.submit);
+      finish(0, prompt);
+      return { status: 200, body: { ok: true, sent: printed(prompt) } satisfies Api["/api/submit"]["reply"] };
+    },
+    "/api/cancel": () => {
+      finish(2, "");
+      return { status: 200, body: { ok: true } satisfies Api["/api/cancel"]["reply"] };
+    },
+  };
+
+  return {
+    async call(path: Route, data: unknown): Promise<Answer> {
+      try {
+        return await routes[path](data);
+      } catch (e) {
+        return { status: 400, body: { error: errorMessage(e) } satisfies Failure };
+      }
+    },
+  };
+}
+
+const ROUTES = new Set<string>([
+  "/api/analyze",
+  "/api/explain",
+  "/api/decide",
+  "/api/tidy",
+  "/api/submit",
+  "/api/cancel",
+] satisfies Route[]);
+export const isRoute = (path: string): path is Route => ROUTES.has(path);
+
+function send(res: ServerResponse, { status, body: obj }: Answer): void {
+  res.writeHead(status, { "content-type": "application/json" });
+  res.end(JSON.stringify(obj));
+}
+
+/** The browser server's request handler: the page, /api/init, and `createApi` behind POST. */
+export function createHandler({ init, page, ...deps }: HandlerDeps) {
+  const api = createApi(deps);
+
   async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const url = new URL(req.url ?? "/", "http://x");
-    switch (`${req.method ?? ""} ${url.pathname}`) {
-      case "GET /":
-      case "GET /index.html":
-        res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
-        res.end(page);
-        return;
-      case "GET /api/init":
-        send(res, 200, init);
-        return;
-      case "POST /api/analyze": {
-        const { text = "", settled = [], answers = [], asked = [], more = false } = await body(req, BODY.analyze);
-        await answer(
-          res,
-          () => analyze(model, { text, settled, answers, asked, more }),
-          data => `analysed ${String(text.length)} chars, ${String(data.choices.length)} choices`,
-        );
-        return;
-      }
-      case "POST /api/explain": {
-        const { text = "", question = "", options = [] } = await body(req, BODY.explain);
-        await answer(
-          res,
-          () => explain(model, { text, question, options }),
-          () => `explained "${question}"`,
-        );
-        return;
-      }
-      case "POST /api/decide": {
-        const { text = "", question = "", options = [], answers = [], asked = [] } = await body(req, BODY.decide);
-        await answer(
-          res,
-          () => decide(model, { text, question, options, answers, asked }),
-          data => `helped decide "${question}"${data.recommendation ? `: ${data.recommendation.label}` : ""}`,
-        );
-        return;
-      }
-      case "POST /api/tidy": {
-        const { sentences = [] } = await body(req, BODY.tidy);
-        await answer(
-          res,
-          () => tidy(model, sentences),
-          data => `tidied ${String(sentences.length)} sentences into ${String(data.blocks.length)} blocks`,
-        );
-        return;
-      }
-      case "POST /api/submit": {
-        const { prompt = "" } = await body(req, BODY.submit);
-        send(res, 200, { ok: true, sent: printed(prompt) } satisfies Api["/api/submit"]["reply"]);
-        finish(0, prompt);
-        return;
-      }
-      case "POST /api/cancel":
-        send(res, 200, { ok: true } satisfies Api["/api/cancel"]["reply"]);
-        finish(2, "");
-        return;
-      default:
-        send(res, 404, { error: "not found" } satisfies Failure);
+    const { pathname } = new URL(req.url ?? "/", "http://x");
+    const at = `${req.method ?? ""} ${pathname}`;
+    if (at === "GET /" || at === "GET /index.html") {
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+      res.end(page);
+    } else if (at === "GET /api/init") {
+      send(res, { status: 200, body: init });
+    } else if (req.method === "POST" && isRoute(pathname)) {
+      const raw = await readAll(req);
+      send(res, await api.call(pathname, raw ? JSON.parse(raw) : {}));
+    } else {
+      send(res, { status: 404, body: { error: "not found" } satisfies Failure });
     }
   }
 
   return (req: IncomingMessage, res: ServerResponse): void => {
     route(req, res).catch((e: unknown) => {
-      send(res, 400, { error: errorMessage(e) } satisfies Failure);
+      send(res, { status: 400, body: { error: errorMessage(e) } satisfies Failure });
     });
   };
 }

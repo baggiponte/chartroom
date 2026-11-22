@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { describe, type TestContext, test } from "node:test";
 
-import { type Api, type ExitCode, createHandler } from "../skills/help-me/api.ts";
+import { type Api, type ExitCode, createApi, createHandler } from "../skills/help-me/api.ts";
 import { type ModelCall, SupersededError } from "../skills/help-me/model.ts";
 import { check } from "../skills/help-me/schema.ts";
 import { readSettings } from "../skills/help-me/settings.ts";
@@ -108,5 +108,32 @@ describe("createHandler", () => {
     const res = await post("/api/submit", { prompt: "hello" });
     assert.deepEqual(await res.json(), { ok: true, sent: "hello\n" });
     assert.deepEqual(finished, [[0, "hello"]]);
+  });
+});
+
+const api = (model: ModelCall, finished: [ExitCode, string][] = []) =>
+  createApi({ model, log: () => {}, finish: (code, prompt) => finished.push([code, prompt]) });
+
+describe("createApi", () => {
+  test("answers a model-backed route with the model's reply", async () => {
+    const { status, body } = await api(answering({ blocks: [] })).call("/api/tidy", { sentences: ["a."] });
+    assert.equal(status, 200);
+    assert.deepEqual(body, { blocks: [{ heading: "", items: [0] }], model: "fake", ms: 1 });
+  });
+
+  test("a body of the wrong shape is a 400, not a throw", async () => {
+    const { status } = await api(answering({})).call("/api/tidy", { sentences: "a." });
+    assert.equal(status, 400);
+  });
+
+  test("a failing model is a 500 with its message", async () => {
+    const { status, body } = await api(() => Promise.reject(new Error("no key"))).call("/api/explain", {});
+    assert.deepEqual([status, body], [500, { error: "no key" }]);
+  });
+
+  test("Cancel hands nothing to finish", async () => {
+    const finished: [ExitCode, string][] = [];
+    assert.equal((await api(answering({}), finished).call("/api/cancel", {})).status, 200);
+    assert.deepEqual(finished, [[2, ""]]);
   });
 });
