@@ -3,6 +3,15 @@
 `/help-me` for any coding agent: shape a vague request by clicking on it, then hand it back. It's an
 [Agent Skill](https://agentskills.io), so it works in Claude Code, Codex, Gemini CLI, OpenCode, Cursor and others.
 
+<p align="center">
+  <img src="docs/img/harnesses/claude-code.svg" alt="Claude Code" title="Claude Code" height="28" />&nbsp;&nbsp;
+  <img src="docs/img/harnesses/codex.svg" alt="Codex" title="Codex" height="28" />&nbsp;&nbsp;
+  <img src="docs/img/harnesses/gemini-cli.svg" alt="Gemini CLI" title="Gemini CLI" height="28" />&nbsp;&nbsp;
+  <img src="docs/img/harnesses/antigravity.svg" alt="Antigravity" title="Antigravity" height="28" />&nbsp;&nbsp;
+  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/harnesses/opencode-dark.svg" /><img src="docs/img/harnesses/opencode-light.svg" alt="OpenCode" title="OpenCode" height="28" /></picture>&nbsp;&nbsp;
+  <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/harnesses/pi-dark.svg" /><img src="docs/img/harnesses/pi-light.svg" alt="Pi" title="Pi" height="28" /></picture>
+</p>
+
 ![/help-me demo: flipping underlines, multiselect, dragging a number, removing a sentence, a question in the text, Explain me, Help me decide, Tidy up and ranking, then Shift+Enter](docs/demo.gif)
 
 `/help-me I want to choose a coffee machine` opens your request in a page. A small model underlines what you
@@ -155,13 +164,53 @@ help-me stops with an error that says what's missing and where to set `backend`,
 config. Pick a small, fast model: every edit triggers a new read. For OpenCode and Pi, `--model` takes their own
 `provider/model` form.
 
+### Your own backend
+
+A backend is a small module, so you can add one without a pull request here. Name it under `plugins` in the
+config file (paths are relative to it) and pick it like any other:
+
+```json
+{ "backend": "ollama", "plugins": { "ollama": "./ollama.ts" } }
+```
+
+Its default export has an optional default `model` and a `run` that answers one question with JSON matching
+`schema`. It should stop when `signal` aborts, which happens when a newer edit replaces the question:
+
+```ts
+// ~/.config/prompt-shaper/ollama.ts
+export default {
+  model: "qwen3:4b",
+  async run({ system, schema, input, model, signal }) {
+    const r = await fetch("http://127.0.0.1:11434/api/chat", {
+      method: "POST",
+      body: JSON.stringify({
+        model,
+        stream: false,
+        format: schema,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: input },
+        ],
+      }),
+      signal,
+    });
+    const { message } = await r.json();
+    return { data: JSON.parse(message.content), model };
+  },
+};
+```
+
+The call also has `effort` and `env`. Return `{ data, model?, ms? }`; help-me checks `data` against the schema, so
+a wrong shape shows up as an error on the page. For types, `import type { Backend } from ".../skills/help-me/providers.ts"`
+and end with `satisfies Backend`. A plugin with a built-in's name replaces it.
+
 ## Development
 
 The skill runs straight from `skills/help-me/` with nothing to install; the dev tooling is for working on it.
 
 - `skills/help-me/server.ts` is what `/help-me` runs: it serves the page, waits for Send and prints the request on
   stdout. `api.ts` lists the routes the page calls, `tasks.ts` and `prompts.ts` what each one asks the model,
-  `providers.ts` every backend and which one `auto` means.
+  `providers.ts` every built-in backend and which one `auto` means, `plugins.ts` how a plugin is loaded.
 - `mcp/server.ts` serves the same page as an MCP App: `node mcp/server.ts` for stdio, `--http` for `127.0.0.1:3917/mcp`.
 - `page/` is the page's source. `pnpm build` bundles it into `skills/help-me/index.html`, which is committed.
 - `docs/shots.ts` and `docs/rec.ts` record the README's images and GIF from demo mode.
