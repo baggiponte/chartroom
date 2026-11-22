@@ -9,7 +9,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { buffer } from "node:stream/consumers";
 import { parseArgs } from "node:util";
-import * as z from "zod";
+import { z } from "zod";
 
 import { ROUTES, createApi, errorMessage } from "../skills/help-me/api.ts";
 import type { Answer, Init } from "../skills/help-me/api.ts";

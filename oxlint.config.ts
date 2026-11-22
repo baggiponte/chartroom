@@ -17,7 +17,6 @@ export default defineConfig({
     "no-promise-executor-return": "off",
     "quality/no-array-filter-map": "off",
     "unicorn/prefer-top-level-await": "off",
-    "import/no-namespace": "off",
   },
   overrides: [
     ...(cloudflare.overrides ?? []),
