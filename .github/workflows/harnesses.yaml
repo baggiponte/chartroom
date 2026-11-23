@@ -37,8 +37,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Each npm CLI is pinned in test/harnesses/clis/<harness>/package-lock.json, and Renovate bumps it as soon as
-          # it is released, so a CLI that changed its flags shows up on the bump's PR.
+          # Each npm CLI is pinned in test/harnesses/clis/<harness>/package-lock.json and bumped by Dependabot a week
+          # after its release (.github/dependabot.yml), so a CLI that changed its flags shows up on the bump's PR.
           - harness: claude
             npm: true
           - harness: codex
