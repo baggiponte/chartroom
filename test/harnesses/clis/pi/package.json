@@ -1,7 +1,0 @@
-{
-  "name": "harness-pi",
-  "private": true,
-  "dependencies": {
-    "@earendil-works/pi-coding-agent": "1.6.0"
-  }
-}

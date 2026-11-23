@@ -1,7 +1,0 @@
-{
-  "name": "harness-codex",
-  "private": true,
-  "dependencies": {
-    "@openai/codex": "0.171.0"
-  }
-}

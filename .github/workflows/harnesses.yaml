@@ -37,17 +37,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Each npm CLI is pinned in test/harnesses/clis/<harness>/package-lock.json and bumped by Dependabot a week
-          # after its release (.github/dependabot.yml), so a CLI that changed its flags shows up on the bump's PR.
           - harness: claude
-            npm: true
           - harness: codex
-            npm: true
           - harness: antigravity
           - harness: opencode
-            npm: true
           - harness: pi
-            npm: true
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -61,15 +55,25 @@ jobs:
         run: |
           corepack enable
           pnpm install --frozen-lockfile
-      # From a lockfile, so CI runs the exact version a PR reviewed. The harness name goes through env, not straight
-      # into the script, so no matrix value is ever run as code.
-      - name: Install ${{ matrix.harness }}
-        if: matrix.npm
-        env:
-          HARNESS: ${{ matrix.harness }}
-        run: |
-          npm ci --prefix "test/harnesses/clis/$HARNESS" --no-audit --no-fund
-          echo "$PWD/test/harnesses/clis/$HARNESS/node_modules/.bin" >> "$GITHUB_PATH"
+      # Pinned here so CI runs the exact version a PR reviewed; Renovate bumps each version a week after its release
+      # (renovate.json reads the `# renovate:` comments), so a CLI that changed its flags shows up on the bump's PR.
+      # Only the CLI is pinned, not what it depends on: this job checks detection and flags, nothing else.
+      - name: Install claude
+        if: matrix.harness == 'claude'
+        # renovate: datasource=npm depName=@anthropic-ai/claude-code
+        run: npm install --global --no-audit --no-fund @anthropic-ai/claude-code@2.1.330
+      - name: Install codex
+        if: matrix.harness == 'codex'
+        # renovate: datasource=npm depName=@openai/codex
+        run: npm install --global --no-audit --no-fund @openai/codex@0.171.0
+      - name: Install opencode
+        if: matrix.harness == 'opencode'
+        # renovate: datasource=npm depName=opencode-ai
+        run: npm install --global --no-audit --no-fund opencode-ai@1.19.6
+      - name: Install pi
+        if: matrix.harness == 'pi'
+        # renovate: datasource=npm depName=@earendil-works/pi-coding-agent
+        run: npm install --global --no-audit --no-fund @earendil-works/pi-coding-agent@1.6.0
       # Antigravity isn't on npm: its installer puts `agy` in ~/.local/bin.
       - name: Install antigravity
         if: matrix.harness == 'antigravity'
