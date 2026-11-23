@@ -11,6 +11,8 @@ import { describe, test } from "node:test";
 
 import { PROVIDERS, isProvider } from "../../skills/help-me/providers.ts";
 import type { ProviderName } from "../../skills/help-me/providers.ts";
+import { check } from "../../skills/help-me/schema.ts";
+import type { Schema } from "../../skills/help-me/schema.ts";
 
 interface Harness {
   cli: string;
@@ -79,6 +81,34 @@ function packageRoot(bin: string): string | undefined {
   return undefined;
 }
 
+/** Only the dependency names are read, so the versions stay unchecked. */
+const PACKAGE_JSON = {
+  type: "object",
+  properties: { dependencies: {}, optionalDependencies: {} },
+} as const satisfies Schema;
+
+/**
+ * The package and the packages it depends on, wherever npm put them: a global install nests them inside the package,
+ * a lockfile install puts them next to it. Codex keeps its real binary in a platform package, so both count.
+ */
+function packageDirs(root: string): Array<string> {
+  const pkg: unknown = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  check(pkg, PACKAGE_JSON, join(root, "package.json"));
+  const deps = [pkg.dependencies, pkg.optionalDependencies].flatMap(field =>
+    typeof field === "object" && field !== null ? Object.keys(field) : [],
+  );
+  const found = deps.flatMap(dep => {
+    for (let dir = root; dir !== dirname(dir); dir = dirname(dir)) {
+      const candidate = join(dir, "node_modules", dep);
+      if (existsSync(join(candidate, "package.json"))) {
+        return [candidate];
+      }
+    }
+    return [];
+  });
+  return [root, ...found];
+}
+
 function contains(dir: string, needle: Buffer): boolean {
   for (const entry of readdirSync(dir, { recursive: true, encoding: "utf8" })) {
     const file = join(dir, entry);
@@ -117,7 +147,11 @@ for (const name of Object.keys(HARNESSES).filter(isProvider)) {
         const bin = which(harness.cli);
         const root = bin && packageRoot(bin);
         assert.ok(root, `no npm package found for ${harness.cli}`);
-        assert.ok(contains(root, Buffer.from(setsHostEnv)), `${setsHostEnv} not found under ${root}`);
+        const dirs = packageDirs(root);
+        assert.ok(
+          dirs.some(dir => contains(dir, Buffer.from(setsHostEnv))),
+          `${setsHostEnv} not found under ${dirs.join(", ")}`,
+        );
       });
     }
   });
