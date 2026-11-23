@@ -1,0 +1,7 @@
+# adhoc-packages flags any `npm install` outside a lockfile. The Harness CLIs workflow installs each CLI at a version
+# pinned in the workflow (bumped by Renovate) on purpose: it only checks that help-me still finds the CLI and passes
+# flags it knows, so the CLIs' own dependencies don't need locking, and a lockfile per CLI was noise. Every other audit
+# runs at the pedantic persona with no ignores.
+rules:
+  adhoc-packages:
+    disable: true
