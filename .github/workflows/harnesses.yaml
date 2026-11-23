@@ -2,8 +2,8 @@ name: Harness CLIs
 
 # Installs the real harness CLIs and checks that help-me still finds them and calls them with flags they know.
 # No model is called and nothing is logged in, so it needs no secrets. It runs on a PR only when the code it covers
-# changes (test/boundaries.test.ts fails if providers.ts starts importing a file missing from `paths`), weekly to
-# catch a new CLI release, and by hand from the Actions tab for any branch.
+# changes (test/boundaries.test.ts fails if providers.ts starts importing a file missing from `paths`) or a pinned CLI
+# is bumped, weekly for Antigravity (its installer has no version to pin), and by hand from the Actions tab.
 on:
   schedule:
     - cron: "17 6 * * 1"
@@ -37,16 +37,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Always the latest release: catching a CLI that changed its flags is the point.
+          # Each npm CLI is pinned in test/harnesses/clis/<harness>/package-lock.json, and Renovate bumps it as soon as
+          # it is released, so a CLI that changed its flags shows up on the bump's PR.
           - harness: claude
-            package: "@anthropic-ai/claude-code"
+            npm: true
           - harness: codex
-            package: "@openai/codex"
+            npm: true
           - harness: antigravity
           - harness: opencode
-            package: opencode-ai
+            npm: true
           - harness: pi
-            package: "@earendil-works/pi-coding-agent"
+            npm: true
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -60,12 +61,15 @@ jobs:
         run: |
           corepack enable
           pnpm install --frozen-lockfile
-      # The package goes through env, not straight into the script, so no matrix value is ever run as code.
+      # From a lockfile, so CI runs the exact version a PR reviewed. The harness name goes through env, not straight
+      # into the script, so no matrix value is ever run as code.
       - name: Install ${{ matrix.harness }}
-        if: matrix.package
+        if: matrix.npm
         env:
-          PACKAGE: ${{ matrix.package }}
-        run: npm install --global "$PACKAGE"
+          HARNESS: ${{ matrix.harness }}
+        run: |
+          npm ci --prefix "test/harnesses/clis/$HARNESS" --no-audit --no-fund
+          echo "$PWD/test/harnesses/clis/$HARNESS/node_modules/.bin" >> "$GITHUB_PATH"
       # Antigravity isn't on npm: its installer puts `agy` in ~/.local/bin.
       - name: Install antigravity
         if: matrix.harness == 'antigravity'
