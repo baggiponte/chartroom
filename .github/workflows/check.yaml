@@ -17,8 +17,28 @@ defaults:
   run:
     shell: bash
 
-# Three jobs side by side, so the wall time is the slowest one (the browser smokes), not the sum.
+# Jobs side by side, so the wall time is the slowest one (the browser smokes), not the sum.
 jobs:
+  security:
+    name: Audit workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: "0.13.5"
+          enable-cache: false
+      # Same hook and flags as a local `prek run`, from .pre-commit-config.yaml.
+      - name: Audit workflows
+        run: uvx --from prek==0.5.7 prek run zizmor --all-files
+
   static:
     name: Lint, type-check and build
     runs-on: ubuntu-latest
@@ -30,7 +50,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup
+      - uses: $/.github/actions/setup
       - name: Check formatting and lint
         run: pnpm lint
       - name: Type-check
@@ -49,7 +69,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup
+      - uses: $/.github/actions/setup
       # No test may reach a model: the server under test talks to a fake API on localhost (test/support/help-me.ts).
       - name: Run unit tests
         run: pnpm test:unit
@@ -65,7 +85,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup
+      - uses: $/.github/actions/setup
       # The runner image already ships Google Chrome, so nothing is downloaded; the smokes only check the page loads
       # and reacts, which doesn't depend on Playwright's own Chromium build.
       - name: Run browser smoke tests

@@ -226,6 +226,9 @@ pnpm build                 # after editing page/
 pnpm lint && pnpm typecheck && pnpm test:unit && pnpm test
 ```
 
+`uvx --from prek==0.5.7 prek install` adds a hook that audits `.github/` with [zizmor](https://docs.zizmor.sh) on
+commit, at its strictest (`pedantic`, no ignores). CI runs the same audit.
+
 ## Notes
 
 - With `claude`, a read takes 4 to 9 s, mostly CLI start-up. A plugin that calls an API directly is faster.

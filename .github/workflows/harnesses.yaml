@@ -2,8 +2,8 @@ name: Harness CLIs
 
 # Installs the real harness CLIs and checks that help-me still finds them and calls them with flags they know.
 # No model is called and nothing is logged in, so it needs no secrets. It runs on a PR only when the code it covers
-# changes (test/boundaries.test.ts fails if providers.ts starts importing a file missing from `paths`), weekly to
-# catch a new CLI release, and by hand from the Actions tab for any branch.
+# changes (test/boundaries.test.ts fails if providers.ts starts importing a file missing from `paths`) or a pinned CLI
+# is bumped, weekly for Antigravity (its installer has no version to pin), and by hand from the Actions tab.
 on:
   schedule:
     - cron: "17 6 * * 1"
@@ -37,17 +37,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Always the latest release: catching a CLI that changed its flags is the point.
           - harness: claude
-            install: npm install --global @anthropic-ai/claude-code
           - harness: codex
-            install: npm install --global @openai/codex
           - harness: antigravity
-            install: curl -fsSL https://antigravity.google/cli/install.sh | bash && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           - harness: opencode
-            install: npm install --global opencode-ai
           - harness: pi
-            install: npm install --global @earendil-works/pi-coding-agent
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -61,8 +55,31 @@ jobs:
         run: |
           corepack enable
           pnpm install --frozen-lockfile
-      - name: Install ${{ matrix.harness }}
-        run: ${{ matrix.install }}
+      # Pinned here so CI runs the exact version a PR reviewed; Renovate bumps each version a week after its release
+      # (renovate.json reads the `# renovate:` comments), so a CLI that changed its flags shows up on the bump's PR.
+      # Only the CLI is pinned, not what it depends on: this job checks detection and flags, nothing else.
+      - name: Install claude
+        if: matrix.harness == 'claude'
+        # renovate: datasource=npm depName=@anthropic-ai/claude-code
+        run: npm install --global --no-audit --no-fund @anthropic-ai/claude-code@2.1.330
+      - name: Install codex
+        if: matrix.harness == 'codex'
+        # renovate: datasource=npm depName=@openai/codex
+        run: npm install --global --no-audit --no-fund @openai/codex@0.171.0
+      - name: Install opencode
+        if: matrix.harness == 'opencode'
+        # renovate: datasource=npm depName=opencode-ai
+        run: npm install --global --no-audit --no-fund opencode-ai@1.19.6
+      - name: Install pi
+        if: matrix.harness == 'pi'
+        # renovate: datasource=npm depName=@earendil-works/pi-coding-agent
+        run: npm install --global --no-audit --no-fund @earendil-works/pi-coding-agent@1.6.0
+      # Antigravity isn't on npm: its installer puts `agy` in ~/.local/bin.
+      - name: Install antigravity
+        if: matrix.harness == 'antigravity'
+        run: |
+          curl -fsSL https://antigravity.google/cli/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Check detection and flags
         env:
           HARNESSES: ${{ matrix.harness }}
