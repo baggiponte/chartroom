@@ -39,15 +39,14 @@ jobs:
         include:
           # Always the latest release: catching a CLI that changed its flags is the point.
           - harness: claude
-            install: npm install --global @anthropic-ai/claude-code
+            package: "@anthropic-ai/claude-code"
           - harness: codex
-            install: npm install --global @openai/codex
+            package: "@openai/codex"
           - harness: antigravity
-            install: curl -fsSL https://antigravity.google/cli/install.sh | bash && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           - harness: opencode
-            install: npm install --global opencode-ai
+            package: opencode-ai
           - harness: pi
-            install: npm install --global @earendil-works/pi-coding-agent
+            package: "@earendil-works/pi-coding-agent"
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -61,8 +60,18 @@ jobs:
         run: |
           corepack enable
           pnpm install --frozen-lockfile
+      # The package goes through env, not straight into the script, so no matrix value is ever run as code.
       - name: Install ${{ matrix.harness }}
-        run: ${{ matrix.install }}
+        if: matrix.package
+        env:
+          PACKAGE: ${{ matrix.package }}
+        run: npm install --global "$PACKAGE"
+      # Antigravity isn't on npm: its installer puts `agy` in ~/.local/bin.
+      - name: Install antigravity
+        if: matrix.harness == 'antigravity'
+        run: |
+          curl -fsSL https://antigravity.google/cli/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Check detection and flags
         env:
           HARNESSES: ${{ matrix.harness }}

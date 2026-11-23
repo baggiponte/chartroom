@@ -1,0 +1,7 @@
+# Run with prek (`uvx --from prek==0.5.7 prek install`); CI runs the zizmor hook too.
+repos:
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
+    rev: v1.32.0
+    hooks:
+      - id: zizmor
+        args: [--no-progress, --persona, pedantic, --no-ignores]
