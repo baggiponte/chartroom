@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="build" content="%BUILD%">
-<title>Help Me Decide</title>
+<title>Chart Room</title>
 <style>
 :root {
   --bg: #f6f6f4; --card: #ffffff; --text: #1b1b1a; --muted: #8a8a85; --faint: #c9c9c3; --line: #e7e7e2;
@@ -419,7 +419,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 
 <script>
 (function() {
-	// skills/help-me/schema.ts
+	// skills/chartroom/schema.ts
 	const STRING$2 = { type: "string" };
 	const STRINGS = {
 		type: "array",
@@ -480,7 +480,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			}
 		}
 	}
-	// skills/help-me/tasks.ts
+	// skills/chartroom/tasks.ts
 	const CHOICE_FIELDS = {
 		question: STRING$2,
 		kind: {
@@ -698,7 +698,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			}
 		} }
 	};
-	// skills/help-me/api.ts
+	// skills/chartroom/api.ts
 	/** What each route answers with a 200, which the page checks before it uses it. */
 	const REPLY = {
 		"/api/analyze": ANALYSIS,
@@ -725,7 +725,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			properties: { ok: BOOLEAN }
 		}
 	};
-	/** What `GET /api/init` answers, and what the MCP App's help_me tool returns. */
+	/** What `GET /api/init` answers, and what the MCP App's chartroom tool returns. */
 	const INIT = {
 		type: "object",
 		required: [
@@ -784,15 +784,15 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 	const superseded = () => Object.assign(/* @__PURE__ */ new Error("superseded"), { superseded: true });
 	const isSuperseded = (e) => e instanceof Error && "superseded" in e;
 	const BUILD = document.querySelector("meta[name=\"build\"]")?.content ?? "%";
-	const RESTART = "Run /help-me again to restart it";
-	const STALE = `this page doesn't match the running help-me server. ${RESTART}`;
+	const RESTART = "Run /chartroom again to restart it";
+	const STALE = `this page doesn't match the running Chart Room server. ${RESTART}`;
 	const staleFor = (init) => !BUILD.startsWith("%") && init.build !== BUILD;
 	/** Checked here, so a page and a server that drifted apart fail with this message instead of deep in rendering. */
 	function fits(j, schema) {
 		try {
 			check(j, schema);
 		} catch (error) {
-			throw new Error(`the help-me server answered something this page can't read (${errorMessage$1(error)}). ${RESTART}`, { cause: error });
+			throw new Error(`the Chart Room server answered something this page can't read (${errorMessage$1(error)}). ${RESTART}`, { cause: error });
 		}
 		return j;
 	}
@@ -885,7 +885,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			try {
 				check(r, TOOL_RESULT);
 			} catch {
-				result.reject(/* @__PURE__ */ new Error("the help-me tool failed"));
+				result.reject(/* @__PURE__ */ new Error("the chartroom tool failed"));
 				return;
 			}
 			const content = r.structuredContent;
@@ -894,7 +894,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 				check(content, SESSION_INIT);
 				result.resolve(content);
 			} catch {
-				result.reject(new Error(r.content?.[0]?.text || "the help-me tool failed"));
+				result.reject(new Error(r.content?.[0]?.text || "the chartroom tool failed"));
 			}
 		}
 		window.addEventListener("message", (e) => {
@@ -909,7 +909,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 				return;
 			}
 			if (method === "ui/notifications/tool-result") toolResult(params);
-			else if (method === "ui/notifications/tool-cancelled") result.reject(/* @__PURE__ */ new Error("the help-me call was cancelled"));
+			else if (method === "ui/notifications/tool-cancelled") result.reject(/* @__PURE__ */ new Error("the chartroom call was cancelled"));
 			else if (method === "ui/notifications/host-context-changed") theme(params);
 			else if (method === "ui/resource-teardown") send({
 				id: mid,
@@ -931,7 +931,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 		});
 		const connect = () => ready ??= request("ui/initialize", {
 			appInfo: {
-				name: "prompt-shaper",
+				name: "chartroom",
 				version: "1"
 			},
 			appCapabilities: {},
@@ -960,7 +960,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			},
 			async post(path, body) {
 				const r = await request("tools/call", {
-					name: "help_me_api",
+					name: "chartroom_api",
 					arguments: {
 						session,
 						path,
@@ -3310,7 +3310,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			try {
 				({sent} = await post("/api/submit", { prompt }));
 			} catch (error) {
-				setStatus("err", "couldn't reach the help-me server: " + esc(errorMessage(error)));
+				setStatus("err", "couldn't reach the Chart Room server: " + esc(errorMessage(error)));
 				return;
 			}
 			end("sent", `Sent to ${state.agentName}`, LOOK_BACK, sent, notes);
@@ -3327,7 +3327,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			await post("/api/cancel", {}).catch(() => {});
 			state.chat?.request("ui/update-model-context", { content: [{
 				type: "text",
-				text: "The user cancelled /help-me without sending a request."
+				text: "The user cancelled /chartroom without sending a request."
 			}] }).catch(() => {});
 		}
 		closePop();
@@ -3360,7 +3360,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			sent.hidden = !sent.hidden;
 			show.textContent = sent.hidden ? "see what was sent" : "hide what was sent";
 		});
-		$("hint").textContent = kind === "sent" ? "This session is closed. Underlines, Explain me and Help me decide still show what you chose; run /help-me again to start a new one." : "This session is closed. Run /help-me again to start a new one.";
+		$("hint").textContent = kind === "sent" ? "This session is closed. Underlines, Explain me and Help me decide still show what you chose; run /chartroom again to start a new one." : "This session is closed. Run /chartroom again to start a new one.";
 		setStatus("", kind === "sent" ? "sent" : "cancelled");
 		render();
 	}
@@ -3450,7 +3450,7 @@ mark.nudge { animation: nudge 1.6s 2 ease-in-out; }
 			state.mode = "demo";
 			state.modelName = "demo";
 			ta.value = EXAMPLE;
-			$("hint").innerHTML = "Demo mode: canned underlines, since this page wasn't opened by <code>/help-me</code>.";
+			$("hint").innerHTML = "Demo mode: canned underlines, since this page wasn't opened by <code>/chartroom</code>.";
 			if (chat?.failed) {
 				$("hint").textContent = chat.failed;
 				ta.value = "";

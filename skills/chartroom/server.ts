@@ -17,12 +17,12 @@ import type { Settings } from "./settings.ts";
 const STATUS = { 0: "sent", 1: "error", 2: "cancelled", 3: "timeout" } as const satisfies Record<ExitCode, string>;
 
 const log = (...m: Array<unknown>): void => {
-  console.error("[prompt-shaper]", ...m);
+  console.error("[chartroom]", ...m);
 };
 const argv = process.argv.slice(2);
 const env = process.env;
 
-/** `error` says why help-me couldn't start, so the agent polling --out can tell the user and offer to fix it. */
+/** `error` says why chartroom couldn't start, so the agent polling --out can tell the user and offer to fix it. */
 function writeOut(out: string, code: ExitCode, prompt: string, error = ""): void {
   if (!out) {
     return;

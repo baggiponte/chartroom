@@ -6,19 +6,19 @@ import { join, relative } from "node:path";
 import { describe, test } from "node:test";
 import type { TestContext } from "node:test";
 
-import { createApi } from "../skills/help-me/api.ts";
-import type { Api, ExitCode } from "../skills/help-me/api.ts";
-import { createHandler } from "../skills/help-me/http.ts";
-import { SupersededError } from "../skills/help-me/jobs.ts";
-import { createJobs } from "../skills/help-me/jobs.ts";
-import { createModel } from "../skills/help-me/model.ts";
-import type { ModelCall } from "../skills/help-me/model.ts";
-import { check } from "../skills/help-me/schema.ts";
-import { loadPlugin } from "../skills/help-me/plugins.ts";
-import type { Plugin } from "../skills/help-me/plugins.ts";
-import { PROVIDERS } from "../skills/help-me/providers.ts";
-import { readSettings } from "../skills/help-me/settings.ts";
-import { analyze, tidy } from "../skills/help-me/tasks.ts";
+import { createApi } from "../skills/chartroom/api.ts";
+import type { Api, ExitCode } from "../skills/chartroom/api.ts";
+import { createHandler } from "../skills/chartroom/http.ts";
+import { SupersededError } from "../skills/chartroom/jobs.ts";
+import { createJobs } from "../skills/chartroom/jobs.ts";
+import { createModel } from "../skills/chartroom/model.ts";
+import type { ModelCall } from "../skills/chartroom/model.ts";
+import { check } from "../skills/chartroom/schema.ts";
+import { loadPlugin } from "../skills/chartroom/plugins.ts";
+import type { Plugin } from "../skills/chartroom/plugins.ts";
+import { PROVIDERS } from "../skills/chartroom/providers.ts";
+import { readSettings } from "../skills/chartroom/settings.ts";
+import { analyze, tidy } from "../skills/chartroom/tasks.ts";
 
 const CALL = {
   system: "sys",
@@ -38,7 +38,7 @@ const withCodex = (() => {
   return dir;
 })();
 
-const NO_CONFIG = { PROMPT_SHAPER_CONFIG: "/nonexistent/config.json", PATH: withCodex };
+const NO_CONFIG = { CHARTROOM_CONFIG: "/nonexistent/config.json", PATH: withCodex };
 
 /** A model that always answers `data`, checked against the schema it was asked for like a real reply. */
 const answering =
@@ -53,7 +53,7 @@ describe("readSettings", () => {
   test("a flag beats its env var", async () => {
     const s = await readSettings(["--backend", "codex", "--model", "flag"], {
       ...NO_CONFIG,
-      PROMPT_SHAPER_MODEL: "env",
+      CHARTROOM_MODEL: "env",
     });
     assert.deepEqual([s.backend.name, s.backend.plugin], ["codex", PROVIDERS.codex]);
     assert.equal(s.model, "flag");
@@ -90,7 +90,7 @@ describe("plugins", () => {
   const configWith = (config: unknown, env: NodeJS.ProcessEnv = {}) => {
     const file = join(dir, `${String(Math.random())}.json`);
     writeFileSync(file, JSON.stringify(config));
-    return { PROMPT_SHAPER_CONFIG: file, PATH: "", ...env };
+    return { CHARTROOM_CONFIG: file, PATH: "", ...env };
   };
   const module = (name: string, source: string) => {
     const file = join(dir, name);

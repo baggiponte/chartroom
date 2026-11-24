@@ -1,5 +1,5 @@
-import type { Analysis, DecideInput, Choice as Sent } from "../skills/help-me/tasks.ts";
-import type { Api } from "../skills/help-me/api.ts";
+import type { Analysis, DecideInput, Choice as Sent } from "../skills/chartroom/tasks.ts";
+import type { Api } from "../skills/chartroom/api.ts";
 import type { Choice, Explanation } from "./state.ts";
 
 type Reply<R extends keyof Api> = Promise<Api[R]["reply"]>;

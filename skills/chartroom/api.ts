@@ -26,7 +26,7 @@ export const REPLY = {
   "/api/cancel": { type: "object", required: ["ok"], properties: { ok: BOOLEAN } },
 } as const satisfies Record<Route, Schema>;
 
-/** What `GET /api/init` answers, and what the MCP App's help_me tool returns. */
+/** What `GET /api/init` answers, and what the MCP App's chartroom tool returns. */
 export const INIT = {
   type: "object",
   required: ["draft", "model", "backend", "agent", "images", "build"],

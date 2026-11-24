@@ -1,4 +1,4 @@
-import type { Choice as Suggested, Explanation as Explained } from "../skills/help-me/tasks.ts";
+import type { Choice as Suggested, Explanation as Explained } from "../skills/chartroom/tasks.ts";
 import type { ChatHost } from "./chat.ts";
 
 /** A choice on the request: a question it asks, a phrase in it, or something it doesn't say yet (`extra`). */

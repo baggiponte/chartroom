@@ -1,7 +1,7 @@
-import { INIT, REPLY, errorMessage } from "../skills/help-me/api.ts";
-import type { Api, Init, Route } from "../skills/help-me/api.ts";
-import { check, isRecord } from "../skills/help-me/schema.ts";
-import type { Infer, Schema } from "../skills/help-me/schema.ts";
+import { INIT, REPLY, errorMessage } from "../skills/chartroom/api.ts";
+import type { Api, Init, Route } from "../skills/chartroom/api.ts";
+import { check, isRecord } from "../skills/chartroom/schema.ts";
+import type { Infer, Schema } from "../skills/chartroom/schema.ts";
 import { state } from "./state.ts";
 
 /** A newer request of the same kind took over; the page drops the older one's answer. */
@@ -12,8 +12,8 @@ export const isSuperseded = (e: unknown): e is Superseded => e instanceof Error 
 // The serving process swaps in a hash of this file; a file:// page keeps the placeholder. It sits in a meta tag so
 // the bundler can't fold the comparison below into a constant.
 const BUILD = document.querySelector<HTMLMetaElement>('meta[name="build"]')?.content ?? "%";
-const RESTART = "Run /help-me again to restart it";
-export const STALE = `this page doesn't match the running help-me server. ${RESTART}`;
+const RESTART = "Run /chartroom again to restart it";
+export const STALE = `this page doesn't match the running Chart Room server. ${RESTART}`;
 export const staleFor = (init: Pick<Init, "build">): boolean => !BUILD.startsWith("%") && init.build !== BUILD;
 
 /** Checked here, so a page and a server that drifted apart fail with this message instead of deep in rendering. */
@@ -21,9 +21,12 @@ export function fits<S extends Schema>(j: unknown, schema: S): Infer<S> {
   try {
     check(j, schema);
   } catch (error) {
-    throw new Error(`the help-me server answered something this page can't read (${errorMessage(error)}). ${RESTART}`, {
-      cause: error,
-    });
+    throw new Error(
+      `the Chart Room server answered something this page can't read (${errorMessage(error)}). ${RESTART}`,
+      {
+        cause: error,
+      },
+    );
   }
   return j;
 }

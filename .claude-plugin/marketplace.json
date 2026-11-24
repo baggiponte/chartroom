@@ -1,11 +1,11 @@
 {
-  "name": "prompt-shaper-local",
+  "name": "chartroom-local",
   "owner": { "name": "Luca" },
   "plugins": [
     {
-      "name": "prompt-shaper",
+      "name": "chartroom",
       "source": "./",
-      "description": "/help-me: shape a vague request in the browser before the agent works on it."
+      "description": "Chart Room (/chartroom): shape a vague request in the browser before the agent works on it."
     }
   ]
 }

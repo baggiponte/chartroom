@@ -6,7 +6,7 @@ import gemini from "./providers/gemini.ts";
 import opencode from "./providers/opencode.ts";
 import pi from "./providers/pi.ts";
 
-/** The plugins that ship with help-me: the harness CLIs, so help-me runs on the subscription the user already has. */
+/** The plugins that ship with chartroom: the harness CLIs, so chartroom runs on the subscription the user already has. */
 export const PROVIDERS = {
   claude,
   codex,
@@ -21,7 +21,7 @@ export type ProviderName = keyof typeof PROVIDERS;
 // Object.hasOwn, not `in`: "constructor" is not a provider.
 export const isProvider = (name: string): name is ProviderName => Object.hasOwn(PROVIDERS, name);
 
-/** The first backend that says help-me is running inside its harness. */
+/** The first backend that says chartroom is running inside its harness. */
 export function hostOf(
   env: NodeJS.ProcessEnv,
   backends: ReadonlyMap<string, Plugin> = new Map<string, Plugin>(Object.entries(PROVIDERS)),

@@ -56,7 +56,7 @@ const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : S
  */
 export function outPath(argv: Array<string>, env: NodeJS.ProcessEnv): string {
   const out = parseArgs({ ...ARGS, args: argv, strict: false }).values.out;
-  return (typeof out === "string" && !out.startsWith("-") ? out : "") || env["PROMPT_SHAPER_OUT"] || "";
+  return (typeof out === "string" && !out.startsWith("-") ? out : "") || env["CHARTROOM_OUT"] || "";
 }
 
 function readConfig(file: string): Readonly<Record<string, unknown>> {
@@ -94,10 +94,10 @@ function readPlugins(config: Readonly<Record<string, unknown>>, configFile: stri
 }
 
 /**
- * The backend asked for, or with `host` the agent help-me is running in. Never another one: when that can't run, the
+ * The backend asked for, or with `host` the agent chartroom is running in. Never another one: when that can't run, the
  * error says why and where to set `backend`, so the agent can offer to fix the config instead of us choosing for them.
  * Plugins come before the built-ins, so one can replace a built-in or claim to be the host. `host` imports every
- * configured plugin to ask it, so a broken one stops help-me even when it isn't the host.
+ * configured plugin to ask it, so a broken one stops chartroom even when it isn't the host.
  */
 async function pickBackend(
   asked: string,
@@ -122,7 +122,7 @@ async function pickBackend(
   let name = asked;
   if (asked === "host") {
     if (!host) {
-      throw new Error(`backend is "host", but help-me can't tell which agent is running it. ${fix}`);
+      throw new Error(`backend is "host", but chartroom can't tell which agent is running it. ${fix}`);
     }
     name = host.name;
   }
@@ -134,7 +134,7 @@ async function pickBackend(
     const needs = plugin.needs ?? "something its available() checks for";
     throw new Error(
       asked === "host"
-        ? `backend is "host" and ${plugin.host?.agent ?? name} is running help-me, but ${needs} isn't there. ${fix}`
+        ? `backend is "host" and ${plugin.host?.agent ?? name} is running chartroom, but ${needs} isn't there. ${fix}`
         : `backend "${name}" needs ${needs}, which isn't there. Install it, or: ${fix}`,
     );
   }
@@ -142,20 +142,19 @@ async function pickBackend(
 }
 
 /**
- * Each setting comes from its flag, then `PROMPT_SHAPER_<FLAG>`, then the config file, then a default. Throws, with a
+ * Each setting comes from its flag, then `CHARTROOM_<FLAG>`, then the config file, then a default. Throws, with a
  * message for the user, when one can't be used.
  */
 export async function readSettings(argv: Array<string>, env: NodeJS.ProcessEnv): Promise<Settings> {
   const flags = parseArgs({ ...ARGS, args: argv }).values;
   const configFile =
-    env["PROMPT_SHAPER_CONFIG"] ||
-    join(env["XDG_CONFIG_HOME"] || join(homedir(), ".config"), "prompt-shaper", "config.json");
+    env["CHARTROOM_CONFIG"] || join(env["XDG_CONFIG_HOME"] || join(homedir(), ".config"), "chartroom", "config.json");
   const config = readConfig(configFile);
 
   const sources = [
     (f: Flag) => flags[f],
-    // An empty variable counts as unset, so `PROMPT_SHAPER_MODEL=` falls through to the config file like no variable does.
-    (f: Flag) => env["PROMPT_SHAPER_" + f.replaceAll("-", "_").toUpperCase()] || undefined,
+    // An empty variable counts as unset, so `CHARTROOM_MODEL=` falls through to the config file like no variable does.
+    (f: Flag) => env["CHARTROOM_" + f.replaceAll("-", "_").toUpperCase()] || undefined,
     // Config values are read as text, like flags and env vars: `"port": 8080` and `"port": "8080"` mean the same.
     (f: Flag) => {
       const v = config[f.replaceAll(/-(\w)/g, (_, c: string) => c.toUpperCase())];

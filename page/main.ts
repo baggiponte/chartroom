@@ -1,5 +1,5 @@
-import { isRecord } from "../skills/help-me/schema.ts";
-import type { Analysis } from "../skills/help-me/tasks.ts";
+import { isRecord } from "../skills/chartroom/schema.ts";
+import type { Analysis } from "../skills/chartroom/tasks.ts";
 import { chatHost, inChat } from "./chat.ts";
 import { isAsk, isSet, makeChoice, textFor } from "./choice.ts";
 import { cap, errorMessage, esc } from "./format.ts";
@@ -232,7 +232,7 @@ async function submit(): Promise<void> {
     try {
       ({ sent } = await post("/api/submit", { prompt }));
     } catch (error) {
-      setStatus("err", "couldn't reach the help-me server: " + esc(errorMessage(error)));
+      setStatus("err", "couldn't reach the Chart Room server: " + esc(errorMessage(error)));
       return;
     }
     end("sent", `Sent to ${state.agentName}`, LOOK_BACK, sent, notes);
@@ -254,7 +254,7 @@ async function cancel(): Promise<void> {
     await post("/api/cancel", {}).catch(() => {});
     state.chat
       ?.request("ui/update-model-context", {
-        content: [{ type: "text", text: "The user cancelled /help-me without sending a request." }],
+        content: [{ type: "text", text: "The user cancelled /chartroom without sending a request." }],
       })
       .catch(() => {});
   }
@@ -262,7 +262,7 @@ async function cancel(): Promise<void> {
   end("cancelled", "Cancelled", `nothing was sent to ${state.agentName}`, "");
 }
 
-// The help-me server exits once you send, so from here on everything the page shows comes from what it already has.
+// The chartroom server exits once you send, so from here on everything the page shows comes from what it already has.
 function end(kind: "sent" | "cancelled", title: string, sub: string, prompt: string, notes: Array<string> = []): void {
   state.ended = kind;
   clearTimeout(state.timer);
@@ -294,8 +294,8 @@ function end(kind: "sent" | "cancelled", title: string, sub: string, prompt: str
   });
   $("hint").textContent =
     kind === "sent"
-      ? "This session is closed. Underlines, Explain me and Help me decide still show what you chose; run /help-me again to start a new one."
-      : "This session is closed. Run /help-me again to start a new one.";
+      ? "This session is closed. Underlines, Explain me and Help me decide still show what you chose; run /chartroom again to start a new one."
+      : "This session is closed. Run /chartroom again to start a new one.";
   setStatus("", kind === "sent" ? "sent" : "cancelled");
   render();
 }
@@ -414,7 +414,7 @@ async function start(): Promise<void> {
     state.mode = "demo";
     state.modelName = "demo";
     ta.value = EXAMPLE;
-    $("hint").innerHTML = "Demo mode: canned underlines, since this page wasn't opened by <code>/help-me</code>.";
+    $("hint").innerHTML = "Demo mode: canned underlines, since this page wasn't opened by <code>/chartroom</code>.";
     if (chat?.failed) {
       $("hint").textContent = chat.failed;
       ta.value = "";

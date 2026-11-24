@@ -20,7 +20,7 @@ export default defineConfig({
     ...(cloudflare.overrides ?? []),
     {
       // Command-line entry points and dev scripts: the console is how they report.
-      files: ["skills/help-me/server.ts", "mcp/server.ts", "scripts/**", "docs/**"],
+      files: ["skills/chartroom/server.ts", "mcp/server.ts", "scripts/**", "docs/**"],
       rules: { "no-console": "off" },
     },
     {

@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 import { z } from "zod";
 
-const SERVER = fileURLToPath(new URL("../../skills/help-me/server.ts", import.meta.url));
+const SERVER = fileURLToPath(new URL("../../skills/chartroom/server.ts", import.meta.url));
 
 export interface ModelRequest {
   model: string;
@@ -60,7 +60,7 @@ export async function startFakeApi(answer: FakeModel): Promise<FakeApi> {
   };
 }
 
-export interface HelpMe {
+export interface Chartroom {
   url: string;
   get: (path: string) => Promise<Response>;
   post: (path: string, body: unknown) => Promise<Response>;
@@ -84,15 +84,15 @@ export interface StartOptions {
 }
 
 /** Starts server.ts on a free port; with no `api` it gets one that fails the test if the model is ever called. */
-export async function startHelpMe({
+export async function startChartroom({
   args = [],
   env = {},
   api,
   config = {},
   backendFlag = true,
   stdin,
-}: StartOptions = {}): Promise<HelpMe> {
-  const home = mkdtempSync(join(tmpdir(), "help-me-test-"));
+}: StartOptions = {}): Promise<Chartroom> {
+  const home = mkdtempSync(join(tmpdir(), "chartroom-test-"));
   const configFile = join(home, "config.json");
   writeFileSync(configFile, JSON.stringify({ ...config, plugins: { fake: FAKE_PLUGIN } }));
   const child: ChildProcess = spawn(
@@ -103,7 +103,7 @@ export async function startHelpMe({
         PATH: process.env["PATH"] ?? "",
         HOME: home,
         XDG_CONFIG_HOME: join(home, ".config"),
-        PROMPT_SHAPER_CONFIG: configFile,
+        CHARTROOM_CONFIG: configFile,
         FAKE_MODEL_URL: api?.url ?? "http://127.0.0.1:9",
         ...env,
       },
@@ -155,12 +155,12 @@ export async function startHelpMe({
  * Runs server.ts when it is expected to exit on its own before listening. A server that starts listening instead is
  * killed after `waitMs` and reported with code null.
  */
-export function runHelpMe(
+export function runChartroom(
   args: Array<string>,
   env: Record<string, string> = {},
   waitMs = 3000,
 ): Promise<{ code: number | null; stderr: string }> {
-  const home = mkdtempSync(join(tmpdir(), "help-me-test-"));
+  const home = mkdtempSync(join(tmpdir(), "chartroom-test-"));
   const child = spawn(process.execPath, [SERVER, "--no-open", "--port", "0", ...args], {
     env: { PATH: "", HOME: home, XDG_CONFIG_HOME: join(home, ".config"), ...env },
     stdio: ["ignore", "ignore", "pipe"],

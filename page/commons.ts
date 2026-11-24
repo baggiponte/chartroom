@@ -1,5 +1,5 @@
-import { check, isRecord } from "../skills/help-me/schema.ts";
-import type { Infer } from "../skills/help-me/schema.ts";
+import { check, isRecord } from "../skills/chartroom/schema.ts";
+import type { Infer } from "../skills/chartroom/schema.ts";
 
 const STRING = { type: "string" } as const;
 const PAGE = {

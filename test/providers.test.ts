@@ -1,13 +1,13 @@
 // Each harness CLI is replaced by a shell script that prints what the real one prints, so these tests pin down how
-// help-me calls it and reads it back, not what the model answers.
+// chartroom calls it and reads it back, not what the model answers.
 import assert from "node:assert/strict";
 import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, test } from "node:test";
 
-import { PROVIDERS, hostOf } from "../skills/help-me/providers.ts";
-import type { ProviderName } from "../skills/help-me/providers.ts";
+import { PROVIDERS, hostOf } from "../skills/chartroom/providers.ts";
+import type { ProviderName } from "../skills/chartroom/providers.ts";
 
 const SCHEMA = { type: "object", required: ["n"], properties: { n: { type: "number" } } } as const;
 
@@ -82,7 +82,7 @@ describe("harness CLIs", () => {
 });
 
 describe("hostOf", () => {
-  test("names the agent help-me runs in, and nothing outside one", () => {
+  test("names the agent chartroom runs in, and nothing outside one", () => {
     assert.deepEqual(hostOf({ PI_CODING_AGENT: "1" }), { name: "pi", agent: "Pi" });
     assert.equal(hostOf({ PATH: "" }), undefined);
   });

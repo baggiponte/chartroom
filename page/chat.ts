@@ -1,9 +1,9 @@
 // The MCP Apps protocol (https://github.com/modelcontextprotocol/ext-apps, 2026-01-26), written by hand to keep the
 // page one file.
 
-import { INIT, REPLY } from "../skills/help-me/api.ts";
-import type { Api, Init, Route } from "../skills/help-me/api.ts";
-import { check, isRecord } from "../skills/help-me/schema.ts";
+import { INIT, REPLY } from "../skills/chartroom/api.ts";
+import type { Api, Init, Route } from "../skills/chartroom/api.ts";
+import { check, isRecord } from "../skills/chartroom/schema.ts";
 import { fits, superseded } from "./client.ts";
 
 export type ChatHost = ReturnType<typeof chatHost>;
@@ -60,7 +60,7 @@ export function chatHost() {
     try {
       check(r, TOOL_RESULT);
     } catch {
-      result.reject(new Error("the help-me tool failed"));
+      result.reject(new Error("the chartroom tool failed"));
       return;
     }
     const content = r.structuredContent;
@@ -71,7 +71,7 @@ export function chatHost() {
       check(content, SESSION_INIT);
       result.resolve(content);
     } catch {
-      result.reject(new Error(r.content?.[0]?.text || "the help-me tool failed"));
+      result.reject(new Error(r.content?.[0]?.text || "the chartroom tool failed"));
     }
   }
   window.addEventListener("message", (e: MessageEvent<unknown>) => {
@@ -93,7 +93,7 @@ export function chatHost() {
     if (method === "ui/notifications/tool-result") {
       toolResult(params);
     } else if (method === "ui/notifications/tool-cancelled") {
-      result.reject(new Error("the help-me call was cancelled"));
+      result.reject(new Error("the chartroom call was cancelled"));
     } else if (method === "ui/notifications/host-context-changed") {
       theme(params);
     } else if (method === "ui/resource-teardown") {
@@ -113,7 +113,7 @@ export function chatHost() {
   });
   const connect = (): Promise<void> =>
     (ready ??= request("ui/initialize", {
-      appInfo: { name: "prompt-shaper", version: "1" },
+      appInfo: { name: "chartroom", version: "1" },
       appCapabilities: {},
       protocolVersion: "2026-01-26",
     }).then(r => {
@@ -134,7 +134,7 @@ export function chatHost() {
       return j;
     },
     async post<R extends Route>(path: R, body: Api[R]["body"]): Promise<Api[R]["reply"]> {
-      const r = await request("tools/call", { name: "help_me_api", arguments: { session, path, body } });
+      const r = await request("tools/call", { name: "chartroom_api", arguments: { session, path, body } });
       check(r, API_RESULT);
       const { status = 500, body: j } = r.structuredContent ?? {};
       if (status === 409) {

@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
 
-const PAGE = new URL("../skills/help-me/index.html", import.meta.url).href;
+const PAGE = new URL("../skills/chartroom/index.html", import.meta.url).href;
 const OUT = fileURLToPath(new URL("img", import.meta.url));
 const VID = fileURLToPath(new URL("vid", import.meta.url));
 mkdirSync(OUT, { recursive: true });

@@ -1,9 +1,9 @@
 {
-  "name": "prompt-shaper-mcp",
+  "name": "chartroom-mcp",
   "private": true,
-  "description": "/help-me as an MCP App: the page shown inside the Claude chat.",
+  "description": "Chart Room (/chartroom) as an MCP App: the page shown inside the Claude chat.",
   "bin": {
-    "prompt-shaper-mcp": "server.ts"
+    "chartroom-mcp": "server.ts"
   },
   "type": "module",
   "scripts": {
