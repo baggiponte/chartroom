@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/img/hero.jpeg" alt="Chart Room: a hand-drawn treasure map with a dashed route to a red X, a compass and a sextant" width="720" />
+  <img src="docs/img/hero.png" alt="Chart Room: a hand-drawn treasure map with a dashed route to a red X, a compass and a sextant" width="720" />
 </p>
 
 # 🧭 Chart Room
