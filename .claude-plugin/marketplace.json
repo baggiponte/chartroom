@@ -1,11 +1,11 @@
 {
-  "name": "chartroom-local",
+  "name": "chartroom",
   "owner": { "name": "Luca" },
   "plugins": [
     {
       "name": "chartroom",
       "source": "./",
-      "description": "Chart Room (/chartroom): shape a vague request in the browser before the agent works on it."
+      "description": "🧭 Chart Room (/chartroom): shape a vague request in the browser before the agent works on it."
     }
   ]
 }

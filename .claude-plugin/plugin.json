@@ -1,6 +1,6 @@
 {
   "name": "chartroom",
   "version": "0.4.0",
-  "description": "Chart Room (/chartroom): shape a vague request in the browser before the agent works on it.",
+  "description": "🧭 Chart Room (/chartroom): shape a vague request in the browser before the agent works on it.",
   "author": { "name": "Luca" }
 }

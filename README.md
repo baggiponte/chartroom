@@ -2,7 +2,7 @@
   <img src="docs/img/hero.jpeg" alt="Chart Room: a hand-drawn treasure map with a dashed route to a red X, a compass and a sextant" width="720" />
 </p>
 
-# Chart Room
+# 🧭 Chart Room
 
 `/chartroom` for any coding agent: shape a vague request by clicking on it, then hand it back. It's an
 [Agent Skill](https://agentskills.io), so it works in Claude Code, Codex, Gemini CLI, OpenCode, Cursor and others.
