@@ -20,10 +20,10 @@ export function runCli<T>(
   cwd = tmpdir(),
 ): Promise<T> {
   return new Promise((resolve, reject) => {
-    // The child gets PROMPT_SHAPER_CHILD so a harness that loads this skill doesn't open the page again.
+    // The child gets CHARTROOM_CHILD so a harness that loads this skill doesn't open the page again.
     const child = spawn(cmd, argv, {
       cwd,
-      env: { ...env, PROMPT_SHAPER_CHILD: "1" },
+      env: { ...env, CHARTROOM_CHILD: "1" },
       stdio: ["pipe", "pipe", "pipe"],
       signal,
     });

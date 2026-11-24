@@ -35,6 +35,6 @@ test("the harness CLI workflow runs whenever providers.ts or anything it imports
   const paths = prPaths("harnesses.yaml");
   const watched = (file: string): boolean =>
     paths.some(p => (p.endsWith("/**") ? file.startsWith(p.slice(0, -2)) : file === p));
-  const missing = [...closure("skills/help-me/providers.ts")].filter(f => !watched(relative(".", f)));
+  const missing = [...closure("skills/chartroom/providers.ts")].filter(f => !watched(relative(".", f)));
   assert.deepEqual(missing, [], "add these to the paths of harnesses.yaml, or drop the import");
 });

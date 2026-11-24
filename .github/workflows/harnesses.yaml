@@ -1,6 +1,6 @@
 name: Harness CLIs
 
-# Installs the real harness CLIs and checks that help-me still finds them and calls them with flags they know.
+# Installs the real harness CLIs and checks that chartroom still finds them and calls them with flags they know.
 # No model is called and nothing is logged in, so it needs no secrets. It runs on a PR only when the code it covers
 # changes (test/boundaries.test.ts fails if providers.ts starts importing a file missing from `paths`) or a pinned CLI
 # is bumped, weekly for Antigravity (its installer has no version to pin), and by hand from the Actions tab.
@@ -10,9 +10,9 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
-      - skills/help-me/providers.ts
-      - skills/help-me/providers/**
-      - skills/help-me/schema.ts
+      - skills/chartroom/providers.ts
+      - skills/chartroom/providers/**
+      - skills/chartroom/schema.ts
       - test/harnesses/**
       - .github/workflows/harnesses.yaml
 

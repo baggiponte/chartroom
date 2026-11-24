@@ -11,17 +11,14 @@ import { fileURLToPath } from "node:url";
 
 import { z } from "zod";
 
-import { FAKE_PLUGIN } from "./support/help-me.ts";
+import { FAKE_PLUGIN } from "./support/chartroom.ts";
 
 const SERVER = fileURLToPath(new URL("../mcp/server.ts", import.meta.url));
 
 function startMcp(args: Array<string> = [], env: NodeJS.ProcessEnv = {}): ChildProcessWithoutNullStreams {
-  const home = mkdtempSync(join(tmpdir(), "help-me-mcp-test-"));
-  mkdirSync(join(home, ".config", "prompt-shaper"), { recursive: true });
-  writeFileSync(
-    join(home, ".config", "prompt-shaper", "config.json"),
-    JSON.stringify({ plugins: { fake: FAKE_PLUGIN } }),
-  );
+  const home = mkdtempSync(join(tmpdir(), "chartroom-mcp-test-"));
+  mkdirSync(join(home, ".config", "chartroom"), { recursive: true });
+  writeFileSync(join(home, ".config", "chartroom", "config.json"), JSON.stringify({ plugins: { fake: FAKE_PLUGIN } }));
   return spawn(process.execPath, [SERVER, ...args], {
     env: {
       PATH: process.env["PATH"] ?? "",
@@ -89,28 +86,28 @@ const ApiReply = z.object({ structuredContent: z.object({ status: z.number(), bo
 const Page = z.object({ contents: z.tuple([z.object({ text: z.string() })]) });
 
 describe("MCP App over stdio", () => {
-  test("offers the help_me tool and the page's own API tool", async t => {
+  test("offers the chartroom tool and the page's own API tool", async t => {
     const client = await connect(t);
     const { tools } = ToolList.parse(await client.request("tools/list", {}));
-    assert.deepEqual(tools.map(tool => tool.name).toSorted(), ["help_me", "help_me_api"]);
+    assert.deepEqual(tools.map(tool => tool.name).toSorted(), ["chartroom", "chartroom_api"]);
   });
 
-  test("help_me opens a session with the request, and the page's API reaches it until it ends", async t => {
+  test("chartroom opens a session with the request, and the page's API reaches it until it ends", async t => {
     const client = await connect(t);
     const call = (name: string, args: object): Promise<unknown> =>
       client.request("tools/call", { name, arguments: args });
 
     const { structuredContent } = Started.parse(
-      await call("help_me", { request: "help me pick a bike", backend: "fake" }),
+      await call("chartroom", { request: "help me pick a bike", backend: "fake" }),
     );
     assert.equal(structuredContent.draft, "help me pick a bike");
     assert.equal(structuredContent.backend, "fake");
 
     const cancel = { session: structuredContent.session, path: "/api/cancel" };
-    const cancelled = ApiReply.parse(await call("help_me_api", cancel));
+    const cancelled = ApiReply.parse(await call("chartroom_api", cancel));
     assert.deepEqual(cancelled.structuredContent, { status: 200, body: { ok: true } });
 
-    const ended = ApiReply.parse(await call("help_me_api", cancel));
+    const ended = ApiReply.parse(await call("chartroom_api", cancel));
     assert.equal(ended.structuredContent.status, 410);
   });
 
@@ -118,11 +115,11 @@ describe("MCP App over stdio", () => {
     const client = await connect(t);
     const call = (name: string, args: object): Promise<unknown> =>
       client.request("tools/call", { name, arguments: args });
-    const { structuredContent } = Started.parse(await call("help_me", { request: "a bike", backend: "fake" }));
+    const { structuredContent } = Started.parse(await call("chartroom", { request: "a bike", backend: "fake" }));
     const tidy = { session: structuredContent.session, path: "/api/tidy", body: { sentences: ["a.", "b."] } };
-    assert.equal(ApiReply.parse(await call("help_me_api", tidy)).structuredContent.status, 500);
+    assert.equal(ApiReply.parse(await call("chartroom_api", tidy)).structuredContent.status, 500);
     assert.equal(
-      ApiReply.parse(await call("help_me_api", { ...tidy, body: { sentences: 1 } })).structuredContent.status,
+      ApiReply.parse(await call("chartroom_api", { ...tidy, body: { sentences: 1 } })).structuredContent.status,
       400,
     );
     const { tools } = ToolList.parse(await client.request("tools/list", {}));
@@ -130,16 +127,16 @@ describe("MCP App over stdio", () => {
   });
 
   test("a setting it can't use is a tool error, not a crash", async t => {
-    const client = await connect(t, { PROMPT_SHAPER_TIMEOUT_MIN: "soon" });
+    const client = await connect(t, { CHARTROOM_TIMEOUT_MIN: "soon" });
     const r = z
       .object({ isError: z.literal(true), content: z.tuple([z.object({ text: z.string() })]) })
-      .parse(await client.request("tools/call", { name: "help_me", arguments: { request: "x", backend: "fake" } }));
+      .parse(await client.request("tools/call", { name: "chartroom", arguments: { request: "x", backend: "fake" } }));
     assert.match(r.content[0].text, /couldn't start: --timeout-min should be a number/);
   });
 
   test("serves the page marked as shown inside the chat", async t => {
     const client = await connect(t);
-    const page = Page.parse(await client.request("resources/read", { uri: "ui://help-me/page.html" }));
+    const page = Page.parse(await client.request("resources/read", { uri: "ui://chartroom/page.html" }));
     assert.match(page.contents[0].text, /<meta name="host" content="chat">/);
     assert.doesNotMatch(page.contents[0].text, /"%BUILD%"/);
   });
@@ -169,7 +166,7 @@ describe("MCP App over HTTP", () => {
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: INITIALIZE }),
     });
     assert.equal(r.status, 200);
-    assert.match(await r.text(), /"serverInfo":\{"name":"prompt-shaper"/);
+    assert.match(await r.text(), /"serverInfo":\{"name":"chartroom"/);
 
     assert.equal((await fetch(`${base}/other`)).status, 404);
   });

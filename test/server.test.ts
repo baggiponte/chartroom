@@ -7,10 +7,10 @@ import type { TestContext } from "node:test";
 
 import { z } from "zod";
 
-import { FAKE_PLUGIN, runHelpMe, startFakeApi, startHelpMe } from "./support/help-me.ts";
-import type { FakeModel, HelpMe } from "./support/help-me.ts";
+import { FAKE_PLUGIN, runChartroom, startFakeApi, startChartroom } from "./support/chartroom.ts";
+import type { FakeModel, Chartroom } from "./support/chartroom.ts";
 
-const scratch = mkdtempSync(join(tmpdir(), "help-me-files-"));
+const scratch = mkdtempSync(join(tmpdir(), "chartroom-files-"));
 
 function configFile(settings: Record<string, unknown>): string {
   const path = join(scratch, `config-${String(Math.random()).slice(2)}.json`);
@@ -27,8 +27,8 @@ const Init = z.object({
   build: z.string(),
 });
 
-async function init(helpMe: HelpMe): Promise<z.infer<typeof Init>> {
-  return Init.parse(await (await helpMe.get("/api/init")).json());
+async function init(chartroom: Chartroom): Promise<z.infer<typeof Init>> {
+  return Init.parse(await (await chartroom.get("/api/init")).json());
 }
 
 const Analysis = z.object({
@@ -59,19 +59,19 @@ function outFile(path: string): z.infer<typeof OutFile> {
 /** Starts a fake API and a server wired to it, and stops both when the test ends. */
 async function withModel(t: TestContext, answer: FakeModel, args: Array<string> = []) {
   const api = await startFakeApi(answer);
-  const helpMe = await startHelpMe({ api, args });
+  const chartroom = await startChartroom({ api, args });
   t.after(async () => {
-    helpMe.stop();
+    chartroom.stop();
     await api.close();
   });
-  return { api, helpMe };
+  return { api, chartroom };
 }
 
 describe("/api/init", () => {
   test("hands the page the draft, the backend and a build hash", async t => {
-    const helpMe = await startHelpMe({ args: ["--draft", "a coffee machine"] });
-    t.after(helpMe.stop);
-    const { build, ...rest } = await init(helpMe);
+    const chartroom = await startChartroom({ args: ["--draft", "a coffee machine"] });
+    t.after(chartroom.stop);
+    const { build, ...rest } = await init(chartroom);
     assert.deepEqual(rest, {
       draft: "a coffee machine",
       model: "fake-1",
@@ -86,14 +86,14 @@ describe("/api/init", () => {
     const config = { backend: "fake", model: "from-file" };
     const cases: Array<[Array<string>, Record<string, string>, string]> = [
       [[], {}, "from-file"],
-      [[], { PROMPT_SHAPER_MODEL: "from-env" }, "from-env"],
-      [["--model", "from-flag"], { PROMPT_SHAPER_MODEL: "from-env" }, "from-flag"],
+      [[], { CHARTROOM_MODEL: "from-env" }, "from-env"],
+      [["--model", "from-flag"], { CHARTROOM_MODEL: "from-env" }, "from-flag"],
     ];
     const models = await Promise.all(
       cases.map(async ([args, env]) => {
-        const helpMe = await startHelpMe({ args, env, config, backendFlag: false });
-        const { model } = await init(helpMe);
-        helpMe.stop();
+        const chartroom = await startChartroom({ args, env, config, backendFlag: false });
+        const { model } = await init(chartroom);
+        chartroom.stop();
         return model;
       }),
     );
@@ -104,23 +104,23 @@ describe("/api/init", () => {
   });
 
   test("a config-file model is dropped when the backend comes from a flag", async t => {
-    const helpMe = await startHelpMe({ config: { model: "haiku" } });
-    t.after(helpMe.stop);
-    assert.equal((await init(helpMe)).model, "fake-1");
+    const chartroom = await startChartroom({ config: { model: "haiku" } });
+    t.after(chartroom.stop);
+    assert.equal((await init(chartroom)).model, "fake-1");
   });
 
   test("a plugin from the config file is the backend the page shows, with its own default model", async t => {
     const plugin = join(import.meta.dirname, "support", "plugins", "echo.ts");
-    const env = { PROMPT_SHAPER_CONFIG: configFile({ backend: "mine", plugins: { mine: plugin } }) };
-    const helpMe = await startHelpMe({ env, backendFlag: false });
-    t.after(helpMe.stop);
-    const { backend, model } = await init(helpMe);
+    const env = { CHARTROOM_CONFIG: configFile({ backend: "mine", plugins: { mine: plugin } }) };
+    const chartroom = await startChartroom({ env, backendFlag: false });
+    t.after(chartroom.stop);
+    const { backend, model } = await init(chartroom);
     assert.deepEqual([backend, model], ["mine", "echo-1"]);
   });
 
   test("a plugin that can't be loaded exits 1 with the reason", async () => {
-    const env = { PROMPT_SHAPER_CONFIG: configFile({ backend: "gone", plugins: { gone: "./nowhere.ts" } }) };
-    const { code, stderr } = await runHelpMe([], env);
+    const env = { CHARTROOM_CONFIG: configFile({ backend: "gone", plugins: { gone: "./nowhere.ts" } }) };
+    const { code, stderr } = await runChartroom([], env);
     assert.equal(code, 1);
     assert.match(stderr, /nowhere\.ts/);
   });
@@ -161,14 +161,14 @@ describe("/api/analyze", () => {
   };
 
   test("a one-word request gets no choices and never reaches the model", async t => {
-    const { api, helpMe } = await withModel(t, () => reply);
-    assert.deepEqual(await helpMe.ask("/api/analyze", { text: "coffee" }, Analysis), { summary: "", choices: [] });
+    const { api, chartroom } = await withModel(t, () => reply);
+    assert.deepEqual(await chartroom.ask("/api/analyze", { text: "coffee" }, Analysis), { summary: "", choices: [] });
     assert.equal(api.calls.length, 0);
   });
 
   test("keeps the choices whose span is in the request and labels each one with its type", async t => {
-    const { helpMe } = await withModel(t, () => reply);
-    const data = await helpMe.ask("/api/analyze", { text }, Analysis);
+    const { chartroom } = await withModel(t, () => reply);
+    const data = await chartroom.ask("/api/analyze", { text }, Analysis);
     assert.equal(data.summary, "Let's plan the trip.");
     assert.deepEqual(
       data.choices.map(c => [c.type, c.span ?? c.token]),
@@ -184,16 +184,16 @@ describe("/api/analyze", () => {
   });
 
   test("tells the model which phrases are settled and which extras were shown", async t => {
-    const { api, helpMe } = await withModel(t, () => reply);
-    await helpMe.post("/api/analyze", { text, settled: ["car"], asked: ["What's your budget?"] });
+    const { api, chartroom } = await withModel(t, () => reply);
+    await chartroom.post("/api/analyze", { text, settled: ["car"], asked: ["What's your budget?"] });
     const input = api.calls[0]?.input ?? "";
     assert.match(input, /do not return underlines for them:\n- "car"/);
     assert.match(input, /Extras already shown \(do not repeat them\):\n- What's your budget\?/);
   });
 
   test("a reply that misses a field is an error the page can show", async t => {
-    const { helpMe } = await withModel(t, () => ({ summary: "", asks: [], extras: [] }));
-    const res = await helpMe.post("/api/analyze", { text });
+    const { chartroom } = await withModel(t, () => ({ summary: "", asks: [], extras: [] }));
+    const res = await chartroom.post("/api/analyze", { text });
     assert.equal(res.status, 500);
     assert.deepEqual(Failure.parse(await res.json()), { error: "reply.underlines is missing" });
   });
@@ -201,13 +201,13 @@ describe("/api/analyze", () => {
 
 describe("/api/tidy", () => {
   test("turns 1-based numbers into indexes, uses each sentence once and keeps the ones the model forgot", async t => {
-    const { helpMe } = await withModel(t, () => ({
+    const { chartroom } = await withModel(t, () => ({
       blocks: [
         { heading: "", items: [2, 1] },
         { heading: "Must-haves:", items: [3, 3, 9] },
       ],
     }));
-    const data = await helpMe.ask("/api/tidy", { sentences: ["a.", "b.", "c.", "d."] }, Tidied);
+    const data = await chartroom.ask("/api/tidy", { sentences: ["a.", "b.", "c.", "d."] }, Tidied);
     assert.deepEqual(data.blocks, [
       { heading: "", items: [1, 0, 3] },
       { heading: "Must-haves", items: [2] },
@@ -227,8 +227,8 @@ describe("/api/decide", () => {
   };
 
   test("drops repeated questions and questions with fewer than two options", async t => {
-    const { helpMe } = await withModel(t, () => reply);
-    const data = await helpMe.ask("/api/decide", { ...question, asked: ["already asked?"] }, Decision);
+    const { chartroom } = await withModel(t, () => reply);
+    const data = await chartroom.ask("/api/decide", { ...question, asked: ["already asked?"] }, Decision);
     assert.deepEqual(
       data.questions.map(q => q.question),
       ["How often?"],
@@ -236,18 +236,18 @@ describe("/api/decide", () => {
   });
 
   test("recommends only once there are answers, and only one of the options", async t => {
-    const { helpMe } = await withModel(t, () => reply);
-    const none = await helpMe.ask("/api/decide", question, Decision);
+    const { chartroom } = await withModel(t, () => reply);
+    const none = await chartroom.ask("/api/decide", question, Decision);
     assert.equal(none.recommendation, undefined);
     const answered = { ...question, answers: [{ q: "How often?", a: "Daily" }] };
-    const some = await helpMe.ask("/api/decide", answered, Decision);
+    const some = await chartroom.ask("/api/decide", answered, Decision);
     assert.deepEqual(some.recommendation, { label: "pod", why: "You want it quick." });
   });
 
   test("a recommendation that is not one of the options is dropped", async t => {
-    const { helpMe } = await withModel(t, () => ({ ...reply, recommendation: { label: "Filter", why: "" } }));
+    const { chartroom } = await withModel(t, () => ({ ...reply, recommendation: { label: "Filter", why: "" } }));
     const answered = { ...question, answers: [{ q: "How often?", a: "Daily" }] };
-    const data = await helpMe.ask("/api/decide", answered, Decision);
+    const data = await chartroom.ask("/api/decide", answered, Decision);
     assert.equal(data.recommendation, undefined);
   });
 });
@@ -255,41 +255,41 @@ describe("/api/decide", () => {
 describe("handing the result back", () => {
   test("Send prints the prompt on stdout, writes it to --out and exits 0", async () => {
     const out = join(scratch, "sent.json");
-    const helpMe = await startHelpMe({ args: ["--out", out] });
-    const res = await helpMe.ask("/api/submit", { prompt: "Pick a pod machine." }, Submitted);
+    const chartroom = await startChartroom({ args: ["--out", out] });
+    const res = await chartroom.ask("/api/submit", { prompt: "Pick a pod machine." }, Submitted);
     assert.equal(res.sent, "Pick a pod machine.\n");
-    assert.deepEqual(await helpMe.exited, { code: 0, stdout: "Pick a pod machine.\n" });
+    assert.deepEqual(await chartroom.exited, { code: 0, stdout: "Pick a pod machine.\n" });
     assert.deepEqual(outFile(out), { status: "sent", prompt: "Pick a pod machine." });
   });
 
   test("Cancel prints nothing and exits 2", async () => {
     const out = join(scratch, "cancelled.json");
-    const helpMe = await startHelpMe({ args: ["--out", out] });
-    await helpMe.post("/api/cancel", {});
-    assert.deepEqual(await helpMe.exited, { code: 2, stdout: "" });
+    const chartroom = await startChartroom({ args: ["--out", out] });
+    await chartroom.post("/api/cancel", {});
+    assert.deepEqual(await chartroom.exited, { code: 2, stdout: "" });
     assert.deepEqual(outFile(out), { status: "cancelled", prompt: "" });
   });
 
   test("--stdin takes the draft from standard input, trimmed", async t => {
-    const helpMe = await startHelpMe({ args: ["--stdin"], stdin: "  a coffee machine\n" });
-    t.after(helpMe.stop);
-    assert.equal((await init(helpMe)).draft, "a coffee machine");
+    const chartroom = await startChartroom({ args: ["--stdin"], stdin: "  a coffee machine\n" });
+    t.after(chartroom.stop);
+    assert.equal((await init(chartroom)).draft, "a coffee machine");
   });
 });
 
 describe("requests the server does not understand", () => {
   test("an unknown path is a 404 and a body that is not JSON is a 400", async t => {
-    const helpMe = await startHelpMe();
-    t.after(helpMe.stop);
-    assert.equal((await helpMe.get("/api/nope")).status, 404);
-    const res = await fetch(new URL("/api/analyze", helpMe.url), { method: "POST", body: "{" });
+    const chartroom = await startChartroom();
+    t.after(chartroom.stop);
+    assert.equal((await chartroom.get("/api/nope")).status, 404);
+    const res = await fetch(new URL("/api/analyze", chartroom.url), { method: "POST", body: "{" });
     assert.equal(res.status, 400);
   });
 });
 
 describe("choosing a backend", () => {
   test("an unknown backend exits 1 and lists the known ones", async () => {
-    const { code, stderr } = await runHelpMe(["--backend", "nope"]);
+    const { code, stderr } = await runChartroom(["--backend", "nope"]);
     assert.equal(code, 1);
     assert.match(
       stderr,
@@ -299,7 +299,7 @@ describe("choosing a backend", () => {
 
   test("an unknown flag exits 1, and --out still says so", async () => {
     const out = join(scratch, "unknown-flag.json");
-    const { code, stderr } = await runHelpMe(["--out", out, "--bogus"]);
+    const { code, stderr } = await runChartroom(["--out", out, "--bogus"]);
     assert.equal(code, 1);
     assert.match(stderr, /Unknown option '--bogus'/);
     assert.deepEqual(outFile(out), { status: "error", prompt: "", error: "Unknown option '--bogus'" });
@@ -309,67 +309,70 @@ describe("choosing a backend", () => {
     const config = join(scratch, "broken-config.json");
     writeFileSync(config, "{ backend: claude");
     const out = join(scratch, "broken-config-out.json");
-    const { code, stderr } = await runHelpMe(["--out", out], { PROMPT_SHAPER_CONFIG: config });
+    const { code, stderr } = await runChartroom(["--out", out], { CHARTROOM_CONFIG: config });
     assert.equal(code, 1);
     assert.match(stderr, /broken-config\.json is not a valid config/);
     assert.match(outFile(out).error ?? "", /broken-config\.json is not a valid config/);
   });
 
   test("host outside a known agent exits 1 instead of picking a backend for the user", async () => {
-    const { code, stderr } = await runHelpMe([]);
+    const { code, stderr } = await runChartroom([]);
     assert.equal(code, 1);
-    assert.match(stderr, /backend is "host", but help-me can't tell which agent is running it/);
+    assert.match(stderr, /backend is "host", but chartroom can't tell which agent is running it/);
   });
 
   test("host inside an agent whose CLI is missing exits 1 instead of falling back to another", async () => {
-    const { code, stderr } = await runHelpMe([], { CLAUDECODE: "1" });
+    const { code, stderr } = await runChartroom([], { CLAUDECODE: "1" });
     assert.equal(code, 1);
-    assert.match(stderr, /Claude Code is running help-me, but the claude CLI on PATH isn't there/);
+    assert.match(stderr, /Claude Code is running chartroom, but the claude CLI on PATH isn't there/);
   });
 });
 
 describe("bugs", () => {
   test("a second Send is ignored instead of printing the prompt twice", async () => {
-    const helpMe = await startHelpMe();
-    await Promise.all([helpMe.post("/api/submit", { prompt: "once" }), helpMe.post("/api/submit", { prompt: "once" })]);
-    assert.equal((await helpMe.exited).stdout, "once\n");
+    const chartroom = await startChartroom();
+    await Promise.all([
+      chartroom.post("/api/submit", { prompt: "once" }),
+      chartroom.post("/api/submit", { prompt: "once" }),
+    ]);
+    assert.equal((await chartroom.exited).stdout, "once\n");
   });
 
   test("with no backend, --out still says what happened", async () => {
     const out = join(scratch, "no-backend.json");
-    await runHelpMe(["--out", out]);
+    await runChartroom(["--out", out]);
     const { status, error } = outFile(out);
     assert.equal(status, "error");
     assert.match(error ?? "", /Set "backend" in/);
   });
 
   test("a --timeout-min that is not a number is refused at start", async () => {
-    const env = { PROMPT_SHAPER_CONFIG: configFile({ plugins: { fake: FAKE_PLUGIN } }) };
-    const { code, stderr } = await runHelpMe(["--backend", "fake", "--timeout-min", "abc"], env);
+    const env = { CHARTROOM_CONFIG: configFile({ plugins: { fake: FAKE_PLUGIN } }) };
+    const { code, stderr } = await runChartroom(["--backend", "fake", "--timeout-min", "abc"], env);
     assert.equal(code, 1);
     assert.match(stderr, /--timeout-min should be a number/);
   });
 
-  test("an empty PROMPT_SHAPER_MODEL counts as unset, so the config file's model applies", async t => {
-    const helpMe = await startHelpMe({
+  test("an empty CHARTROOM_MODEL counts as unset, so the config file's model applies", async t => {
+    const chartroom = await startChartroom({
       backendFlag: false,
       config: { backend: "fake", model: "from-file" },
-      env: { PROMPT_SHAPER_MODEL: "" },
+      env: { CHARTROOM_MODEL: "" },
     });
-    t.after(helpMe.stop);
-    assert.equal((await init(helpMe)).model, "from-file");
+    t.after(chartroom.stop);
+    assert.equal((await init(chartroom)).model, "from-file");
   });
 
   test("a flag with no value does not swallow the next flag", async () => {
-    const { code, stderr } = await runHelpMe(["--backend", "--no-open"]);
+    const { code, stderr } = await runChartroom(["--backend", "--no-open"]);
     assert.equal(code, 1);
     assert.match(stderr, /Did you forget to specify the option argument for '--backend'\?/);
   });
 
   test("a body with the wrong shape is a 400, not a 500", async t => {
-    const helpMe = await startHelpMe();
-    t.after(helpMe.stop);
-    const res = await helpMe.post("/api/analyze", { text: "a coffee machine", settled: null });
+    const chartroom = await startChartroom();
+    t.after(chartroom.stop);
+    const res = await chartroom.post("/api/analyze", { text: "a coffee machine", settled: null });
     assert.equal(res.status, 400);
   });
 });

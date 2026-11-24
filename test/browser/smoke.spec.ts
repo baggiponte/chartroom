@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 
-import { startFakeApi, startHelpMe } from "../support/help-me.ts";
+import { startFakeApi, startChartroom } from "../support/chartroom.ts";
 
-const PAGE = new URL("../../skills/help-me/index.html", import.meta.url).href;
+const PAGE = new URL("../../skills/chartroom/index.html", import.meta.url).href;
 
 async function openDemo(page: Page): Promise<Array<string>> {
   const errors: Array<string> = [];
@@ -87,7 +87,7 @@ test("nothing overflows sideways on a phone", async ({ page }) => {
   expect(overflow).toBeLessThanOrEqual(0);
 });
 
-test("served by the help-me server, the page reads the request with the model and Send hands it back", async ({
+test("served by the chartroom server, the page reads the request with the model and Send hands it back", async ({
   page,
 }) => {
   const api = await startFakeApi(() => ({
@@ -106,21 +106,21 @@ test("served by the help-me server, the page reads the request with the model an
     ],
     extras: [],
   }));
-  const helpMe = await startHelpMe({ api, args: ["--draft", "Help me choose a coffee machine"] });
+  const chartroom = await startChartroom({ api, args: ["--draft", "Help me choose a coffee machine"] });
   try {
     const errors: Array<string> = [];
     page.on("pageerror", e => errors.push(e.message));
-    await page.goto(helpMe.url);
+    await page.goto(chartroom.url);
     await expect(page.locator("#summaryText")).toHaveText("Let's pick a machine.");
     await expect(page.locator("#hint")).not.toContainText("doesn't match");
     await clickMark(page, "coffee machine");
     await page.locator("#pop").getByRole("button", { name: "Pod" }).click();
     await page.locator("#send").click();
     await expect(page.locator("#endedTitle")).toHaveText("Sent to your agent");
-    expect((await helpMe.exited).stdout).toBe("Help me choose a pod machine\n");
+    expect((await chartroom.exited).stdout).toBe("Help me choose a pod machine\n");
     expect(errors).toEqual([]);
   } finally {
-    helpMe.stop();
+    chartroom.stop();
     await api.close();
   }
 });

@@ -4,6 +4,6 @@
   "arrowParens": "avoid",
   "proseWrap": "preserve",
   // The page's HTML and CSS are still hand-formatted, and reformatting them would bury every other change in the diff.
-  // skills/help-me/index.html is generated from them by `pnpm build`.
-  "ignorePatterns": ["page/index.html", "skills/help-me/index.html", "pnpm-lock.yaml"],
+  // skills/chartroom/index.html is generated from them by `pnpm build`.
+  "ignorePatterns": ["page/index.html", "skills/chartroom/index.html", "pnpm-lock.yaml"],
 }

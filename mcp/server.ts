@@ -11,13 +11,13 @@ import { buffer } from "node:stream/consumers";
 import { parseArgs } from "node:util";
 import { z } from "zod";
 
-import { ROUTES, createApi, errorMessage } from "../skills/help-me/api.ts";
-import type { Answer, Init } from "../skills/help-me/api.ts";
-import { createJobs } from "../skills/help-me/jobs.ts";
-import { createModel } from "../skills/help-me/model.ts";
-import { readPage } from "../skills/help-me/page.ts";
-import { PROVIDERS } from "../skills/help-me/providers.ts";
-import { readSettings } from "../skills/help-me/settings.ts";
+import { ROUTES, createApi, errorMessage } from "../skills/chartroom/api.ts";
+import type { Answer, Init } from "../skills/chartroom/api.ts";
+import { createJobs } from "../skills/chartroom/jobs.ts";
+import { createModel } from "../skills/chartroom/model.ts";
+import { readPage } from "../skills/chartroom/page.ts";
+import { PROVIDERS } from "../skills/chartroom/providers.ts";
+import { readSettings } from "../skills/chartroom/settings.ts";
 
 /** One open page: its API, and how to end it once it sends, cancels or times out. */
 interface Session {
@@ -29,10 +29,10 @@ const ROOT = join(import.meta.dirname, "..");
 const VERSION = z
   .object({ version: z.string() })
   .parse(JSON.parse(readFileSync(join(ROOT, ".claude-plugin", "plugin.json"), "utf8"))).version;
-const URI = "ui://help-me/page.html";
+const URI = "ui://chartroom/page.html";
 const MIME = "text/html;profile=mcp-app";
 const log = (...m: Array<unknown>): void => {
-  console.error("[help-me mcp]", ...m);
+  console.error("[chartroom mcp]", ...m);
 };
 
 // The page decides "in the chat" from this tag, so the same file still works in a tab.
@@ -53,7 +53,7 @@ const ENV: NodeJS.ProcessEnv = {
     .join(":"),
 };
 
-const HelpMeInput = z.object({
+const ChartroomInput = z.object({
   request: z.string().describe("The user's request, verbatim"),
   backend: z
     .string()
@@ -71,7 +71,11 @@ let nextId = 0;
  * Opens a session with the same settings the browser server would read (flags, env, config file), the tool's
  * arguments standing in for flags. Throws, with a message for the user, when they can't be used.
  */
-async function open({ request, images, ...flags }: z.infer<typeof HelpMeInput>): Promise<Init & { session: string }> {
+async function open({
+  request,
+  images,
+  ...flags
+}: z.infer<typeof ChartroomInput>): Promise<Init & { session: string }> {
   const settings = await readSettings(
     [
       "--agent",
@@ -124,9 +128,9 @@ const apiReply = ({ status, body }: Answer): CallToolResult => ({
 });
 
 function build(): McpServer {
-  const server = new McpServer({ name: "prompt-shaper", version: VERSION });
+  const server = new McpServer({ name: "chartroom", version: VERSION });
 
-  server.registerResource("help-me page", URI, { mimeType: MIME, description: "The /help-me page" }, async () => ({
+  server.registerResource("chartroom page", URI, { mimeType: MIME, description: "The /chartroom page" }, async () => ({
     contents: [
       {
         uri: URI,
@@ -147,16 +151,16 @@ function build(): McpServer {
   }));
 
   server.registerTool(
-    "help_me",
+    "chartroom",
     {
-      title: "Help me shape this request",
+      title: "Chart Room: shape this request",
       description:
         "Shows the user an interactive page inside the chat where they shape a vague request by clicking on it. " +
-        "Use it when the user types /help-me or asks to refine or sharpen their request before you start. " +
+        "Use it when the user types /chartroom or asks to refine or sharpen their request before you start. " +
         "Pass their request verbatim, minus instructions about the page itself (those go in backend, model, effort, images). " +
-        "If it can't start, show the user its error and offer to fix their prompt-shaper config as it says; don't retry with another backend. " +
+        "If it can't start, show the user its error and offer to fix their Chart Room config as it says; don't retry with another backend. " +
         "After calling it, say nothing more and wait: the shaped request arrives as the user's next message. Treat it as their request, every detail a firm constraint.",
-      inputSchema: HelpMeInput,
+      inputSchema: ChartroomInput,
       _meta: { ui: { resourceUri: URI }, "ui/resourceUri": URI },
     },
     async (input): Promise<CallToolResult> => {
@@ -165,7 +169,7 @@ function build(): McpServer {
           content: [
             {
               type: "text",
-              text: "The help-me page is open in the chat. Wait for the user: their shaped request arrives as their next message.",
+              text: "The Chart Room page is open in the chat. Wait for the user: their shaped request arrives as their next message.",
             },
           ],
           structuredContent: { ...(await open(input)) },
@@ -174,17 +178,17 @@ function build(): McpServer {
         log(errorMessage(error));
         return {
           isError: true,
-          content: [{ type: "text", text: `The help-me page couldn't start: ${errorMessage(error)}` }],
+          content: [{ type: "text", text: `The Chart Room page couldn't start: ${errorMessage(error)}` }],
         };
       }
     },
   );
 
   server.registerTool(
-    "help_me_api",
+    "chartroom_api",
     {
-      title: "help-me page API",
-      description: "Used by the help-me page itself.",
+      title: "Chart Room page API",
+      description: "Used by the Chart Room page itself.",
       inputSchema: z.object({
         session: z.string(),
         path: z.enum(ROUTES),
@@ -197,7 +201,7 @@ function build(): McpServer {
       return apiReply(
         s
           ? await s.api.call(path, body)
-          : { status: 410, body: { error: "this help-me page has ended. Run /help-me again" } },
+          : { status: 410, body: { error: "this Chart Room page has ended. Run /chartroom again" } },
       );
     },
   );

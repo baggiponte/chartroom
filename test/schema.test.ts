@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { check, dropNulls, parseFenced, strict, withSchema } from "../skills/help-me/schema.ts";
-import type { Schema } from "../skills/help-me/schema.ts";
+import { check, dropNulls, parseFenced, strict, withSchema } from "../skills/chartroom/schema.ts";
+import type { Schema } from "../skills/chartroom/schema.ts";
 
 const choice = {
   type: "object",

@@ -1,4 +1,4 @@
-import type { Plugin } from "../../../skills/help-me/plugins.ts";
+import type { Plugin } from "../../../skills/chartroom/plugins.ts";
 
 /** Sends each question to the fake model at FAKE_MODEL_URL (see startFakeApi) and answers with what it returns. */
 export default {

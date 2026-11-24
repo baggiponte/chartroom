@@ -8,7 +8,7 @@ import type { Locator } from "@playwright/test";
 
 const VIDEO = process.argv.includes("--video");
 const SHOTS = Boolean(process.env["SHOTS"]);
-const PAGE = new URL("../skills/help-me/index.html", import.meta.url).href;
+const PAGE = new URL("../skills/chartroom/index.html", import.meta.url).href;
 const VID = fileURLToPath(new URL("vid", import.meta.url));
 
 // The caption element keeps the timer that hides it, so a new caption can cancel the old one.

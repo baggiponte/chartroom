@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { build } from "rolldown";
 
 const TEMPLATE = new URL("../page/index.html", import.meta.url);
-const OUT = new URL("../skills/help-me/index.html", import.meta.url);
+const OUT = new URL("../skills/chartroom/index.html", import.meta.url);
 const ENTRY = '<script src="main.ts"></script>';
 
 const { output } = await build({
@@ -23,7 +23,7 @@ const page = template
 
 if (process.argv.includes("--check")) {
   if (readFileSync(OUT, "utf8") !== page) {
-    console.error("skills/help-me/index.html is out of date: run pnpm build and commit it");
+    console.error("skills/chartroom/index.html is out of date: run pnpm build and commit it");
     process.exit(1);
   }
 } else {

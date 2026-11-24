@@ -14,7 +14,7 @@ export default {
   // only what Codex sets for the commands it runs counts.
   host: { agent: "Codex", running: env => Boolean(env["CODEX_THREAD_ID"] || env["CODEX_SANDBOX"]) },
   run: call => {
-    const dir = mkdtempSync(join(tmpdir(), "prompt-shaper-"));
+    const dir = mkdtempSync(join(tmpdir(), "chartroom-"));
     const schemaFile = join(dir, "schema.json");
     const outFile = join(dir, "out.json");
     writeFileSync(schemaFile, JSON.stringify(strict(call.schema)));

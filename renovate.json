@@ -35,7 +35,7 @@
   ],
   "packageRules": [
     {
-      "description": "A week after any release, not on the dev schedule: a CLI release can change the flags help-me passes, and the bump's PR runs the Harness CLIs workflow.",
+      "description": "A week after any release, not on the dev schedule: a CLI release can change the flags chartroom passes, and the bump's PR runs the Harness CLIs workflow.",
       "matchFileNames": [".github/workflows/harnesses.yaml"],
       "matchDatasources": ["npm"],
       "groupName": "harness CLIs",

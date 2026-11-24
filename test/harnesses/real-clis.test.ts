@@ -1,6 +1,6 @@
 // Runs against the real harness CLIs, installed by .github/workflows/harnesses.yaml, never on every commit. It checks
-// only what needs no login and no model: help-me finds each CLI, every flag it passes still exists in that CLI's
-// --help, and the CLI still sets the env var help-me reads to know it is running inside it.
+// only what needs no login and no model: chartroom finds each CLI, every flag it passes still exists in that CLI's
+// --help, and the CLI still sets the env var chartroom reads to know it is running inside it.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdtempSync, readFileSync, readdirSync, realpathSync, statSync } from "node:fs";
@@ -9,23 +9,23 @@ import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { describe, test } from "node:test";
 
-import { PROVIDERS, isProvider } from "../../skills/help-me/providers.ts";
-import type { ProviderName } from "../../skills/help-me/providers.ts";
-import { check } from "../../skills/help-me/schema.ts";
-import type { Schema } from "../../skills/help-me/schema.ts";
+import { PROVIDERS, isProvider } from "../../skills/chartroom/providers.ts";
+import type { ProviderName } from "../../skills/chartroom/providers.ts";
+import { check } from "../../skills/chartroom/schema.ts";
+import type { Schema } from "../../skills/chartroom/schema.ts";
 
 interface Harness {
   cli: string;
-  /** Where the flags of the command help-me runs are listed. */
+  /** Where the flags of the command chartroom runs are listed. */
   help: Array<string>;
-  /** A string the installed CLI holds only if it still sets help-me's host env var for its child processes. */
+  /** A string the installed CLI holds only if it still sets chartroom's host env var for its child processes. */
   setsHostEnv?: string;
 }
 
 const HARNESSES: Partial<Record<ProviderName, Harness>> = {
   claude: { cli: "claude", help: ["--help"], setsHostEnv: "CLAUDECODE=1" },
   codex: { cli: "codex", help: ["exec", "--help"], setsHostEnv: "CODEX_THREAD_ID" },
-  // agy sets no env var we know of, so help-me never treats it as the host.
+  // agy sets no env var we know of, so chartroom never treats it as the host.
   antigravity: { cli: "agy", help: ["--help"] },
   opencode: { cli: "opencode", help: ["run", "--help"], setsHostEnv: 'process.env.OPENCODE="1"' },
   pi: { cli: "pi", help: ["--help"], setsHostEnv: 'process.env.PI_CODING_AGENT="true"' },
@@ -40,7 +40,7 @@ function which(cmd: string): string | undefined {
     .find(p => existsSync(p));
 }
 
-/** The argv help-me would pass, caught by a stand-in CLI that records it and exits without calling anything. */
+/** The argv chartroom would pass, caught by a stand-in CLI that records it and exits without calling anything. */
 async function argvOf(name: ProviderName, cli: string): Promise<Array<string>> {
   const dir = mkdtempSync(join(tmpdir(), "argv-"));
   const argvFile = join(dir, "argv");
@@ -125,15 +125,15 @@ for (const name of Object.keys(HARNESSES).filter(isProvider)) {
     continue;
   }
   describe(name, { skip: ONLY !== undefined && !ONLY.includes(name) }, () => {
-    test(`help-me finds ${harness.cli} on PATH`, t => {
+    test(`chartroom finds ${harness.cli} on PATH`, t => {
       assert.ok(PROVIDERS[name].available(process.env), `${harness.cli} is not on PATH`);
       t.diagnostic(run(harness.cli, ["--version"]).trim());
     });
 
-    test(`every flag help-me passes is in ${harness.cli} ${harness.help.join(" ")}`, async () => {
+    test(`every flag chartroom passes is in ${harness.cli} ${harness.help.join(" ")}`, async () => {
       const help = run(harness.cli, harness.help);
       const flags = (await argvOf(name, harness.cli)).filter(isFlag);
-      assert.ok(flags.length > 0, "help-me passed no flags");
+      assert.ok(flags.length > 0, "chartroom passed no flags");
       assert.deepEqual(
         flags.filter(f => !listed(help, f)),
         [],
@@ -143,7 +143,7 @@ for (const name of Object.keys(HARNESSES).filter(isProvider)) {
 
     const { setsHostEnv } = harness;
     if (setsHostEnv !== undefined) {
-      test(`${harness.cli} still sets the env var help-me looks for`, () => {
+      test(`${harness.cli} still sets the env var chartroom looks for`, () => {
         const bin = which(harness.cli);
         const root = bin && packageRoot(bin);
         assert.ok(root, `no npm package found for ${harness.cli}`);

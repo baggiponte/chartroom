@@ -1,4 +1,4 @@
-import type { Choice as Sent } from "../skills/help-me/tasks.ts";
+import type { Choice as Sent } from "../skills/chartroom/tasks.ts";
 import { clamp, fmtNum } from "./format.ts";
 import { state } from "./state.ts";
 import type { Choice, Slider } from "./state.ts";

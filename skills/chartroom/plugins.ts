@@ -12,9 +12,9 @@ export interface Plugin {
   model?: string;
   /** What it needs to run (its CLI on PATH, an API key), for the error when `available` says no. */
   needs?: string;
-  /** Whether it can run here. Without it, help-me assumes it can. */
+  /** Whether it can run here. Without it, chartroom assumes it can. */
   available?: (env: NodeJS.ProcessEnv) => boolean;
-  /** For a harness: its name on the page, and whether help-me is running inside it right now, for `host`. */
+  /** For a harness: its name on the page, and whether chartroom is running inside it right now, for `host`. */
   host?: { agent: string; running: (env: NodeJS.ProcessEnv) => boolean };
   run: (call: BackendCall) => Promise<RawReply>;
 }
