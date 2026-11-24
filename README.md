@@ -39,7 +39,7 @@ OpenCode or Pi. Anything else, such as an API key or a local model, is a small p
 Needs Node 22.18+ (it runs the TypeScript source directly, with nothing to build or install) and one [backend](#backends).
 
 ```bash
-npx skills add baggiponte/prompt-shaper -g
+npx skills add baggiponte/chartroom -g
 ```
 
 The [skills CLI](https://github.com/vercel-labs/skills) installs it for every agent it finds (drop `-g` for
@@ -57,7 +57,7 @@ The same page can show up inline in a Claude conversation (desktop and claude.ai
 message. Clone the repo and install the server's two dependencies (Node 22.18+):
 
 ```bash
-git clone https://github.com/baggiponte/prompt-shaper chartroom && cd chartroom/mcp && npm install
+git clone https://github.com/baggiponte/chartroom && cd chartroom/mcp && npm install
 ```
 
 **Claude Desktop**: add it to `~/Library/Application Support/Claude/claude_desktop_config.json`, then restart the app.
