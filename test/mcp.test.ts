@@ -69,11 +69,11 @@ const INITIALIZE = {
   clientInfo: { name: "test", version: "1" },
 };
 
-async function connect(t: TestContext, env: NodeJS.ProcessEnv = {}) {
+async function connect(t: TestContext, env: NodeJS.ProcessEnv = {}, clientName = "test") {
   const child = startMcp([], env);
   t.after(() => child.kill());
   const client = stdioClient(child);
-  await client.request("initialize", INITIALIZE);
+  await client.request("initialize", { ...INITIALIZE, clientInfo: { name: clientName, version: "1" } });
   client.notify("notifications/initialized");
   return client;
 }
@@ -132,6 +132,24 @@ describe("MCP App over stdio", () => {
       .object({ isError: z.literal(true), content: z.tuple([z.object({ text: z.string() })]) })
       .parse(await client.request("tools/call", { name: "chartroom", arguments: { request: "x", backend: "fake" } }));
     assert.match(r.content[0].text, /couldn't start: --timeout-min should be a number/);
+  });
+
+  test("in the Claude app, host is the claude backend, though the app sets none of Claude Code's variables", async t => {
+    const bin = mkdtempSync(join(tmpdir(), "chartroom-mcp-bin-"));
+    writeFileSync(join(bin, "claude"), "#!/bin/sh\n", { mode: 0o755 });
+    const client = await connect(t, { PATH: `${bin}:${process.env["PATH"] ?? ""}` }, "claude-ai");
+    const { structuredContent } = Started.parse(
+      await client.request("tools/call", { name: "chartroom", arguments: { request: "a bike" } }),
+    );
+    assert.equal(structuredContent.backend, "claude");
+  });
+
+  test("an MCP client no backend claims is a tool error that names it, not a guess", async t => {
+    const client = await connect(t, {}, "some-other-app");
+    const r = z
+      .object({ isError: z.literal(true), content: z.tuple([z.object({ text: z.string() })]) })
+      .parse(await client.request("tools/call", { name: "chartroom", arguments: { request: "x" } }));
+    assert.match(r.content[0].text, /MCP client "some-other-app", which no backend claims.*Set "backend"/);
   });
 
   test("serves the page marked as shown inside the chat", async t => {

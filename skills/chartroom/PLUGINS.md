@@ -108,7 +108,9 @@ non-2xx answer thrown with its body.
   fetch.
 - **`host.running` must test a variable the harness sets for the commands it runs**, not one users set themselves
   (`CODEX_HOME` is user config; `CODEX_THREAD_ID` is the harness). With `backend: "host"`, Chart Room imports every
-  configured plugin to ask it, so a module that fails to load stops Chart Room even when it isn't the host.
+  configured plugin to ask it, so a module that fails to load stops Chart Room even when it isn't the host. Inside a
+  chat app (the MCP App) there is no such variable, so the MCP server sets `CHARTROOM_MCP_CLIENT` to the name the app
+  gives itself (`claude-ai` for the Claude apps); test it too if your harness can run MCP Apps.
 - **Return `model` only when the backend reports the real one**, and `ms` only when it reports its own duration.
 - **Pass `model` through verbatim**, in the target's own form (`provider/model` for some CLIs), and omit the flag
   when it's `""`.

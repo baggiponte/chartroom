@@ -12,7 +12,11 @@ export default {
   model: "haiku",
   needs: "the claude CLI on PATH",
   available: env => onPath("claude", env),
-  host: { agent: "Claude Code", running: env => Boolean(env["CLAUDECODE"]) },
+  // CHARTROOM_MCP_CLIENT is set by mcp/server.ts: "claude-ai" for the Claude apps, "claude-code" for Claude Code.
+  host: {
+    agent: "Claude Code",
+    running: env => Boolean(env["CLAUDECODE"]) || /^claude/i.test(env["CHARTROOM_MCP_CLIENT"] ?? ""),
+  },
   run: call =>
     runCli(
       call,

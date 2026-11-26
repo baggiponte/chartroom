@@ -122,7 +122,9 @@ async function pickBackend(
   let name = asked;
   if (asked === "host") {
     if (!host) {
-      throw new Error(`backend is "host", but chartroom can't tell which agent is running it. ${fix}`);
+      const client = env["CHARTROOM_MCP_CLIENT"];
+      const seen = client ? ` (it was started by the MCP client "${client}", which no backend claims)` : "";
+      throw new Error(`backend is "host", but chartroom can't tell which agent is running it${seen}. ${fix}`);
     }
     name = host.name;
   }
