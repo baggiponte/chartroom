@@ -71,19 +71,21 @@ let nextId = 0;
  * Opens a session with the same settings the browser server would read (flags, env, config file), the tool's
  * arguments standing in for flags. Throws, with a message for the user, when they can't be used.
  */
-async function open({
-  request,
-  images,
-  ...flags
-}: z.infer<typeof ChartroomInput>): Promise<Init & { session: string }> {
+async function open(
+  { request, images, ...flags }: z.infer<typeof ChartroomInput>,
+  client: string,
+): Promise<Init & { session: string }> {
+  // The Claude app runs this server without the variables a harness sets for its commands, so `host` asks the
+  // MCP client instead: the plugins read its name from here.
+  const env = { ...ENV, CHARTROOM_MCP_CLIENT: client };
   const settings = await readSettings(
     [
       "--agent",
-      "Claude",
+      /^codex/i.test(client) ? "Codex" : "Claude",
       ...Object.entries(flags).flatMap(([name, value]) => (value ? [`--${name}`, value] : [])),
       ...(images === undefined ? [] : [images ? "--images" : "--no-images"]),
     ],
-    ENV,
+    env,
   );
   const { effort, agent } = settings;
   const backend = settings.backend.name;
@@ -104,12 +106,12 @@ async function open({
     }, settings.timeoutMin * 60_000).unref();
   }
   const api = createApi({
-    model: createModel({ name: backend, backend: chosen, model, effort, env: ENV, jobs }),
+    model: createModel({ name: backend, backend: chosen, model, effort, env, jobs }),
     log: m => log(`session ${id}: ${m}`),
     finish: end,
   });
   sessions.set(id, { api, end });
-  log(`session ${id}, backend ${backend}${model ? ` (${model})` : ""}`);
+  log(`session ${id} for ${client || "an unnamed MCP client"}, backend ${backend}${model ? ` (${model})` : ""}`);
   return {
     session: id,
     draft: request.trim(),
@@ -172,7 +174,7 @@ function build(): McpServer {
               text: "The Chart Room page is open in the chat. Wait for the user: their shaped request arrives as their next message.",
             },
           ],
-          structuredContent: { ...(await open(input)) },
+          structuredContent: { ...(await open(input, server.server.getClientVersion()?.name ?? "")) },
         };
       } catch (error) {
         log(errorMessage(error));

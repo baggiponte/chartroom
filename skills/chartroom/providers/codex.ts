@@ -12,7 +12,11 @@ export default {
   available: env => onPath("codex", env),
   // Not any CODEX_* variable: CODEX_HOME is a user setting and the npm wrapper sets CODEX_MANAGED_BY_NPM, so
   // only what Codex sets for the commands it runs counts.
-  host: { agent: "Codex", running: env => Boolean(env["CODEX_THREAD_ID"] || env["CODEX_SANDBOX"]) },
+  host: {
+    agent: "Codex",
+    running: env =>
+      Boolean(env["CODEX_THREAD_ID"] || env["CODEX_SANDBOX"]) || /^codex/i.test(env["CHARTROOM_MCP_CLIENT"] ?? ""),
+  },
   run: call => {
     const dir = mkdtempSync(join(tmpdir(), "chartroom-"));
     const schemaFile = join(dir, "schema.json");
